@@ -151,6 +151,24 @@ MIN_LINE_CONFIDENCE = 0.20
 # How many lines a model reads at once
 RECOGNITION_BATCH_SIZE = 8
 
+# Lines the chosen model is less sure about than this are read again by
+# the other models, and the most confident reading is kept. This catches a
+# dish name written in a different script from the rest of the page, e.g.
+# a Korean title (불고기) on a recipe whose instructions are in English.
+REREAD_CONFIDENCE = 0.70
+
+# Skip the re-read when too many lines are unsure: then the whole photo is
+# hard to read (blurry, or a script we don't support), so re-reading
+# wouldn't help and would only make the upload slower.
+MAX_REREAD_LINES = 8
+
+# A Latin-alphabet model can't read a Korean, Thai, Chinese... title, but it
+# may still be quite "sure" about the junk it reads (불고기 -> "TEH7|").
+# So short lines (dish names are short) are also re-read by the non-Latin
+# models, and kept only if that model is sure AND really finds its own script.
+SHORT_LINE_CHARS = 20
+MAX_SHORT_REREAD_LINES = 30
+
 
 # --- Matching settings ------------------------------------------------
 
@@ -584,6 +602,96 @@ def _pick_language(crops):
     return best_language, scores_per_model, best_lines
 
 
+def _model_script(model_name):
+    """The script a non-Latin recognition model is made for (None for the
+    English / Latin models)."""
+    if model_name == PP_OCRV5_REC_MODELS["ch"]:
+        return re.compile(f"{CJK_RANGE.pattern}|{KANA_RANGE.pattern}")
+    for language, script in SCRIPT_BY_LANGUAGE.items():
+        if model_name == PP_OCRV5_REC_MODELS[language]:
+            return script
+    return None
+
+
+def read_lines_with_reread(crops, model_name):
+    """Read every line with the chosen model, then fix lines that may be in
+    a different script from the rest of the page:
+
+    1. Lines the chosen model is unsure about are re-read by every other
+       model, and the most confident reading is kept.
+    2. If the chosen model is an English/Latin one, short lines (likely dish
+       names) are also re-read by the non-Latin models. A reading is kept
+       only if that model is sure and its own script really shows up, e.g.
+       the Korean model reading Korean letters.
+
+    Returns (text, confidence) pairs like read_lines."""
+    readings = read_lines(crops, model_name)
+
+    # DEBUG (temporary): show what the chosen model read on each line
+    _print_timing(f"[debug] model={model_name}, {len(readings)} lines")
+    for i, (text, score) in enumerate(readings):
+        _print_timing(f"[debug]   line {i}: {score:.2f}  {text!r}")
+
+    unsure = [i for i, (_, score) in enumerate(readings) if score < REREAD_CONFIDENCE]
+    if len(unsure) > MAX_REREAD_LINES or len(unsure) > len(readings) / 2:
+        unsure = []
+
+    short = []
+    if _model_script(model_name) is None:
+        short = [
+            i for i, (text, _) in enumerate(readings)
+            if i not in unsure and text and len(text) <= SHORT_LINE_CHARS
+        ][:MAX_SHORT_REREAD_LINES]
+
+    _print_timing(f"[debug] unsure lines: {unsure}, short lines: {short}")
+    to_reread = unsure + short
+    if not to_reread:
+        return readings
+
+    readings = list(readings)
+    reread_crops = [crops[i] for i in to_reread]
+    unsure_set = set(unsure)
+
+    for other_model in dict.fromkeys(PP_OCRV5_REC_MODELS.values()):
+        if other_model == model_name:
+            continue
+        script = _model_script(other_model)
+        if script is None and not unsure:
+            continue   # Latin models only help with the unsure lines
+        try:
+            results = read_lines(reread_crops, other_model)
+        except Exception:
+            get_logger().exception("OCR re-read with model '%s' failed.", other_model)
+            continue
+
+        for i, (text, score) in zip(to_reread, results):
+            _print_timing(f"[debug]   re-read line {i} with {other_model}: {score:.2f}  {text!r}")  # DEBUG
+            if not text or score < REREAD_CONFIDENCE:
+                continue
+            if i in unsure_set:
+                # Unsure line: keep the most confident reading
+                if score > readings[i][1]:
+                    readings[i] = (text, score)
+            elif script is not None and script.search(text):
+                # Short line: only replace it with real non-Latin text
+                if _model_script_text(readings[i][0]) is None:
+                    readings[i] = (text, score)
+                elif score > readings[i][1]:
+                    readings[i] = (text, score)
+
+    _print_timing(f"Re-read {len(to_reread)} line(s) with the other models")
+    return readings
+
+
+def _model_script_text(text):
+    """Which non-Latin script a piece of text is in (None if Latin only)."""
+    for pattern in (CJK_RANGE, KANA_RANGE, HANGUL_RANGE, THAI_RANGE,
+                    ARABIC_RANGE, DEVANAGARI_RANGE):
+        if pattern.search(text):
+            return pattern
+    return None
+
+
 def _second_latin_reading(best_lines, crops):
     """Extra lines for accented Latin menus (Vietnamese mostly), read by
     the Chinese model.
@@ -631,7 +739,7 @@ def automatic_ocr(image):
     # Stop early with a clear error if it's Khmer, Burmese or unreadable
     check_supported_script(probe_lines, probe_scores)
 
-    lines, scores = _good_lines(read_lines(crops, PP_OCRV5_REC_MODELS[language]))
+    lines, scores = _good_lines(read_lines_with_reread(crops, PP_OCRV5_REC_MODELS[language]))
 
     # Accented Latin text (Vietnamese, Turkish): also keep the Chinese
     # model's reading, it handles some accents the Latin model drops
@@ -661,7 +769,7 @@ def automatic_ocr_for_country(image, country):
 
     try:
         crops = find_text_lines(image)
-        lines, scores = _good_lines(read_lines(crops, PP_OCRV5_REC_MODELS[language]))
+        lines, scores = _good_lines(read_lines_with_reread(crops, PP_OCRV5_REC_MODELS[language]))
         # Same as automatic_ocr: accented Latin text (Vietnamese, Turkish) also
         # gets the Chinese model's reading, which keeps some accents
         if language in LATIN_LANGUAGES and LATIN_DIACRITIC_RANGE.search("".join(lines)):

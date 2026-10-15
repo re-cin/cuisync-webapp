@@ -610,6 +610,12 @@ hr {
   transition: border-color 0.2s ease;
 }
 
+/* While the placeholder ("Select ...") is showing, grey it out like the
+   dish-name placeholder. Works because the selects are required. */
+.form-group select:invalid {
+  color: #9e9488;
+}
+
 .form-group select:focus {
   border-color: var(--gold-accent, #c8a860);
 }
@@ -858,6 +864,24 @@ hr {
   .form-row {
     flex-direction: column;
     gap: 0;
+  }
+
+  /* Country selects on mobile: compact text and box.
+     The image-tab origin box matches them. */
+  .form-group select,
+  .origin-display {
+    font-size: 0.75rem;
+    padding: 10px 36px 10px 14px;
+    background-size: 14px;
+  }
+
+  /* "Select country..." placeholder: same size as the dish-name placeholder */
+  .form-group select:invalid {
+    font-size: 0.82rem;
+  }
+
+  .origin-display {
+    padding-right: 16px;
   }
 
   .form-footer {
