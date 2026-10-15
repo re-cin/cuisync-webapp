@@ -716,6 +716,34 @@ def _second_latin_reading(best_lines, crops):
     return extra
 
 
+def rescue_readable_lines(crops):
+    """Used only when the main text can't be read (Khmer, Burmese...).
+    Reads every line with every model and keeps the lines that at least one
+    model read with confidence REREAD_CONFIDENCE or more, in reading order.
+    Lines in an unsupported script stay below it, so only readable lines
+    (e.g. an English dish name) are kept."""
+    start_time = time.perf_counter()
+    crops = crops[:MAX_CANDIDATE_LINES]
+    best = [("", 0.0)] * len(crops)
+
+    for model_name in dict.fromkeys(PP_OCRV5_REC_MODELS.values()):
+        try:
+            results = read_lines(crops, model_name)
+        except Exception:
+            get_logger().exception("OCR rescue read with model '%s' failed.", model_name)
+            continue
+        for i, (text, score) in enumerate(results):
+            if text and score > best[i][1]:
+                best[i] = (text, score)
+
+    rescued = [text for text, score in best if text and score >= REREAD_CONFIDENCE]
+    _print_timing(
+        f"Rescue read finished in {time.perf_counter() - start_time:.2f}s "
+        f"({len(rescued)} of {len(crops)} lines readable): {rescued}"
+    )
+    return rescued
+
+
 def automatic_ocr(image):
     """Read the menu when we don't know the country (see the steps at the
     top of this section). Returns the lines of text that were read."""
@@ -736,8 +764,14 @@ def automatic_ocr(image):
         _print_timing(f"OCR finished in {time.perf_counter() - start_time:.2f}s (no text found)")
         return []
 
-    # Stop early with a clear error if it's Khmer, Burmese or unreadable
-    check_supported_script(probe_lines, probe_scores)
+    # Stop early with a clear error if it's Khmer, Burmese or unreadable.
+    # Before giving up, rescue any line that some model CAN read (e.g. a
+    # small English "Fish Amok" on a Khmer menu), so app.py can still match it.
+    try:
+        check_supported_script(probe_lines, probe_scores)
+    except UnsupportedScriptError:
+        rescued = rescue_readable_lines(crops)
+        raise UnsupportedScriptError(lines=rescued + probe_lines) from None
 
     lines, scores = _good_lines(read_lines_with_reread(crops, PP_OCRV5_REC_MODELS[language]))
 
