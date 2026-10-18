@@ -217,17 +217,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // OCR service on Hugging Face didn't answer). Show the real reason.
         showErrorModal('Scanning Error', data.message);
       } else {
-        const dishName = data.raw_text
-          ? data.raw_text
-              .split(/\r?\n/)
-              .map((line) => line.trim())
-              .filter(Boolean)
-              .join(' ')
-          : 'this dish';
-
         showErrorModal(
           "We Can't Find Your Dish",
-          `We couldn't find "${dishName}" in the recipe database. Try another dish or use a clearer photo.`
+          "We couldn't find the dish in the recipe database. Try another dish or use a clearer photo."
         );
       }
     } catch (err) {
