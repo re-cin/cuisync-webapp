@@ -80,9 +80,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Rotating tips shown under the loading bar
   const ocrNote = document.getElementById('ocr-loading-note');
   const OCR_NOTES = [
-    'Clear and readable images are recommended.',
-    'Recognition may vary depending on the image quality, text, clarity, and language.',
-    'Scanning longer menus may take time.',
+    'Note: Use a clear, readable photo.',
+    'Note: Results depend on image quality and language.',
+    'Note: Longer menus take more time.',
   ];
   let ocrTimer = null;
 
