@@ -77,7 +77,43 @@ document.addEventListener('DOMContentLoaded', () => {
     updateOriginDisplay();
   }
 
+  // Rotating tips shown under the loading bar
+  const ocrNote = document.getElementById('ocr-loading-note');
+  const OCR_NOTES = [
+    'Clear and readable images are recommended.',
+    'Recognition may vary depending on the image quality, text, clarity, and language.',
+    'Scanning longer menus may take time.',
+  ];
+  let ocrTimer = null;
+
+  function startOcrTimer() {
+    stopOcrTimer();
+    let noteIndex = 0;
+    if (ocrNote) {
+      ocrNote.textContent = OCR_NOTES[0];
+      ocrNote.classList.remove('is-fading');
+    }
+    // Change the note every 4 seconds
+    ocrTimer = setInterval(() => {
+      if (ocrNote) {
+        ocrNote.classList.add('is-fading');
+        setTimeout(() => {
+          noteIndex = (noteIndex + 1) % OCR_NOTES.length;
+          ocrNote.textContent = OCR_NOTES[noteIndex];
+          ocrNote.classList.remove('is-fading');
+        }, 250);
+      }
+    }, 4000);
+  }
+
+  function stopOcrTimer() {
+    if (ocrTimer) clearInterval(ocrTimer);
+    ocrTimer = null;
+  }
+
   function setOcrLoading(isLoading) {
+    if (isLoading) startOcrTimer();
+    else stopOcrTimer();
     isScanning = isLoading;
     updateOriginDisplay();
     ocrLoading.style.display = isLoading ? 'block' : 'none';
