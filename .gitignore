@@ -39,3 +39,6 @@ venv_old/
 
 # Old copy of results.html from the GPT/Shapley branch (superseded by templates/)
 cuisync-gpt-shapley-integrated/
+
+# Files made with Claude (flowcharts, tables) - keep local only
+Claude outputs/

@@ -292,6 +292,13 @@ hr {
   font-weight: 400;
 }
 
+.dropzone-note {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  font-style: italic;
+  color: #a09689;
+}
+
 .dropzone-preview {
   display: flex;
   flex-direction: column;
