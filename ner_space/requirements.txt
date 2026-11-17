@@ -1,0 +1,6 @@
+Flask>=3.0.0,<4.0.0
+gunicorn>=22.0.0
+# torch is installed in the Dockerfile (CPU build)
+# Your model was saved with transformers 5.x (config.json says 5.17.0)
+transformers>=5.0.0
+safetensors>=0.4.0

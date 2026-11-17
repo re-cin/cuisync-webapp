@@ -43,3 +43,11 @@ cuisync-gpt-shapley-integrated/
 # Files made with Claude (flowcharts, tables) - keep local only
 Claude outputs/
 cuisync_qr.png
+
+# Admin edits, user accounts and caches (panel revisions) - local only
+admin_data/
+
+# Ingredient NER model (about 435 MB) - keep local, see ner.py
+ner_model/
+# Directions NER model (about 435 MB) - keep local, see ner.py
+ner_directions_model/

@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  {% include "partials/head_icons.html" %}
+  <meta name="referrer" content="no-referrer">
+  <title>CUISYNC - Similar Dishes to {{ source.title }}</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base-style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/panel.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/overview.css') }}">
+</head>
+<body class="overview-page">
+
+  <app-nav></app-nav>
+  {% include "partials/flash.html" %}
+
+  {% set no_image = url_for('static', filename='assets/no-image.svg') %}
+
+  <main class="ov-container">
+
+    <!-- Breadcrumb + what was searched -->
+    <nav class="ov-breadcrumb" aria-label="Breadcrumb">
+      <a href="{{ search_url }}">Home</a>
+      <span aria-hidden="true">/</span>
+      <span class="current">Results</span>
+    </nav>
+
+    <!-- ==================================
+         PHONES ONLY: Google-style panel about the search (the right column is hidden there).
+         Short at first; "Show more" opens everything and a "Show less" button stays at the top.
+         ================================== -->
+    {% set map_countries_sorted = map_data.countries | sort(attribute='count', reverse=True) %}
+    {% set top_country = map_countries_sorted | first %}
+    <section class="ov-kp" id="ov-kp" aria-label="About your search">
+      <button type="button" class="ov-kp-less" data-kp-toggle hidden>
+        Show less
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>
+      </button>
+
+      <div class="ov-kp-head">
+        <div class="ov-kp-title">
+          <p class="ov-kp-eyebrow">Your dish</p>
+          <h2>{{ source.title }}</h2>
+          <p class="ov-kp-sub">{{ source.country_label }} dish &middot; {{ source.region }}</p>
+        </div>
+        <img class="ov-kp-thumb" src="{{ source.image_link or no_image }}" alt="" referrerpolicy="no-referrer"
+             onerror="this.onerror=null;this.src='{{ no_image }}'">
+      </div>
+
+      <div class="ov-kp-actions">
+        {% if source.recipe_link %}
+        <a class="ov-kp-btn" href="{{ source.recipe_link }}" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg>
+          Recipe
+        </a>
+        {% endif %}
+        <button type="button" class="ov-kp-btn" data-open-map>
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg>
+          Map
+        </button>
+      </div>
+
+      <ul class="ov-kp-rows">
+        <!-- Map row (like a Google place result): tap to open the full-screen map -->
+        <li class="ov-kp-row">
+          <button type="button" class="ov-kp-rowbtn" data-open-map>
+            <span class="ov-kp-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>
+            </span>
+            <span class="ov-kp-text">
+              <strong>Similar dishes in {{ map_data.countries | length }} countr{{ 'y' if map_data.countries | length == 1 else 'ies' }}</strong>
+              {% if top_country %}<span>Most from {{ top_country.label }} &middot; {{ top_country.count }} dish{{ '' if top_country.count == 1 else 'es' }}</span>{% endif %}
+            </span>
+            <span class="ov-kp-mapthumb" id="ov-kp-mapbox">
+              <svg class="ov-map-svg" id="ov-kp-map-svg" aria-hidden="true"></svg>
+            </span>
+          </button>
+        </li>
+
+        <!-- Historical & cultural connection: 2 lines until "Show more" -->
+        <li class="ov-kp-row">
+          <span class="ov-kp-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          </span>
+          <div class="ov-kp-text">
+            <strong>{{ connection.title }}</strong>
+            <span>{{ connection.subtitle }}</span>
+            {% for p in connection.paragraphs %}<p class="{{ 'ov-kp-clamp' if loop.first else 'ov-kp-extra' }}">{{ p }}</p>{% endfor %}
+            <div class="ov-kp-extra ov-kp-note">
+              <span class="ov-ai-badge">{{ 'AI-generated' if connection.source == 'ai' else 'Template preview' }}</span>
+              <span>{% if connection.source == 'ai' %}Written by GPT from a prompt. Verify before citing.{% else %}This section will be generated by AI from a prompt. Showing a template built from the dataset for now.{% endif %}</span>
+            </div>
+          </div>
+        </li>
+
+        <!-- Shown after "Show more" -->
+        <li class="ov-kp-row ov-kp-extra">
+          <span class="ov-kp-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>
+          </span>
+          <div class="ov-kp-text">
+            <strong>Tags of {{ source.title }}</strong>
+            <div class="ov-kp-chips">
+              {% for t in source.tags[:6] %}<a class="ov-chip ov-chip--source {{ 'is-region' if loop.first and t == source.region else '' }}" href="{{ url_for('dictionary', tag=t) }}">{{ t }}</a>{% endfor %}
+            </div>
+          </div>
+        </li>
+
+        {% if common_tags %}
+        <li class="ov-kp-row ov-kp-extra">
+          <span class="ov-kp-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h7"/></svg>
+          </span>
+          <div class="ov-kp-text">
+            <strong>Most common tags in results</strong>
+            {% for group, tags in common_tags %}
+            <p class="ov-kp-group">{{ group }}</p>
+            <div class="ov-kp-chips">
+              {% for t in tags %}<a class="ov-common-chip" href="{{ t.url }}">{{ t.name }} <small>{{ t.count }}</small></a>{% endfor %}
+            </div>
+            {% endfor %}
+          </div>
+        </li>
+        {% endif %}
+
+        {% if similar_countries %}
+        <li class="ov-kp-row ov-kp-extra">
+          <span class="ov-kp-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
+          </span>
+          <div class="ov-kp-text">
+            <strong>Top similar countries</strong>
+            <ul class="ov-kp-countries">
+              {% for c in similar_countries %}
+              <li><a href="{{ c.url }}"><span>{{ c.label }}</span><small>{{ c.dish }}</small><em>{{ c.score }}%</em></a></li>
+              {% endfor %}
+            </ul>
+          </div>
+        </li>
+        {% endif %}
+      </ul>
+
+      <button type="button" class="ov-kp-more" data-kp-toggle>
+        Show more
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+    </section>
+
+    <div class="ov-layout">
+
+      <!-- ==================================
+           LEFT: LIST OF SIMILAR DISHES
+           ================================== -->
+      <section class="ov-list-col" aria-labelledby="ov-list-heading">
+        <div class="ov-list-head">
+          <h1 class="ov-heading" id="ov-list-heading">TOP SIMILAR DISHES</h1>
+          <span class="ov-count"><span id="ov-count-num">{{ results | length }}</span> of {{ total }} dishes</span>
+        </div>
+        <p class="ov-lead">
+          Dishes from <strong>{{ target_label }}</strong> most similar to
+          <strong>{{ source.title }}</strong> ({{ source.country_label }}), ranked by ingredient and cooking similarity.
+          Pick a dish to see the full comparison.
+        </p>
+        {% if ingredient_note %}<p class="ov-note">{{ ingredient_note }}</p>{% endif %}
+
+        <!-- Filters -->
+        <div class="ov-filters">
+          <div class="ov-filter-row">
+            <span class="ov-filter-label">{{ 'Countries' if target_any else 'Country' }}:</span>
+            <div class="ov-filter-chips">
+              {% if target_any %}
+                {% for c, n in country_filters %}
+                <button type="button" class="ov-chip ov-chip--country" data-filter="country" data-value="{{ c }}"
+                        aria-pressed="false">{{ country_label(c) }} <small>{{ n }}</small></button>
+                {% endfor %}
+              {% else %}
+                <span class="ov-chip ov-chip--country is-static">{{ target_label }}</span>
+              {% endif %}
+            </div>
+          </div>
+          {% if tag_filters %}
+          <div class="ov-filter-row">
+            <span class="ov-filter-label">Tags:</span>
+            <div class="ov-filter-chips">
+              {% for t in tag_filters %}
+              <button type="button" class="ov-chip ov-chip--tag" data-filter="tag" data-value="{{ t }}"
+                      aria-pressed="false">{{ t }}</button>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+          <div class="ov-filter-row ov-active-row" id="ov-active-row" hidden>
+            <span class="ov-filter-label">Showing:</span>
+            <div class="ov-filter-chips" id="ov-active-chips"></div>
+            <button type="button" class="ov-clear" id="ov-clear">Clear filters</button>
+          </div>
+        </div>
+
+        <!-- The list -->
+        <ol class="ov-list" id="ov-list">
+          {% for d in results %}
+          <li class="ov-item"
+              data-country="{{ d.country }}"
+              data-tags="{{ d.tags | tojson | forceescape }}">
+            <a class="ov-card" href="{{ d.url }}">
+              <span class="ov-rank {{ 'ov-rank--top' if d.rank <= 3 }}" aria-label="Rank {{ d.rank }}">{{ d.rank }}</span>
+              <span class="ov-card-img">
+                <img src="{{ d.image_link or no_image }}" alt="" loading="lazy" referrerpolicy="no-referrer"
+                     onerror="this.onerror=null;this.src='{{ no_image }}'">
+              </span>
+              <span class="ov-card-body">
+                <span class="ov-card-title">{{ d.title }}</span>
+                {% if d.alternative_title and d.alternative_title | lower != d.title | lower %}<span class="ov-card-alt">{{ d.alternative_title }}</span>{% endif %}
+                <span class="ov-card-tags">
+                  <span class="ov-tag ov-tag--country">{{ d.country_label }}</span>
+                  {% for t in d.tags[:5] %}
+                  <span class="ov-tag {{ 'ov-tag--region' if loop.first and t == d.region else '' }}">{{ t }}</span>
+                  {% endfor %}
+                </span>
+              </span>
+              <span class="ov-score" aria-label="{{ d.score }} percent similar">{{ d.score }}%</span>
+            </a>
+          </li>
+          {% endfor %}
+        </ol>
+
+        <p class="ov-empty" id="ov-empty" hidden>No dishes in this list match the selected filters.</p>
+        <button type="button" class="ov-more" id="ov-more" hidden></button>
+      </section>
+
+      <!-- ==================================
+           RIGHT: ABOUT THE SEARCH
+           ================================== -->
+      <aside class="ov-side">
+
+        <!-- Map -->
+        <section class="ov-side-block" aria-labelledby="ov-map-heading">
+          <h2 class="ov-side-eyebrow" id="ov-map-heading">GEOGRAPHICAL DISTRIBUTION</h2>
+          <div class="ov-map-card">
+            <div class="ov-map-box" id="ov-map-box">
+              <svg class="ov-map-svg" id="ov-map-svg" role="img" aria-label="Map of Asia with the countries in this list"></svg>
+              <div class="ov-map-tooltip" id="ov-map-tooltip" hidden></div>
+            </div>
+            <button type="button" class="ov-map-bar" id="ov-map-open">
+              <span>Click to view full interactive map</span>
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+            </button>
+          </div>
+        </section>
+
+        <!-- Searched dish -->
+        <section class="ov-source-card" aria-label="Searched dish">
+          <div class="ov-source-img">
+            <img src="{{ source.image_link or no_image }}" alt="{{ source.title }}" referrerpolicy="no-referrer"
+                 onerror="this.onerror=null;this.src='{{ no_image }}'">
+            <span class="ov-source-badge">{{ source.country_label }}</span>
+          </div>
+          <div class="ov-source-body">
+            <p class="ov-source-eyebrow">Your dish</p>
+            <h2 class="ov-source-title">{{ source.title }}</h2>
+            {% if source.alternative_title and source.alternative_title | lower != source.title | lower %}<p class="ov-source-alt">{{ source.alternative_title }}</p>{% endif %}
+            <div class="ov-source-tags">
+              {% for t in source.tags[:5] %}
+              <a class="ov-chip ov-chip--source {{ 'is-region' if loop.first and t == source.region else '' }}"
+                 href="{{ url_for('dictionary', tag=t) }}" title="See every dish tagged {{ t }}">{{ t }}</a>
+              {% endfor %}
+            </div>
+            {% if source.recipe_link %}
+            <a href="{{ source.recipe_link }}" target="_blank" rel="noopener" class="ov-btn-recipe">
+              Link to original recipe
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>
+            </a>
+            {% else %}
+            <p class="ov-no-link">No recipe link available yet</p>
+            {% endif %}
+          </div>
+        </section>
+
+        <!-- Historical & cultural connection (template now, AI prompt later) -->
+        <section class="ov-side-block ov-divider" aria-labelledby="ov-conn-heading">
+          <h2 class="ov-side-heading" id="ov-conn-heading">{{ connection.title | upper }}</h2>
+          <p class="ov-side-sub ov-side-sub--gold">{{ connection.subtitle }}</p>
+          {% for p in connection.paragraphs %}<p class="ov-conn-text">{{ p }}</p>{% endfor %}
+          <div class="ov-ai-note">
+            <span class="ov-ai-badge">{{ 'AI-generated' if connection.source == 'ai' else 'Template preview' }}</span>
+            <span>
+              {% if connection.source == 'ai' %}
+                Written by GPT from a prompt. Verify before citing.
+              {% else %}
+                This section will be generated by AI from a prompt. Showing a template built from the dataset for now.
+              {% endif %}
+            </span>
+          </div>
+        </section>
+
+        <!-- Most common tags in the list: region, ingredient, cooking method, dish type -->
+        {% if common_tags %}
+        <section class="ov-side-block ov-divider" aria-labelledby="ov-common-heading">
+          <h2 class="ov-side-heading" id="ov-common-heading">MOST COMMON TAGS IN RESULTS</h2>
+          <p class="ov-side-sub">Shared across the top {{ results | length }} similar dishes. Click a tag to see every dish with it on the Dishes page.</p>
+          <div class="ov-common">
+            {% for group, tags in common_tags %}
+            <div class="ov-common-group">
+              <span class="ov-common-name">{{ group }}</span>
+              <div class="ov-common-chips">
+                {% for t in tags %}
+                <a class="ov-common-chip" href="{{ t.url }}"
+                   title="In {{ t.count }} of {{ results | length }} listed dishes. Click to see every dish with {{ t.name }}.">{{ t.name }} <small>{{ t.count }}</small></a>
+                {% endfor %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+        {% endif %}
+
+        <!-- Other countries with similar dishes -->
+        {% if similar_countries %}
+        <section class="ov-side-block ov-divider" aria-labelledby="ov-countries-heading">
+          <h2 class="ov-side-heading" id="ov-countries-heading">TOP SIMILAR COUNTRIES</h2>
+          <p class="ov-side-sub">
+            {% if target_any %}Countries with the dishes most similar to {{ source.title }}{% else %}Other countries with dishes similar to {{ source.title }}{% endif %}
+          </p>
+          <div class="ov-countries">
+            {% for c in similar_countries %}
+            <a class="ov-country-card" href="{{ c.url }}" title="Closest: {{ c.dish }} ({{ c.score }}%)">
+              <span class="ov-country-img">
+                <img src="{{ c.image_link or no_image }}" alt="" loading="lazy" referrerpolicy="no-referrer"
+                     onerror="this.onerror=null;this.src='{{ no_image }}'">
+                <span class="ov-country-score">{{ c.score }}%</span>
+              </span>
+              <span class="ov-country-name">{{ c.label }}</span>
+              <span class="ov-country-dish">{{ c.dish }}</span>
+            </a>
+            {% endfor %}
+          </div>
+        </section>
+        {% endif %}
+      </aside>
+    </div>
+  </main>
+
+  <app-footer></app-footer>
+
+  <!-- Full-screen interactive map (like the original comparison-page map): the map fills the
+       screen, the country filter floats on top, and the side panel can be collapsed. The panel
+       opens by itself when a pin is picked. On phones the panel is a bottom sheet. -->
+  <div class="ov-modal ovm" id="ov-modal" hidden role="dialog" aria-modal="true" aria-label="Interactive map of the similar dishes">
+    <div class="ovm-map" id="ovm-map">
+      <svg class="ov-map-svg" id="ovm-svg" role="img" aria-label="Map of Asia with a pin for each dish"><g id="ovm-g"></g></svg>
+      <div class="ovm-pins" id="ovm-pins"></div>
+      <div class="ov-map-tooltip" id="ovm-tooltip" hidden></div>
+    </div>
+
+    <!-- Side panel (bottom sheet on phones) -->
+    <aside class="ovm-side" id="ovm-side">
+      <button type="button" class="ovm-toggle" id="ovm-toggle" aria-controls="ovm-side" aria-expanded="true" aria-label="Hide the dish panel">
+        <svg class="ovm-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </button>
+      <div class="ovm-panel" id="ovm-panel" aria-live="polite"></div>
+    </aside>
+
+    <!-- Country filter (countries only), floating over the map -->
+    <div class="ovm-filters" id="ovm-filters" role="group" aria-label="Show countries"></div>
+
+    <button type="button" class="ovm-exit" id="ov-modal-close">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      Exit map
+    </button>
+
+    <div class="ovm-zoom" role="group" aria-label="Zoom">
+      <button type="button" id="ovm-focus" class="ovm-focus" aria-label="Focus on your dish" title="Focus on {{ source.title }}">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+      </button>
+      <button type="button" id="ovm-zoom-in" aria-label="Zoom in">+</button>
+      <button type="button" id="ovm-zoom-out" aria-label="Zoom out">&minus;</button>
+      <button type="button" id="ovm-zoom-reset" class="ovm-zoom-reset" aria-label="Reset zoom">Reset</button>
+    </div>
+    <div class="ov-map-legend ovm-legend">
+      <span><i class="sw sw-origin"></i>Origin ({{ source.country_label }})</span>
+      <span><i class="sw sw-low"></i>Fewer results</span>
+      <span><i class="sw sw-high"></i>More results</span>
+    </div>
+  </div>
+
+  <script type="application/json" id="ov-map-data">{{ map_data | tojson }}</script>
+
+  <script src="{{ url_for('static', filename='scripts/components.js') }}"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+  <script src="{{ url_for('static', filename='scripts/overview.js') }}"></script>
+</body>
+</html>

@@ -131,7 +131,7 @@
   text-transform: uppercase;
   text-decoration: none;
   padding: 8px 14px;
-  border-radius: 4px;
+  border-radius: 8px;
   white-space: nowrap;
   transition: background-color 0.2s ease, transform 0.1s ease;
 }
@@ -252,7 +252,7 @@
   background-color: var(--maroon-main);
   color: var(--gold-accent);
   padding: 11px 0;
-  border-radius: 4px;
+  border-radius: 8px;
   font-size: 0.62rem;
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -1311,7 +1311,7 @@
   padding: 8px 16px;
   font-size: 0.68rem;
   font-weight: 700;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1362,7 +1362,7 @@
   background-color: #7a1414;
   color: #fff;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 1.1rem;
   font-weight: 700;
   cursor: pointer;
@@ -1464,7 +1464,7 @@
     grid-row: 1;
     padding: 8px 14px;
     font-size: 0.65rem;
-    border-radius: 14px;
+    border-radius: 8px;
   }
 
   .readonly-search-bar::after {
@@ -1551,7 +1551,7 @@
       text-align: center;
       padding: 5px 0;
       font-size: 0.65rem;
-      border-radius: 14px;
+      border-radius: 8px;
     }
   }
 }
@@ -1641,7 +1641,7 @@
     text-align: center;
     padding: 8px 0;
     font-size: 0.7rem;
-    border-radius: 14px;
+    border-radius: 8px;
     box-sizing: border-box;
   }
 
@@ -2077,7 +2077,7 @@
     white-space: nowrap;
     font-size: 0.65rem;
     line-height: 1.2;
-    border-radius: 14px;
+    border-radius: 8px;
   }
 
   .readonly-search-bar .field-item:nth-child(3) {
@@ -2120,3 +2120,346 @@
     margin-top: 4px;
   }
 }
+
+/* ==========================================================================
+   TAG SHAPE RULE (whole system)
+   Clickable tags/chips are rounded (pills). Tags you can't click have square corners.
+   ========================================================================== */
+/* Ingredient / action / tool chips open the Dish Dictionary -> clickable -> rounded */
+.entity-chip,
+.entities-card .entity-chip,
+.panel-card .entity-chip { border-radius: 999px; }
+a.entity-chip { text-decoration: none; cursor: pointer; transition: filter 0.15s ease, box-shadow 0.15s ease; }
+a.entity-chip:hover { filter: brightness(0.94); box-shadow: 0 0 0 1px currentColor inset; }
+a.entity-chip:focus-visible { outline: 2px solid var(--gold-accent); outline-offset: 2px; }
+
+/* ==========================================================================
+   COMPARISON PAGE: breadcrumb, dish card tags, tabbed details
+   ========================================================================== */
+.rt-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-sub);
+  margin-bottom: 16px;
+}
+.rt-breadcrumb a:hover { color: #ffffff; text-decoration: underline; }
+.rt-breadcrumb .current { color: #ffffff; font-weight: 600; }
+
+/* Tags on the two dish cards (open the Dish Dictionary -> rounded) */
+.dish-card-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 16px; }
+.dish-card-tags .tag-chip { margin: 0; font-size: 0.7rem; padding: 3px 11px; }
+.dish-card-tags .tag-chip.is-region { background: var(--gold-accent); color: var(--text-dark); font-weight: 600; }
+
+.section-dark.rt-section { padding: 28px 0 56px; }
+
+.rt-card {
+  position: relative;               /* no overflow:hidden, it would stop the sticky tab bar */
+  background: var(--cream-bg);
+  color: var(--text-dark);
+  border-radius: 10px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+.rt-sentinel { position: absolute; top: 0; left: 0; height: 1px; width: 1px; }
+
+/* Tab bar: sticks under the navbar while the card is on screen */
+.rt-tabs {
+  position: sticky;
+  top: calc(var(--nav-h, 56px) + env(safe-area-inset-top, 0px));   /* + the iPhone notch area, like the navbar */
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  background: var(--maroon-dark);
+  border-radius: 10px 10px 0 0;
+  transition: box-shadow 0.2s ease, border-radius 0.2s ease;
+}
+.rt-tabs.is-stuck { border-radius: 0; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3); }
+.rt-tab {
+  padding: 16px 10px 15px;
+  border: 0;
+  border-top: 3px solid transparent;
+  background: transparent;
+  color: #f1dede;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.rt-tabs:not(.is-stuck) .rt-tab:first-child { border-top-left-radius: 10px; }
+.rt-tabs:not(.is-stuck) .rt-tab:last-child { border-top-right-radius: 10px; }
+.rt-tab:hover { background: rgba(255, 255, 255, 0.07); color: #ffffff; }
+.rt-tab.is-active {
+  background: var(--cream-bg);
+  color: var(--maroon-main);
+  border-top-color: var(--gold-accent);
+}
+.rt-tab:focus-visible { outline: 2px solid var(--gold-accent); outline-offset: -4px; }
+
+.rt-panel { padding: 32px 40px 36px; }
+.rt-panel[hidden] { display: none; }
+
+/* Recipe breakdown inside the tab: no second card around it */
+.rt-panel .entities-card {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+}
+.rt-intro {
+  margin: 0;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+/* Similarity summary inside the tab */
+.rt-panel.similarity-section .quote-card { margin-top: 4px; }
+
+/* Cultural & history / health: one column per dish */
+.rt-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+}
+.rt-columns--split .rt-column + .rt-column {
+  border-left: 1px solid var(--gold-border);
+  padding-left: 48px;
+}
+.rt-eyebrow {
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  color: var(--gold-accent);
+}
+.rt-dish-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--maroon-main);
+  margin: 2px 0 10px;
+}
+.rt-column h4 {
+  margin: 16px 0 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--maroon-light);
+}
+.rt-column p,
+.rt-column li,
+.rt-connection p {
+  font-size: 0.86rem;
+  line-height: 1.6;
+  color: var(--text-dark);
+}
+.rt-column .quote-footer { margin-top: 16px; flex-wrap: wrap; gap: 8px; }
+.rt-loading { color: var(--text-muted); font-style: italic; }
+
+.rt-connection {
+  margin-top: 30px;
+  padding-top: 24px;
+  border-top: 1px solid var(--gold-border);
+}
+.rt-connection-title {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--gold-accent);
+}
+.rt-connection-sub {
+  margin: 2px 0 10px;
+  font-size: 0.78rem !important;
+  color: var(--text-muted) !important;
+}
+.rt-connection p + p { margin-top: 8px; }
+.rt-connection .quote-footer { margin-top: 16px; flex-wrap: wrap; gap: 8px; }
+
+/* Nutrition rows */
+.rt-nutrients { list-style: none; display: grid; gap: 12px; margin: 6px 0 4px; padding: 0; }
+.rt-nutrient {
+  position: relative;
+  display: grid;
+  padding-left: 20px;
+}
+.rt-nutrient::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--maroon-main);
+}
+.rt-nutrient strong { font-size: 0.88rem; color: var(--maroon-main); }
+.rt-nutrient span { font-size: 0.76rem !important; color: var(--text-muted) !important; }
+.rt-health-note { margin-top: 26px; flex-wrap: wrap; gap: 8px; }
+
+@media (max-width: 850px) {
+  .rt-panel { padding: 24px 20px 28px; }
+  .rt-columns { grid-template-columns: 1fr; gap: 28px; }
+  .rt-columns--split .rt-column + .rt-column { border-left: 0; padding-left: 0; border-top: 1px solid var(--gold-border); padding-top: 24px; }
+}
+@media (max-width: 768px) {
+  /* The mobile rule above uses overflow-x: hidden on every section, which stops the
+     sticky tab bar. "clip" still stops sideways scrolling but lets the bar stick. */
+  .results-container,
+  .rt-section,
+  .rt-section .inner-content { overflow-x: clip !important; }
+}
+@media (max-width: 700px) {
+  /* Tabs scroll sideways instead of squeezing */
+  .rt-tabs { display: flex; overflow-x: auto; scrollbar-width: none; }
+  .rt-tabs::-webkit-scrollbar { display: none; }
+  .rt-tab { flex: 0 0 auto; padding: 14px 16px 13px; font-size: 0.68rem; white-space: nowrap; }
+}
+
+/* The two comparison cards: not clickable, so no hover lift (panel.css gives every
+   .dish-card one for the search popup), and the same cream as the other cards */
+.dish-comparison-section .dish-card {
+  background: var(--pill-bg);
+  border: 0;
+  border-radius: 8px;
+  transition: none;
+}
+.dish-comparison-section .dish-card:hover {
+  transform: none;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+}
+/* Country label: top left, square (it's a label, not a button) */
+.dish-comparison-section .img-badge {
+  top: 12px;
+  bottom: auto;
+  left: 12px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  background: var(--maroon-dark);
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Allergens in the Health Info tab: every group as a tag. Filled = in this dish,
+   outlined = not in it. Each opens the Dish Dictionary with dishes free from it. */
+.rt-allergens { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 0; padding: 0; list-style: none; }
+.rt-allergen {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 999px;            /* clickable -> rounded */
+  border: 1px solid var(--gold-border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.rt-allergen:hover { background: var(--input-bg); color: var(--text-dark); }
+.rt-allergen.is-present {
+  background: var(--maroon-main);
+  border-color: var(--maroon-main);
+  color: #ffffff;
+  font-weight: 600;
+}
+.rt-allergen.is-present:hover { background: var(--maroon-dark); }
+.rt-allergen.is-avoid { box-shadow: 0 0 0 2px var(--gold-accent); }
+.rt-allergen:focus-visible { outline: 2px solid var(--gold-accent); outline-offset: 2px; }
+.rt-allergen-from { margin: 8px 0 0; font-size: 0.74rem !important; color: var(--text-muted) !important; }
+.rt-allergen-from strong { color: var(--maroon-main); font-weight: 600; }
+
+/* ==========================================================================
+   PAGE MARGINS: same as the FAQs page (.faq-container in faqs.css)
+   1200px wide with 24px sides and 120px from the top; 96px / 16px up to 850px wide;
+   92px / 20px up to 480px wide.
+   ========================================================================== */
+/* Sections stay full width (their backgrounds), only their content follows the FAQs width */
+.results-container { padding-top: 60px; }          /* 60 + section 40 + inner 20 = 120 */
+.inner-content { max-width: 1200px; padding-left: 24px; padding-right: 24px; }
+@media screen and (max-width: 850px) {
+  /* The older mobile rule adds 70px to <body> for the fixed navbar; the container spacing
+     below already clears it (like the FAQs page), so that extra space is removed here. */
+  body.results-page { padding-top: 0 !important; }
+  .results-container { padding-top: calc(36px + env(safe-area-inset-top, 0px)); }   /* 36 + 40 + 20 = 96 */
+}
+@media screen and (max-width: 480px) {
+  .results-container { padding-top: calc(32px + env(safe-area-inset-top, 0px)); }   /* 32 + 40 + 20 = 92 */
+  .inner-content,
+  #geo-distribution .inner-content {
+    padding-left: max(20px, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(20px, env(safe-area-inset-right, 0px)) !important;
+  }
+}
+
+/* Rank of the picked dish on the results list (right card), same look as the list's rank badges */
+.dish-comparison-section .rank-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  border-radius: 50%;
+  background: var(--maroon-dark);
+  border: 2px solid var(--gold-accent);
+  color: #ffffff;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+}
+.dish-comparison-section .rank-badge small {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 0.48rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--gold-light);
+}
+.dish-comparison-section .rank-badge--top { width: 54px; height: 54px; font-size: 1.3rem; border-width: 2.5px; }
+.dish-rank-note {
+  margin: 0 0 4px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.dish-rank-note strong { color: var(--maroon-main); }
+
+
+/* ==========================================================================
+   TEXT RULES (whole system)
+   - Section headers: Playfair Display, ALL CAPS
+   - Everything else (buttons, tabs, labels, badges): sentence case
+   - Dish names on cards: Playfair Display, maroon
+   ========================================================================== */
+.section-heading,
+.rt-connection-title,
+.entity-category-label,
+.rt-column h4 { font-family: 'Playfair Display', serif; text-transform: uppercase; letter-spacing: 0.04em; }
+.field-label,
+.btn-search-new,
+.dish-comparison-section .img-badge,
+.img-badge { text-transform: none; letter-spacing: 0.02em; }
+.dish-alt i,
+.btn-primary-action,
+.rank-badge small,
+.rt-tab,
+.rt-eyebrow,
+.badge-mini,
+.badge-label,
+.donut-label,
+.sim-bar-info,
+.filter-pill span { letter-spacing: 0.02em; }
+.dish-comparison-section .rank-badge small { letter-spacing: 0.02em; }
+/* Dish names on cards */
+.dish-comparison-section .dish-title { color: var(--maroon-main); }

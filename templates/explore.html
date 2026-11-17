@@ -1,0 +1,173 @@
+{% extends "panel_base.html" %}
+{% block title %}Explore{% endblock %}
+{% block eyebrow %}EXPLORE THE DATASET{% endblock %}
+{% block heading %}Browse dishes by tags{% endblock %}
+{% block lead %}Pick tags like a cooking method, main protein or dish type to see every dish that has them. To search by dish name or ingredients, use the search bar on the <a href="/home#search-section" class="lead-link">home page</a>.{% endblock %}
+{% block content %}
+<nav class="panel-tabs explore-tabs">
+  <a href="{{ url_for('explore', mode='tags') }}" class="active">TAGS</a>
+</nav>
+
+<section class="panel-card">
+  <form method="GET" action="{{ url_for('explore') }}" class="explore-form" id="explore-form">
+    <input type="hidden" name="mode" value="{{ mode }}">
+
+    {% if mode == 'keyword' %}
+    <label class="grow">Dish keyword
+      <input type="search" name="q" value="{{ q }}" placeholder="Example: adobo, curry, noodle, banh mi" autofocus>
+    </label>
+    {% elif mode == 'ingredients' %}
+    <div class="grow">
+      <label for="ing-entry">Ingredients you have <span class="muted">(press Enter or comma after each one)</span></label>
+      <div class="chip-input" id="chip-input">
+        <div class="chips" id="ing-chips"></div>
+        <input type="text" id="ing-entry" list="ingredient-list" placeholder="Example: chicken, garlic, soy sauce" autocomplete="off">
+      </div>
+      <datalist id="ingredient-list"></datalist>
+      <input type="hidden" name="q" id="ing-q" value="{{ q }}">
+    </div>
+    {% else %}
+    <div class="grow tag-picker">
+      {% for group, tags in tag_groups.items() %}
+      <div class="tag-group">
+        <span class="tag-group-name">{{ group }}</span>
+        {% for t, n in tags %}
+        <label class="tag-toggle"><input type="checkbox" name="tag" value="{{ t }}" {{ 'checked' if t in chosen_tags }}><span>{{ t }} <small>{{ n }}</small></span></label>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="explore-side">
+      <label>Country
+        <select name="country">
+          <option value="">All countries</option>
+          {% for c in countries %}<option value="{{ c.value }}" {{ 'selected' if c.value == country }}>{{ c.label }}</option>{% endfor %}
+        </select>
+      </label>
+      <button type="submit" class="btn-panel btn-panel-red">SEARCH</button>
+    </div>
+  </form>
+</section>
+
+{% if mode == 'ingredients' and cuisines %}
+<!-- Oab 6: possible cuisines from the selected ingredients -->
+<section class="panel-card cuisines-card">
+  <h2>Cuisines you could cook</h2>
+  <p class="muted">Countries whose dishes best use your ingredients (average of their top 3 dishes).</p>
+  <ol class="cuisine-list">
+    {% for c in cuisines %}
+    <li>
+      <div class="cuisine-rank">{{ loop.index }}</div>
+      <div class="cuisine-info">
+        <strong>{{ c.label }}</strong>
+        <span class="muted">{{ c.dish_count }} matching dish{{ 'es' if c.dish_count != 1 }}</span>
+        <span class="cuisine-examples">e.g. {{ c.examples | join(', ') }}</span>
+      </div>
+      <div class="cuisine-score"><span style="--pct: {{ c.score }}"></span><em>{{ c.score }}%</em></div>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+{% endif %}
+
+{% if searched %}
+<section class="results-head">
+  <h2>{{ total }} dish{{ 'es' if total != 1 }} found</h2>
+  {% if unknown %}<p class="muted">Not in our ingredient list: {{ unknown | join(', ') }}</p>{% endif %}
+  {% if close_spelling %}<p class="muted">Nothing contains "{{ q }}", so these are dishes with a similar spelling.</p>{% endif %}
+</section>
+
+{% if cards %}
+<div class="dish-grid">
+  {% for d in cards %}
+  <article class="dish-card">
+    <div class="dish-card-img">
+      <img src="{{ d.image_link or url_for('static', filename='assets/no-image.svg') }}" alt="{{ d.title }}" loading="lazy"
+           onerror="this.onerror=null;this.src='{{ url_for('static', filename='assets/no-image.svg') }}'">
+      <span class="dish-card-country">{{ d.country_label }}</span>
+      {% if d.score is not none %}<span class="dish-card-score">{{ d.score }}% match</span>{% endif %}
+    </div>
+    <div class="dish-card-body">
+      <h3>{{ d.title }}</h3>
+      {% if d.alternative_title and d.alternative_title | lower != d.title | lower %}<p class="dish-card-alt"><i>{{ d.alternative_title }}</i></p>{% endif %}
+      {% if d.found %}
+      <p class="dish-card-found">Uses: {% for want, have in d.found %}<span title="you typed {{ want }}">{{ have }}</span>{{ ', ' if not loop.last }}{% endfor %}</p>
+      {% else %}
+      <p class="dish-card-ings">{{ d.ingredients | join(', ') }}</p>
+      {% endif %}
+      <div class="dish-card-tags">{% for t in d.tags[:5] %}<a class="tag-chip small" href="{{ url_for('explore', mode='tags', tag=t) }}">{{ t }}</a>{% endfor %}</div>
+      <form class="compare-form" method="POST" action="/search-text">
+        <input type="hidden" name="dish_name" value="{{ d.title }}">
+        <input type="hidden" name="origin_country" value="{{ d.country | lower }}">
+        <input type="hidden" name="recipe_id" value="{{ d.recipe_id }}">
+        <select name="target_country" required aria-label="Compare with">
+          <option value="any">vs. any country</option>
+          {% for c in countries if c.value != d.country | lower %}<option value="{{ c.value }}">vs. {{ c.label }}</option>{% endfor %}
+        </select>
+        <button type="submit" class="btn-panel btn-panel-small btn-panel-red">COMPARE</button>
+      </form>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% if total > shown %}
+<p class="center"><a class="btn-panel" href="{{ more_url }}">SHOW MORE ({{ total - shown }} left)</a></p>
+{% endif %}
+{% else %}
+<p class="empty-state">No dishes matched. {% if mode == 'keyword' %}Try a shorter keyword or another spelling.{% elif mode == 'ingredients' %}Try fewer or more common ingredients.{% else %}Try fewer tags.{% endif %}</p>
+{% endif %}
+{% elif mode == 'tags' %}
+<p class="empty-state">Pick one or more tags above. Dishes must have all the tags you pick.</p>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if mode == 'ingredients' %}
+<script>
+  (() => {
+    const entry = document.getElementById('ing-entry');
+    const chipsBox = document.getElementById('ing-chips');
+    const hidden = document.getElementById('ing-q');
+    const form = document.getElementById('explore-form');
+    let chips = hidden.value.split(',').map(s => s.trim()).filter(Boolean);
+
+    const render = () => {
+      chipsBox.replaceChildren(...chips.map((c, i) => {
+        const chip = document.createElement('span');
+        chip.className = 'tag-chip removable';
+        chip.textContent = c;
+        const x = document.createElement('button');
+        x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', 'Remove ' + c);
+        x.onclick = () => { chips.splice(i, 1); render(); };
+        chip.append(x);
+        return chip;
+      }));
+      hidden.value = chips.join(', ');
+    };
+    const add = () => {
+      entry.value.split(',').map(s => s.trim()).filter(Boolean).forEach(v => {
+        if (!chips.some(c => c.toLowerCase() === v.toLowerCase())) chips.push(v);
+      });
+      entry.value = '';
+      render();
+    };
+    entry.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); if (entry.value.trim()) add(); else if (e.key === 'Enter') form.requestSubmit(); }
+      if (e.key === 'Backspace' && !entry.value && chips.length) { chips.pop(); render(); }
+    });
+    entry.addEventListener('change', () => { if (entry.value.trim()) add(); });
+    form.addEventListener('submit', () => add());
+    render();
+    if (!chips.length) entry.focus();
+
+    fetch('/api/ingredients').then(r => r.json()).then(list => {
+      document.getElementById('ingredient-list').replaceChildren(...list.map(n => {
+        const o = document.createElement('option'); o.value = n; return o;
+      }));
+    }).catch(() => {});
+  })();
+</script>
+{% endif %}
+{% endblock %}

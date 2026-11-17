@@ -25,6 +25,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const pickerClose = document.getElementById('dish-picker-close');
   const selectDishPrompt = document.getElementById('select-dish-prompt');
   const selectDishPromptCount = document.getElementById('select-dish-prompt-count');
+  const selectedDishLabel = document.getElementById('selected-dish-label');
+  const targetGroup = document.getElementById('img-target-group');
+  const NO_IMAGE = '/static/assets/no-image.svg';
+
+  // The target country only shows once there is a dish (same as the text search)
+  function updateTargetVisibility() {
+    const show = Boolean(hiddenDishInput.value);
+    if (targetGroup.hidden === !show) return;
+    targetGroup.hidden = !show;
+    if (show) {
+      targetGroup.classList.remove('is-revealed');
+      void targetGroup.offsetWidth;
+      targetGroup.classList.add('is-revealed');
+    }
+  }
 
   // State
   let activeScanController = null;
@@ -64,17 +79,23 @@ document.addEventListener('DOMContentLoaded', () => {
     updateOriginDisplay();
   }
 
+  // The image search uses the same card popup as the text search (text-search.js)
+  let usingCardPopup = false;
+
   // Show "choose a dish" card if picker was closed without picking
   function updateSelectDishPrompt() {
-    const pickerOpen = !picker.classList.contains('hidden');
+    const newPopup = document.getElementById('dish-results-overlay');
+    const pickerOpen = !picker.classList.contains('hidden')
+      || (newPopup && !newPopup.classList.contains('hidden') && usingCardPopup);
     const needsChoice = detectedMatches.length >= 2 && !hiddenDishInput.value;
 
-    if (needsChoice && !pickerOpen) {
-      selectDishPromptCount.textContent =
-        `${detectedMatches.length} dishes found · Click to choose`;
-      selectDishPrompt.style.display = 'flex';
-    } else {
-      selectDishPrompt.style.display = 'none';
+    // Popup closed without a pick: a "Choose a dish" button inside the upload area reopens it
+    selectDishPrompt.style.display = 'none';
+    const chooseBtn = document.getElementById('img-choose-btn');
+    if (chooseBtn) {
+      const show = needsChoice && !pickerOpen;
+      chooseBtn.hidden = !show;
+      chooseBtn.textContent = show ? `Choose a dish (${detectedMatches.length})` : '';
     }
   }
 
@@ -83,6 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // No dish picked, so no country yet
     if (!hiddenDishInput.value) setOrigin('');
     updateSelectDishPrompt();
+    updateTargetVisibility();
   }
 
   function stopOcrTimer() {
@@ -116,7 +138,6 @@ document.addEventListener('DOMContentLoaded', () => {
     isScanning = isLoading;
     updateOriginDisplay();
     ocrLoading.style.display = isLoading ? 'block' : 'none';
-    targetSelect.disabled = isLoading;
     imageSearchButton.disabled = isLoading;
     imageForm.classList.toggle('is-ocr-loading', isLoading);
   }
@@ -133,22 +154,35 @@ document.addEventListener('DOMContentLoaded', () => {
       selectedDishAltName.textContent = '';
       selectedDishAltName.style.display = 'none';
     }
-    selectedDishCountry.textContent = match.country;
-    if (match.image_link) {
-      selectedDishImage.src = match.image_link;
-      selectedDishImage.alt = match.title;
-      selectedDishImage.style.display = '';
-    } else {
-      selectedDishImage.removeAttribute('src');
-      selectedDishImage.style.display = 'none';
-    }
+    selectedDishCountry.textContent = match.country_label
+      || String(match.country || '').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+    // "THE DISH" when the photo had one dish, "SELECTED DISH" when it was picked from several
+    selectedDishLabel.textContent = canChange ? 'SELECTED DISH' : 'THE DISH';
+    // Same "no image" placeholder as the popup cards when a dish has no photo
+    selectedDishImage.onerror = () => { selectedDishImage.onerror = null; selectedDishImage.src = NO_IMAGE; };
+    selectedDishImage.src = match.image_link || NO_IMAGE;
+    selectedDishImage.alt = match.title;
+    selectedDishImage.style.display = '';
     selectedDishCard.style.display = showCard ? 'flex' : 'none';
     selectedDishCard.querySelector('.selected-dish-change').style.display = canChange ? 'inline' : 'none';
     selectedDishCard.setAttribute(
       'aria-label',
       canChange ? 'Change selected dish' : 'Selected dish'
     );
-    closeDishPicker();
+    // Only one dish: nothing to change, so the card isn't clickable
+    selectedDishCard.classList.toggle('is-static', !canChange);
+    selectedDishCard.tabIndex = canChange ? 0 : -1;
+    if (usingCardPopup && window.CuiSyncPopup) {
+      window.CuiSyncPopup.close();   // runs closeDishPicker() through the popup's onClose
+    } else {
+      closeDishPicker();
+    }
+    updateTargetVisibility();
+    // No target yet: open the target country list next to the card
+    if (!targetSelect.value) {
+      targetSelect.classList.add('needs-attention');
+      targetSelect.dispatchEvent(new CustomEvent('picker:open'));
+    }
   }
 
   // One match = auto pick, more = show list
@@ -156,6 +190,26 @@ document.addEventListener('DOMContentLoaded', () => {
     detectedMatches = matches;
     if (matches.length === 1) {
       selectDish(matches[0], true, false);
+      return;
+    }
+    if (window.CuiSyncPopup) {
+      const titleCase = (t) => String(t || '').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+      const cards = matches.map((m) => ({
+        ...m,
+        country_label: m.country_label || titleCase(m.country),
+        country_value: (m.country_value || m.country || '').toLowerCase(),
+        tags: m.tags || [],
+        ingredients: m.ingredients || [],
+        score: null,
+        found: [],
+      }));
+      usingCardPopup = true;
+      window.CuiSyncPopup.show(
+        { mode: 'image', total: cards.length, dishes: cards },
+        (card) => selectDish(matches[cards.indexOf(card)]),
+        () => { usingCardPopup = false; closeDishPicker(); }
+      );
+      updateSelectDishPrompt();
       return;
     }
     pickerList.replaceChildren();
@@ -300,12 +354,17 @@ document.addEventListener('DOMContentLoaded', () => {
     extractImageInfo(file);
   }
 
+  // Phones and tablets: only the Upload / Take a Photo buttons open the picker, not the whole box
+  const isTouchDevice = window.matchMedia('(hover: none), (pointer: coarse)').matches;
+
   // Open file picker, except on inner buttons
   dropzone.addEventListener('click', (event) => {
+    if (isTouchDevice) return;
     if (
       event.target.closest('#remove-img-btn') ||
       event.target.closest('#selected-dish-card') ||
-      event.target.closest('#select-dish-prompt')
+      event.target.closest('#select-dish-prompt') ||
+      event.target.closest('#img-choose-btn')
     ) {
       return;
     }
@@ -315,6 +374,167 @@ document.addEventListener('DOMContentLoaded', () => {
   fileInput.addEventListener('change', () => {
     if (fileInput.files[0]) displayPreview(fileInput.files[0]);
   });
+
+  // Take a Photo. Some Android browsers ignore capture="environment" on a file input and only
+  // show the gallery, so the camera is opened inside the page (getUserMedia) when possible.
+  // If the browser blocks that, the user can still open the phone's camera app or upload.
+  const cameraInput = document.getElementById('camera-input');
+  const cameraBtn = document.getElementById('camera-btn');
+  const uploadBtn = document.getElementById('upload-photo-btn');
+
+  // Same as choosing a file: put it in the upload field and scan it
+  function useCapturedFile(file) {
+    try {
+      const transfer = new DataTransfer();
+      transfer.items.add(file);
+      fileInput.files = transfer.files;
+    } catch (error) {
+      console.warn('[Cuisync] Could not copy the camera photo into the upload field', error);
+    }
+    displayPreview(file);
+  }
+
+  let cameraStream = null;
+  let facingMode = 'environment';
+  let cameraModal = null;
+
+  function stopCamera() {
+    if (cameraStream) cameraStream.getTracks().forEach((t) => t.stop());
+    cameraStream = null;
+  }
+
+  function closeCamera() {
+    stopCamera();
+    if (cameraModal) cameraModal.classList.add('hidden');
+    document.documentElement.classList.remove('camera-open');
+  }
+
+  function buildCameraModal() {
+    cameraModal = document.createElement('div');
+    cameraModal.className = 'camera-overlay hidden';
+    cameraModal.setAttribute('role', 'dialog');
+    cameraModal.setAttribute('aria-modal', 'true');
+    cameraModal.setAttribute('aria-label', 'Take a photo of the menu');
+    cameraModal.innerHTML = `
+      <div class="camera-box">
+        <button type="button" class="camera-close" aria-label="Close camera">&times;</button>
+        <div class="camera-view">
+          <video class="camera-video" autoplay playsinline muted></video>
+          <div class="camera-message" hidden></div>
+        </div>
+        <p class="camera-tip">Fit the dish names in the frame and hold steady.</p>
+        <div class="camera-controls">
+          <button type="button" class="camera-switch" aria-label="Switch camera">&#8635;</button>
+          <button type="button" class="camera-shutter" aria-label="Take photo"><span></span></button>
+          <span class="camera-spacer"></span>
+        </div>
+        <div class="camera-fallback" hidden>
+          <button type="button" class="dropzone-btn dropzone-btn-camera camera-app-btn">Open Camera App</button>
+          <button type="button" class="dropzone-btn camera-upload-btn">Upload Photo</button>
+        </div>
+      </div>`;
+    document.body.appendChild(cameraModal);
+    cameraModal.querySelector('.camera-close').addEventListener('click', closeCamera);
+    cameraModal.addEventListener('click', (e) => { if (e.target === cameraModal) closeCamera(); });
+    cameraModal.querySelector('.camera-switch').addEventListener('click', () => {
+      facingMode = facingMode === 'environment' ? 'user' : 'environment';
+      startCamera();
+    });
+    cameraModal.querySelector('.camera-shutter').addEventListener('click', takePicture);
+    // Fallbacks run from a tap, so the browser allows opening the picker
+    cameraModal.querySelector('.camera-app-btn').addEventListener('click', () => { closeCamera(); cameraInput.click(); });
+    cameraModal.querySelector('.camera-upload-btn').addEventListener('click', () => { closeCamera(); fileInput.click(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && cameraModal && !cameraModal.classList.contains('hidden')) closeCamera();
+    });
+  }
+
+  function showCameraProblem(text) {
+    const msg = cameraModal.querySelector('.camera-message');
+    msg.textContent = text;
+    msg.hidden = false;
+    cameraModal.querySelector('.camera-video').hidden = true;
+    cameraModal.querySelector('.camera-controls').hidden = true;
+    cameraModal.querySelector('.camera-tip').hidden = true;
+    cameraModal.querySelector('.camera-fallback').hidden = false;
+  }
+
+  async function startCamera() {
+    stopCamera();
+    const video = cameraModal.querySelector('.camera-video');
+    cameraModal.querySelector('.camera-message').hidden = true;
+    cameraModal.querySelector('.camera-fallback').hidden = true;
+    cameraModal.querySelector('.camera-controls').hidden = false;
+    cameraModal.querySelector('.camera-tip').hidden = false;
+    video.hidden = false;
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: facingMode }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false,
+      });
+      video.srcObject = cameraStream;
+      await video.play().catch(() => {});
+      // Only show the switch button when there is more than one camera
+      const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+      cameraModal.querySelector('.camera-switch').style.visibility =
+        devices.filter((d) => d.kind === 'videoinput').length > 1 ? 'visible' : 'hidden';
+    } catch (error) {
+      const name = error && error.name;
+      showCameraProblem(
+        name === 'NotAllowedError'
+          ? 'Camera access was blocked. Allow the camera for this site in your browser settings, or use the buttons below.'
+          : name === 'NotFoundError'
+            ? 'No camera was found on this device. You can upload a photo instead.'
+            : 'This browser could not open the camera here. Try the buttons below.'
+      );
+    }
+  }
+
+  function takePicture() {
+    const video = cameraModal.querySelector('.camera-video');
+    if (!video.videoWidth) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const file = new File([blob], `menu-photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      closeCamera();
+      useCapturedFile(file);
+    }, 'image/jpeg', 0.92);
+  }
+
+  function openCamera() {
+    // No in-page camera (old browser, or the page is not on https): use the phone's camera app
+    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) || !window.isSecureContext) {
+      cameraInput.click();
+      return;
+    }
+    if (!cameraModal) buildCameraModal();
+    cameraModal.classList.remove('hidden');
+    document.documentElement.classList.add('camera-open');
+    startCamera();
+  }
+
+  if (cameraBtn && cameraInput) {
+    cameraBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      openCamera();
+    });
+    cameraInput.addEventListener('change', () => {
+      const file = cameraInput.files[0];
+      if (!file) return;
+      cameraInput.value = '';
+      useCapturedFile(file);
+    });
+  }
+  if (uploadBtn) {
+    uploadBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      fileInput.click();
+    });
+  }
 
   // Drag and drop
   ['dragenter', 'dragover'].forEach((eventName) => dropzone.addEventListener(eventName, (event) => {
@@ -356,6 +576,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  document.getElementById('img-choose-btn').addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (detectedMatches.length >= 2) showDishPicker(detectedMatches);
+  });
+
   selectDishPrompt.addEventListener('click', (event) => {
     event.stopPropagation();
     if (detectedMatches.length >= 2) {
@@ -382,7 +607,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Check before submit
   imageForm.addEventListener('submit', (event) => {
-    if (!fileInput.files[0]) {
+    // A dish already picked from the photo is enough (the camera photo may not be in fileInput on old phones)
+    if (!fileInput.files[0] && !hiddenDishInput.value) {
       event.preventDefault();
       showErrorModal('Upload a Photo', 'Upload a photo of a menu first so we can find the dish and its country.');
       return;
@@ -390,6 +616,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!hiddenDishInput.value || !originSelect.value) {
       event.preventDefault();
       showErrorModal('Choose a Dish', 'Select one of the detected menu dishes before starting the comparison.');
+      return;
+    }
+    // No target yet: open the target country list instead of an error popup
+    if (!targetSelect.value) {
+      event.preventDefault();
+      targetSelect.classList.add('needs-attention');
+      targetSelect.dispatchEvent(new CustomEvent('picker:open'));
     }
   });
+  targetSelect.addEventListener('change', () => targetSelect.classList.remove('needs-attention'));
 });

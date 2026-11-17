@@ -146,8 +146,23 @@ FEW_SHOT_EXAMPLES = [
 ]
 
 
+# The admin page can replace the system prompt (panel revision: update the GPT prompt).
+DEFAULT_SYSTEM_PROMPT = SYSTEM_PROMPT
+_prompt_override = None
+
+
+def set_system_prompt(text):
+    """Use this prompt instead of the default one. Empty text = back to the default."""
+    global _prompt_override
+    _prompt_override = (text or "").strip() or None
+
+
+def get_system_prompt():
+    return _prompt_override or DEFAULT_SYSTEM_PROMPT
+
+
 def build_messages(evidence: dict) -> list:
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages = [{"role": "system", "content": get_system_prompt()}]
     for ex in FEW_SHOT_EXAMPLES:
         messages.append({"role": "user", "content": json.dumps(ex["evidence"], ensure_ascii=False)})
         messages.append({"role": "assistant", "content": ex["explanation"]})

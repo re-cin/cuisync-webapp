@@ -21,3 +21,6 @@ pythainlp>=5.0.0,<6.0.0   # Thai romanization
 # AI explanation (GPT-4o via explainer.py)
 openai>=1.40.0
 python-dotenv>=1.0.0
+
+# Accounts in Supabase (accounts.py)
+requests>=2.31.0

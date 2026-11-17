@@ -55,7 +55,7 @@ a {
   --btn-gold: #f5d1a4;
   --text-gold: #f8e5c8;
   --text-sub: #e0adad;
-  --pill-bg: #fefcf9;
+  --pill-bg: #f1ece0;
   --dark-text: #2c1a1a;
   --chip-dark: #520909;
   --nav-h: 56px; /* navbar height when scrolled (for sticky sub-navs) */
@@ -370,3 +370,114 @@ a {
     flex-wrap: wrap;
   }
 }
+/* ==========================================================================
+   PHONES: bottom navigation bar + login/profile button at the top
+   (replaces the hamburger menu below 820px)
+   ========================================================================== */
+.bottom-nav { display: none; }
+
+/* Login / Profile pill (same on desktop and phones) */
+.top-account-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--gold-accent);
+  color: var(--gold-accent);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.top-account-btn:hover { background: rgba(220, 179, 73, 0.15); }
+.top-account-btn.active { background: var(--gold-accent); color: var(--maroon-dark); }
+
+/* Desktop: links in sentence case like the phone bar, the pill at the far right */
+@media screen and (min-width: 821px) {
+  .navbar .nav-links { order: 2; margin-left: auto; display: flex; align-items: center; }
+  .navbar .top-account-btn { order: 3; margin-left: 32px; }
+  .nav-links a { letter-spacing: 0.5px; font-weight: 500; font-size: 0.92rem; }
+  #nav-account { display: none; }          /* the pill does this job on desktop */
+}
+
+@media screen and (max-width: 820px) {
+  /* The phone top bar is shorter (48px when scrolled), so sticky bars sit right under it */
+  :root { --nav-h: 48px; }
+
+  .hamburger-toggle,
+  .nav-overlay,
+  .navbar .nav-links { display: none !important; }
+
+  /* (Login / Profile pill: see above, shared with desktop) */
+
+  /* Bottom bar */
+  .bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 990;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px));
+    background: rgba(103, 8, 12, 0.97);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(220, 179, 73, 0.45);
+    box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.25);
+  }
+  .bottom-nav-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-height: 52px;
+    padding: 6px 2px 4px;
+    color: rgba(234, 227, 210, 0.72);
+    font-size: 0.66rem;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    -webkit-tap-highlight-color: transparent;
+    transition: color 0.2s;
+  }
+  .bottom-nav-item svg {
+    width: 23px;
+    height: 23px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .bottom-nav-item.active { color: var(--gold-accent); font-weight: 600; }
+  /* small gold bar above the active item */
+  .bottom-nav-item.active::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    width: 28px;
+    height: 3px;
+    border-radius: 0 0 3px 3px;
+    background: var(--gold-accent);
+  }
+  .bottom-nav-item:active { transform: scale(0.95); }
+
+  /* Room at the bottom of every page so the bar never covers content */
+  html.has-bottom-nav body { padding-bottom: calc(66px + env(safe-area-inset-bottom, 0px)); }
+
+  /* The "Install CuiSync" bar sits above the bottom bar */
+}
+
+
+/* ==========================================================================
+   TEXT RULES (whole system)
+   - Section headers: Playfair Display, ALL CAPS
+   - Everything else (buttons, tabs, labels, badges): sentence case
+   - Dish names on cards: Playfair Display, maroon
+   ========================================================================== */
+.footer-heading { font-family: 'Playfair Display', serif; text-transform: uppercase; letter-spacing: 0.06em; }
+.top-account-btn { text-transform: none; letter-spacing: 0.02em; }

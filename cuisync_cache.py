@@ -3,6 +3,8 @@ import json
 import os
 import sqlite3
 
+from cuisync_prompts import get_system_prompt
+
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "explanations_cache.db")
 
@@ -35,6 +37,10 @@ def make_cache_key(evidence: dict) -> str:
             normalized[k] = v
     raw = json.dumps(normalized, sort_keys=True, ensure_ascii=False)
     raw += f"|{PROMPT_VERSION}|{MODEL_NAME}"
+    # A prompt edited on the admin page gets its own cache entries
+    from cuisync_prompts import DEFAULT_SYSTEM_PROMPT
+    if get_system_prompt() != DEFAULT_SYSTEM_PROMPT:
+        raw += "|" + hashlib.sha256(get_system_prompt().encode("utf-8")).hexdigest()
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 

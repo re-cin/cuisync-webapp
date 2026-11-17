@@ -1,0 +1,14 @@
+{# Messages from flash() (login, admin saves...). Included by every page. #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="flash-stack" id="flash-stack">
+    {% for category, message in messages %}
+    <div class="flash flash-{{ category }}" role="status">
+      <span>{{ message }}</span>
+      <button type="button" class="flash-close" aria-label="Close" onclick="this.parentElement.remove()">&times;</button>
+    </div>
+    {% endfor %}
+  </div>
+  <script>setTimeout(() => document.querySelectorAll('.flash-success').forEach(f => f.remove()), 6000);</script>
+  {% endif %}
+{% endwith %}

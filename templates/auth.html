@@ -1,0 +1,125 @@
+{# Log in / Create account for users. Admins have their own page: templates/admin/admin_login.html. #}
+{% from "admin/admin_icons.html" import icon %}
+{% set registering = mode == 'register' %}
+{% set form = form or {} %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>CUISYNC - {{ 'Create account' if registering else 'Log in' }}</title>
+  {% include "partials/head_icons.html" %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base-style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+</head>
+<body class="admin-page auth-page">
+{% include "partials/flash.html" %}
+<div class="login-shell">
+
+  <section class="login-brand user-brand">
+    <a href="{{ url_for('home') }}" class="admin-logo">CUISYNC</a>
+    <div class="login-brand-copy">
+      <p class="eyebrow eyebrow-gold"><span class="diamond"></span>Discover Asian cuisines</p>
+      <h1>{{ 'Start your flavour journey.' if registering else 'Find your dish’s twin across Asia.' }}</h1>
+      <p>{{ 'Create an account to save your searches, set your favourite cuisines and the allergens to watch for.' if registering
+            else 'Log in to pick up your search history, favourite cuisines and allergen settings.' }}</p>
+    </div>
+  </section>
+
+  <section class="login-form-wrap">
+    <form class="login-form" method="POST" action="{{ url_for('register') if registering else url_for('login') }}">
+      <input type="hidden" name="next" value="{{ next }}">
+
+      <div class="login-heading">
+        <h2>{{ 'Create account' if registering else 'Welcome back' }}</h2>
+        <p>{{ 'It only takes a minute' if registering else 'Log in to your CuiSync account' }}</p>
+      </div>
+
+      {% if forbidden %}<div class="flash flash-error" role="alert">{{ forbidden }}</div>{% endif %}
+
+      {% if registering %}
+      <div class="field">
+        <label for="display_name">Display name <span class="label-optional">(optional)</span></label>
+        <div class="input-icon">
+          <input id="display_name" name="display_name" type="text" maxlength="60" autocomplete="name" placeholder="What should we call you?" value="{{ form.display_name or '' }}">
+          <span>{{ icon('users') }}</span>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if registering %}
+      <div class="field">
+        <label for="email">Email address</label>
+        <div class="input-icon">
+          <input id="email" name="email" type="email" required autocomplete="email" placeholder="you@example.com" value="{{ form.email or '' }}">
+          <span>{{ icon('mail') }}</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="username">Username</label>
+        <div class="input-icon">
+          <input id="username" name="username" type="text" required minlength="3" maxlength="30" pattern="[A-Za-z0-9._]{3,30}"
+                 title="3-30 characters: letters, numbers, . or _" autocomplete="username"
+                 placeholder="Letters, numbers, . or _" value="{{ form.username or '' }}">
+          <span>{{ icon('user') }}</span>
+        </div>
+      </div>
+      {% else %}
+      <div class="field">
+        <label for="username">Email or username</label>
+        <div class="input-icon">
+          <input id="username" name="username" type="text" required autocomplete="username"
+                 placeholder="you@example.com or your username" autofocus>
+          <span>{{ icon('user') }}</span>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="field">
+        <label for="password">Password</label>
+        <div class="input-icon">
+          <input id="password" name="password" type="password" required minlength="6"
+                 autocomplete="{{ 'new-password' if registering else 'current-password' }}"
+                 placeholder="{{ 'At least 6 characters' if registering else 'Enter your password' }}">
+          <button type="button" class="icon-btn-plain" data-toggle-password="password" aria-label="Show password">{{ icon('eye') }}</button>
+        </div>
+      </div>
+
+      {% if registering %}
+      <div class="field">
+        <label for="confirm">Confirm password</label>
+        <div class="input-icon">
+          <input id="confirm" name="confirm" type="password" required minlength="6" autocomplete="new-password" placeholder="Type it again">
+          <button type="button" class="icon-btn-plain" data-toggle-password="confirm" aria-label="Show password">{{ icon('eye') }}</button>
+        </div>
+      </div>
+      {% else %}
+      <label class="check">
+        <input type="checkbox" name="remember" value="1" checked> Keep me signed in on this device
+      </label>
+      {% endif %}
+
+      <button type="submit" class="btn btn-maroon btn-block">{{ 'Create account' if registering else 'Log in' }}</button>
+
+      <p class="auth-switch">
+        {% if registering %}
+          Already have an account? <a href="{{ url_for('login', next=next) if next else url_for('login') }}">Log in</a>
+        {% else %}
+          New to CuiSync? <a href="{{ url_for('register') }}">Create an account</a>
+        {% endif %}
+      </p>
+
+
+      <p class="login-note">{{ icon('search', 16) }} No account needed to search.
+        <a href="{{ url_for('home') }}" class="small-link">Continue to CuiSync</a></p>
+    </form>
+  </section>
+</div>
+<script src="{{ url_for('static', filename='scripts/admin.js') }}"></script>
+</body>
+</html>

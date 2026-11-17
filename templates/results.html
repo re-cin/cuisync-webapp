@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  {% include "partials/head_icons.html" %}
   <meta name="referrer" content="no-referrer">
   <title>CUISYNC - Results</title>
   
@@ -12,24 +13,14 @@
 
   <link rel="stylesheet" href="{{ url_for('static', filename='css/base-style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/results.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/panel.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/results-map.css') }}">
 
-  <style>
-    /* Mobile: our code handles touch on the full-screen map (1 finger pans, 2 fingers zoom).
-       Without this the browser takes over the gesture. */
-    .modal-map-viewport,
-    .modal-map-viewport * {
-      touch-action: none;
-    }
-    .modal-map-viewport {
-      -webkit-user-select: none;
-      user-select: none;
-      -webkit-touch-callout: none;
-    }
-  </style>
 </head>
 <body class="results-page">
 
   <app-nav></app-nav>
+  {% include "partials/flash.html" %}
 
   {# ------------------------------------------------------------------
      Overall similarity as a whole-number percent (0-100). The same value
@@ -57,25 +48,30 @@
          ================================== -->
     <section class="section-dark dish-comparison-section">
       <div class="inner-content">
+        <nav class="rt-breadcrumb" aria-label="Breadcrumb">
+          <a href="{{ url_for('home') }}">Home</a>
+          <span aria-hidden="true">/</span>
+          <span class="current">{{ source_dish.title }} vs {{ recommended_dish.title if recommended_dish else '' }}</span>
+        </nav>
         <h2 class="section-heading">DISH COMPARISON</h2>
 
         <!-- Summary of the search -->
         <div class="readonly-search-bar">
           <div class="field-item cuisine-field">
-            <span class="field-label">CUISINE</span>
+            <span class="field-label">Cuisine</span>
             <span class="field-value">{{ source_dish.title }}</span>
           </div>
           <div class="field-divider"></div>
           <div class="field-item">
-            <span class="field-label">ORIGIN COUNTRY</span>
-            <span class="field-value">{{ source_dish.country }}</span>
+            <span class="field-label">Origin country</span>
+            <span class="field-value">{{ country_label(source_dish.country) }}</span>
           </div>
           <span class="field-arrow">&rarr;</span>
           <div class="field-item">
-            <span class="field-label">TARGET COUNTRY</span>
-            <span class="field-value">{{ target_country | upper }}</span>
+            <span class="field-label">Target country</span>
+            <span class="field-value">{% if target_any %}Any &rarr; {{ country_label(target_country) }}{% else %}{{ country_label(target_country) }}{% endif %}</span>
           </div>
-          <a href="{{ url_for('home') }}" class="btn-search-new">SEARCH NEW CUISINE</a>
+          <a href="{{ url_for('home') }}" class="btn-search-new">Search new cuisine</a>
         </div>
 
         <p class="recipe-availability-note">
@@ -91,19 +87,21 @@
                    onerror="this.onerror=null;this.src='{{ url_for('static', filename='assets/no-image.svg') }}'"
                    alt="{{ source_dish.title }}"
                    referrerpolicy="no-referrer">
-              <span class="img-badge">{{ source_dish.country_region }}, {{ source_dish.country }}</span>
+              <span class="img-badge">{{ country_label(source_dish.country) }}</span>
             </div>
             <div class="dish-card-body">
               <h3 class="dish-title">{{ source_dish.title }}</h3>
               {% if source_dish.alternative_title %}
                 <p class="dish-alt"><i>{{ source_dish.alternative_title }}</i></p>
               {% endif %}
-              <p class="dish-subtitle">{{ (source_dish.region or 'No Specific') | upper }} REGION</p>
+              <div class="dish-card-tags">
+                {% for t in source_tags[:5] %}<a class="tag-chip {{ 'is-region' if loop.first and t.endswith('Asia') }}" href="{{ url_for('dictionary', tag=t) }}" title="See every dish tagged {{ t }}">{{ t }}</a>{% endfor %}
+              </div>
               {% if source_dish and source_dish.recipe_link %}
                 <div class="btn-links">
                   <a href="{{ source_dish.recipe_link }}" target="_blank" rel="noopener" class="btn-primary-action">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg>
-                    LINK TO RECIPE
+                    Link to recipe
                   </a>
                 </div>
               {% else %}
@@ -115,7 +113,7 @@
           <!-- Similarity badge between the two photos -->
           <div class="similarity-badge" role="img" aria-label="{{ score }} percent similar">
             <span class="badge-score">{{ score }}<small>%</small></span>
-            <span class="badge-label">SIMILAR</span>
+            <span class="badge-label">Similar</span>
           </div>
 
           <!-- Right card: recommended dish -->
@@ -125,20 +123,28 @@
                    onerror="this.onerror=null;this.src='{{ url_for('static', filename='assets/no-image.svg') }}'"
                    alt="{% if recommended_dish %}{{ recommended_dish.title }}{% endif %}"
                    referrerpolicy="no-referrer">
-              <span class="img-badge">{% if recommended_dish %}{{ source_dish.country_region }}, {{ recommended_dish.country }}{% endif %}</span>
+              {% if recommended_dish %}<span class="img-badge">{{ country_label(recommended_dish.country) }}</span>{% endif %}
+              {% if dish_rank %}
+              <span class="rank-badge {{ 'rank-badge--top' if dish_rank <= 3 }}" title="Rank {{ dish_rank }} of {{ rank_total }} similar dishes">
+                <small>Rank</small>{{ dish_rank }}
+              </span>
+              {% endif %}
             </div>
             <div class="dish-card-body">
               <h3 class="dish-title">{% if recommended_dish %}{{ recommended_dish.title }}{% endif %}</h3>
               {% if recommended_dish and recommended_dish.alternative_title %}
                 <p class="dish-alt"><i>{{ recommended_dish.alternative_title }}</i></p>
               {% endif %}
-              <p class="dish-subtitle">{% if recommended_dish %}{{ (recommended_dish.region or 'No Specific') | upper }} REGION{% endif %}</p>
+              {% if dish_rank %}<p class="dish-rank-note">Ranked <strong>#{{ dish_rank }}</strong> of {{ rank_total }} similar dishes from {{ rank_scope }}</p>{% endif %}
+              <div class="dish-card-tags">
+                {% for t in target_tags[:5] %}<a class="tag-chip {{ 'is-region' if loop.first and t.endswith('Asia') }}" href="{{ url_for('dictionary', tag=t) }}" title="See every dish tagged {{ t }}">{{ t }}</a>{% endfor %}
+              </div>
 
               {% if recommended_dish and recommended_dish.recipe_link %}
                 <div class="btn-links">
                   <a href="{{ recommended_dish.recipe_link }}" target="_blank" rel="noopener" class="btn-primary-action">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg>
-                    LINK TO RECIPE
+                    Link to recipe
                   </a>
                 </div>
               {% else %}
@@ -151,318 +157,340 @@
     </section>
 
     <!-- ==================================
-         SECTION 2: RECIPE BREAKDOWN (extracted entities)
+         COMPARISON DETAILS: four tabs (the tab bar sticks under the navbar while scrolling)
          ================================== -->
-    <section class="section-dark recipe-breakdown-section">
+    <section class="section-dark rt-section" id="comparison-details">
       <div class="inner-content">
-        <div class="section-head-split">
-          <h2 class="section-heading">RECIPE BREAKDOWN</h2>
-          <p class="section-subheading">
-            The ingredients, cooking actions and tools pulled from both recipes: what the two dishes share, and what sets each one apart.
-          </p>
-        </div>
-
-        <div class="entities-card">
-
-          <!-- Category filter buttons -->
-          <div class="entity-filters">
-            <label class="filter-pill pill-all">
-              <input type="radio" name="entity_filter" value="all" checked hidden>
-              <span>ALL</span>
-            </label>
-
-            <label class="filter-pill pill-shared">
-              <input type="radio" name="entity_filter" value="shared" hidden>
-              <span>SHARED</span>
-            </label>
-
-            <label class="filter-pill pill-pho">
-              <input type="radio" name="entity_filter" value="source" hidden>
-              <span>{{ source_dish.title | upper }}</span>
-            </label>
-
-            <label class="filter-pill pill-batchoy">
-              <input type="radio" name="entity_filter" value="target" hidden>
-              <span>{% if recommended_dish %}{{ recommended_dish.title | upper }}{% else %}{{ target_country | upper }} DISH{% endif %}</span>
-            </label>
+        <div class="rt-card" id="rt-card">
+          <div class="rt-sentinel" id="rt-sentinel" aria-hidden="true"></div>
+          <div class="rt-tabs" role="tablist" aria-label="Comparison details" id="rt-tabs">
+            <button type="button" class="rt-tab is-active" role="tab" id="rt-tab-recipe" data-tab="recipe" aria-controls="rt-panel-recipe" aria-selected="true">Recipe breakdown</button>
+            <button type="button" class="rt-tab" role="tab" id="rt-tab-similarity" data-tab="similarity" aria-controls="rt-panel-similarity" aria-selected="false" tabindex="-1">Similarity summary</button>
+            <button type="button" class="rt-tab" role="tab" id="rt-tab-culture" data-tab="culture" aria-controls="rt-panel-culture" aria-selected="false" tabindex="-1">Culture &amp; history</button>
+            <button type="button" class="rt-tab" role="tab" id="rt-tab-health" data-tab="health" aria-controls="rt-panel-health" aria-selected="false" tabindex="-1">Health info</button>
           </div>
 
-          <!-- Gold = shared, maroon = only in the searched dish, green = only in the recommended dish -->
-          {% for key, label in [('ingredients', 'INGREDIENTS'), ('actions', 'COOKING ACTIONS'), ('cookware', 'COOKWARES'), ('utensils', 'UTENSILS')] %}
-            {% set cat = entities[key] %}
-            <div class="entity-group">
-              <span class="entity-category-label">{{ label }}</span>
-              <div class="chips-wrapper">
-                {% for item in cat.shared %}
-                  <span class="entity-chip chip-gold" data-type="shared">{{ item }}</span>
-                {% endfor %}
-                {% for item in cat.source_unique %}
-                  <span class="entity-chip chip-maroon" data-type="source">{{ item }}</span>
-                {% endfor %}
-                {% for item in cat.target_unique %}
-                  <span class="entity-chip chip-green" data-type="target">{{ item }}</span>
-                {% endfor %}
+          <!-- ---------- RECIPE BREAKDOWN ---------- -->
+          <div class="rt-panel" id="rt-panel-recipe" role="tabpanel" aria-labelledby="rt-tab-recipe">
+            <div class="entities-card">
+              <p class="rt-intro">The ingredients, cooking actions and tools pulled from both recipes. Click any of them to see every dish that has it.</p>
+
+              <!-- Category filter buttons -->
+              <div class="entity-filters">
+                <label class="filter-pill pill-all">
+                  <input type="radio" name="entity_filter" value="all" checked hidden>
+                  <span>All</span>
+                </label>
+                <label class="filter-pill pill-shared">
+                  <input type="radio" name="entity_filter" value="shared" hidden>
+                  <span>Shared</span>
+                </label>
+                <label class="filter-pill pill-pho">
+                  <input type="radio" name="entity_filter" value="source" hidden>
+                  <span>{{ source_dish.title }}</span>
+                </label>
+                <label class="filter-pill pill-batchoy">
+                  <input type="radio" name="entity_filter" value="target" hidden>
+                  <span>{% if recommended_dish %}{{ recommended_dish.title }}{% else %}{{ country_label(target_country) }} dish{% endif %}</span>
+                </label>
               </div>
-            </div>
-          {% endfor %}
 
-        </div>
-      </div>
-    </section>
-
-    <!-- ==================================
-         SECTION 3: SIMILARITY SUMMARY
-         ================================== -->
-    <section class="section-light similarity-section" id="sim-summary">
-      <div class="inner-content">
-        <h2 class="section-heading dark-text">SIMILARITY SUMMARY</h2>
-        <div class="heading-rule"></div>
-
-        <div class="similarity-metrics-grid">
-          <!-- Donut: overall similarity -->
-          <div class="donut-box">
-            <div class="donut-chart" style="--percent: {{ score }};">
-              <div class="donut-center">
-                <span class="donut-percentage">{{ score }}%</span>
-              </div>
-            </div>
-            <span class="donut-label">OVERALL SIMILARITY SCORE</span>
-          </div>
-
-          <!-- Score per category from softmatch.py (these make up the overall score) -->
-          <div class="sim-bars">
-            {% for label, key in [('INGREDIENT SIMILARITY', 'ingredients'), ('COOKING ACTION SIMILARITY', 'actions'), ('UTENSIL SIMILARITY', 'utensils'), ('COOKWARE SIMILARITY', 'cookware')] %}
-              {% if feature_scores is defined and key in feature_scores %}
-                {% set pct = [ [ (feature_scores[key] * 100) | round | int, 0 ] | max, 100 ] | min %}
-              {% else %}
-                {% set pct = overlap_pct(entities[key]) | trim | int %}
-              {% endif %}
-              <div class="sim-bar">
-                <div class="sim-bar-info">
-                  <span>{{ label }}</span>
-                  <span>{{ pct }}%</span>
-                </div>
-                <div class="sim-bar-track"><div class="sim-bar-fill" style="--pct: {{ pct }};"></div></div>
-              </div>
-            {% endfor %}
-          </div>
-        </div>
-
-        <!-- GPT explanation card (from explainer.py) -->
-        <div class="quote-card">
-          <span class="quote-icon" aria-hidden="true">&ldquo;&rdquo;</span>
-          <p class="quote-text">
-            {% if explanation %}{{ explanation }}{% else %}No similarity explanation is available because no matching dish was found for this search.{% endif %}
-          </p>
-          <div class="quote-footer">
-            {% if explanation_source == 'ai' %}
-            <span class="badge-mini">AI EXPLANATION</span>
-            <span class="footer-note">Generated by GPT-4o</span>
-            {% else %}
-            <span class="badge-mini">SUMMARY</span>
-            <span class="footer-note">GPT unavailable. Showing a grounded template explanation.</span>
-            {% endif %}
-          </div>
-        </div>
-
-      </div>
-    </section>
-
-
-<!-- ==================================
-     SECTION 3: GEOGRAPHICAL DISTRIBUTION
-     ================================== -->
-<section class="section-dark geo-map-section" id="geo-distribution">
-  <div class="inner-content">
-    <div class="geo-map-header">
-      <div class="header-text-group">
-        <h2 class="section-heading">OTHER SIMILAR CUISINES</h2>
-        <p class="section-subheading">
-         Mapping regional recipe variations and international counterparts based on ingredient and cooking similarity.
-        </p>
-      </div>
-    </div>
-
-    <!-- Map wrapper (the outer card) -->
-    <div class="map-pan-wrapper">
-      <div class="map-placeholder">
-        <!-- Map drawn by drawWorldMap() with d3, like the Analysis page. It fills this box
-             so the pins line up. Don't change the id/class, the pins use them. -->
-        <svg id="world-map-img" class="map-graphic" viewBox="0 0 1000 320" preserveAspectRatio="none"
-             role="img" aria-label="Map of Asia"></svg>
-
-        <!-- Pins go here -->
-        <div id="map-pins-layer"></div>
-      </div>
-
-      <!-- Bottom bar, opens the full-screen map -->
-      <button type="button" class="route-info-bar" id="openMapModal">
-        <div class="route-details">
-          <div class="route-text-group">
-            <span class="route-value">GEOGRAPHICAL DISTRIBUTION</span>
-          </div>
-        </div>
-        <div class="route-hint">
-          <span>Click to browse full map view &amp; similarity summaries</span>
-          <svg class="icon-arrow" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" aria-hidden="true">
-            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-          </svg>
-        </div>
-      </button>
-    </div>
-  </div>
-</section>
-<!-- ==================================
-     FULL-SCREEN MAP MODAL OVERLAY
-     ================================== -->
-<div class="map-modal-overlay" id="mapModal">
-  <div class="map-modal-container">
-    
-    <!-- LEFT SIDEBAR (can be collapsed) -->
-    <aside class="map-panel-left" id="mapSidebar">
-      <button type="button" class="btn-toggle-sidebar" id="toggleSidebar" aria-label="Toggle Panel" aria-controls="mapSidebar" aria-expanded="true">
-        <svg class="chevron-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <polyline points="15 18 9 12 15 6"></polyline>
-        </svg>
-      </button>
-
-      <div class="panel-inner-scroll">
-        <!-- Dish card -->
-        <div class="panel-dish-card">
-          <div class="panel-img-wrapper">
-            <img id="modalDishImg" src="" alt="Selected Dish">
-            <span class="panel-img-badge" id="modalDishLocation"></span>
-          </div>
-
-          <div class="panel-dish-header">
-            <div class="title-row">
-              <h3 id="modalDishTitle"></h3>
-              <a href="#" target="_blank" class="btn-mini-link" id="modalRecipeLink" style="display: none;">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg>
-                LINK
-              </a>
-            </div>
-            <i><b><p class="panel-region-sub" id="modalDishAlt"></p></b></i>
-            <p class="panel-region-sub" id="modalDishRegion"></p>
-          </div>
-        </div>
-
-        <!-- Tabs -->
-        <div class="panel-tabs">
-          <button type="button" class="tab-btn active" data-tab="recipe">RECIPE BREAKDOWN</button>
-          <button type="button" class="tab-btn" data-tab="similarity">SIMILARITY SUMMARY</button>
-        </div>
-
-        <!-- TAB 1: RECIPE BREAKDOWN -->
-        <div class="tab-content active" id="tab-recipe">
-          <div class="panel-card">
-            <div class="panel-legend">
-              <span class="legend-chip gold-dot"><span class="shared-entity">Shared Entities</span></span>
-              <span class="legend-chip maroon-dot"><span id="modalSourceDishLabel"></span></span>
-              <span class="legend-chip green-dot"><span class="active-dish-name"></span></span>
-            </div>
-
-            <div class="panel-entity-section">
-              <span class="entity-title">INGREDIENTS</span>
-              <div class="chips-wrapper" id="modalIngredients"></div>
-            </div>
-
-            <div class="panel-entity-section">
-              <span class="entity-title">COOKING ACTIONS</span>
-              <div class="chips-wrapper" id="modalActions"></div>
-            </div>
-
-            <div class="panel-entity-section">
-              <span class="entity-title">COOKWARES</span>
-              <div class="chips-wrapper" id="modalCookware"></div>
-            </div>
-
-            <div class="panel-entity-section">
-              <span class="entity-title">UTENSILS</span>
-              <div class="chips-wrapper" id="modalUtensils"></div>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- TAB 2: SIMILARITY SUMMARY (same as the results page, updated per dish) -->
-        <div class="tab-content" id="tab-similarity">
-          <div class="origin-note" id="modalOriginNote"></div>
-
-          <div class="panel-card">
-            <div class="donut-box">
-              <div class="donut-chart" id="modalDonut" style="--percent: {{ score }};">
-                <div class="donut-center">
-                  <span class="donut-percentage" id="modalOverallScore">{{ score }}%</span>
-                </div>
-              </div>
-              <span class="donut-label">OVERALL SIMILARITY SCORE</span>
-            </div>
-
-            <div class="sim-bars" id="modalSimBars">
-              {% for label, key in [('INGREDIENT SIMILARITY', 'ingredients'), ('COOKING ACTION SIMILARITY', 'actions'), ('UTENSIL SIMILARITY', 'utensils'), ('COOKWARE SIMILARITY', 'cookware')] %}
-                {% set pct = overlap_pct(entities[key]) | trim | int %}
-                <div class="sim-bar" data-key="{{ key }}">
-                  <div class="sim-bar-info">
-                    <span>{{ label }}</span>
-                    <span class="sim-bar-value">{{ pct }}%</span>
+              <!-- Gold = shared, maroon = only in the searched dish, green = only in the recommended dish.
+                   Each chip opens the Dish Dictionary filtered to that ingredient / action / tool. -->
+              {% for key, label, param in [('ingredients', 'INGREDIENTS', 'ingredient'), ('actions', 'COOKING ACTIONS', 'action'), ('cookware', 'COOKWARES', 'cookware'), ('utensils', 'UTENSILS', 'utensil')] %}
+                {% set cat = entities[key] %}
+                <div class="entity-group">
+                  <span class="entity-category-label">{{ label }}</span>
+                  <div class="chips-wrapper">
+                    {% for item in cat.shared %}
+                      <a class="entity-chip chip-gold" data-type="shared" href="{{ url_for('dictionary', **{param: item | lower}) }}" title="See every dish with {{ item | lower }}">{{ item }}</a>
+                    {% endfor %}
+                    {% for item in cat.source_unique %}
+                      <a class="entity-chip chip-maroon" data-type="source" href="{{ url_for('dictionary', **{param: item | lower}) }}" title="See every dish with {{ item | lower }}">{{ item }}</a>
+                    {% endfor %}
+                    {% for item in cat.target_unique %}
+                      <a class="entity-chip chip-green" data-type="target" href="{{ url_for('dictionary', **{param: item | lower}) }}" title="See every dish with {{ item | lower }}">{{ item }}</a>
+                    {% endfor %}
+                    {% if not (cat.shared or cat.source_unique or cat.target_unique) %}<span class="entity-empty">None listed.</span>{% endif %}
                   </div>
-                  <div class="sim-bar-track"><div class="sim-bar-fill" style="--pct: {{ pct }};"></div></div>
                 </div>
               {% endfor %}
             </div>
           </div>
 
-          <div class="quote-card modal-quote">
-            <span class="quote-icon" aria-hidden="true">&ldquo;</span>
-            <p class="quote-text" id="modalExplanation"></p>
-            <div class="quote-footer">
-              <span class="badge-mini" id="modalExplBadge">AI EXPLANATION</span>
-              <span class="footer-note" id="modalExplNote"></span>
+          <!-- ---------- SIMILARITY SUMMARY ---------- -->
+          <div class="rt-panel similarity-section" id="rt-panel-similarity" role="tabpanel" aria-labelledby="rt-tab-similarity" hidden>
+            <div class="similarity-metrics-grid">
+              <!-- Donut: overall similarity -->
+              <div class="donut-box">
+                <div class="donut-chart" style="--percent: {{ score }};">
+                  <div class="donut-center">
+                    <span class="donut-percentage">{{ score }}%</span>
+                  </div>
+                </div>
+                <span class="donut-label">Overall similarity score</span>
+              </div>
+
+              <!-- Score per category from softmatch.py (these make up the overall score) -->
+              <div class="sim-bars">
+                {% for label, key in [('Ingredient similarity', 'ingredients'), ('Cooking action similarity', 'actions'), ('Utensil similarity', 'utensils'), ('Cookware similarity', 'cookware')] %}
+                  {% if feature_scores is defined and key in feature_scores %}
+                    {% set pct = [ [ (feature_scores[key] * 100) | round | int, 0 ] | max, 100 ] | min %}
+                  {% else %}
+                    {% set pct = overlap_pct(entities[key]) | trim | int %}
+                  {% endif %}
+                  <div class="sim-bar">
+                    <div class="sim-bar-info">
+                      <span>{{ label }}</span>
+                      <span>{{ pct }}%</span>
+                    </div>
+                    <div class="sim-bar-track"><div class="sim-bar-fill" style="--pct: {{ pct }};"></div></div>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+
+            <!-- GPT explanation card (from explainer.py) -->
+            <div class="quote-card">
+              <span class="quote-icon" aria-hidden="true">&ldquo;&rdquo;</span>
+              <p class="quote-text">
+                {% if explanation %}{{ explanation }}{% else %}No similarity explanation is available because no matching dish was found for this search.{% endif %}
+              </p>
+              <div class="quote-footer">
+                {% if explanation_source == 'ai' %}
+                <span class="badge-mini">AI explanation</span>
+                <span class="footer-note">Generated by GPT-4o</span>
+                {% else %}
+                <span class="badge-mini">Summary</span>
+                <span class="footer-note">GPT unavailable. Showing a grounded template explanation.</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <!-- ---------- CULTURAL & HISTORY ---------- -->
+          <div class="rt-panel" id="rt-panel-culture" role="tabpanel" aria-labelledby="rt-tab-culture" hidden>
+            <div class="rt-columns">
+              {% for dish in [source_dish, recommended_dish] if dish %}
+              <article class="rt-column" data-idx="{{ dish.idx }}" data-part="culture">
+                <span class="rt-eyebrow">{{ 'Your dish' if loop.first else 'Most similar dish' }} &middot; {{ country_label(dish.country) }}</span>
+                <h3 class="rt-dish-name">{{ dish.title }}</h3>
+                <div class="rt-column-body"><p class="rt-loading">Loading cultural information&hellip;</p></div>
+              </article>
+              {% endfor %}
+            </div>
+            <div class="rt-connection">
+              <h4 class="rt-connection-title">CULTURAL CONNECTION</h4>
+              <p class="rt-connection-sub">{{ connection.title }} &middot; {{ connection.subtitle }}</p>
+              {% for p in connection.paragraphs %}<p>{{ p }}</p>{% endfor %}
+              <div class="quote-footer">
+                <span class="badge-mini">{{ 'AI-generated' if connection.source == 'ai' else 'Template preview' }}</span>
+                <span class="footer-note">{% if connection.source == 'ai' %}Written by GPT from a prompt. Verify before citing.{% else %}This section will be generated by AI from a prompt. Showing a template built from the dataset for now.{% endif %}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- ---------- HEALTH INFO ---------- -->
+          <div class="rt-panel" id="rt-panel-health" role="tabpanel" aria-labelledby="rt-tab-health" hidden>
+            <div class="rt-columns rt-columns--split">
+              {% for dish in [source_dish, recommended_dish] if dish %}
+              <article class="rt-column" data-idx="{{ dish.idx }}" data-part="health">
+                <span class="rt-eyebrow">{{ 'Your dish' if loop.first else 'Most similar dish' }} &middot; {{ country_label(dish.country) }}</span>
+                <h3 class="rt-dish-name">{{ dish.title }}</h3>
+                <div class="rt-column-body"><p class="rt-loading">Loading health information&hellip;</p></div>
+              </article>
+              {% endfor %}
+            </div>
+            <div class="quote-footer rt-health-note">
+              <span class="badge-mini">Template preview</span>
+              <span class="footer-note">Nutrition values will come from a nutrition API. For now each row shows which ingredients add to it. Filled allergen tags are in the dish; click any allergen to see dishes without it. Allergens are found from the listed ingredients only; always check the full recipe and product labels.</span>
             </div>
           </div>
         </div>
-
       </div>
-    </aside>
+    </section>
 
+    <!-- Culture, history, health notes and allergens for both dishes (cultural_info.py), plus the tabs -->
+    <script>
+      (() => {
+        const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-    <!-- RIGHT SIDE: MAP -->
-    <main class="map-canvas-right">
-      <div class="map-filter-bar" role="group" aria-label="Map layers">
-        <button type="button" class="map-filter-pill map-filter-pill--main active" data-layer="main" role="switch" aria-checked="true">
-          <span class="pill-switch" aria-hidden="true"></span>
-          <span class="pill-label">MAIN DISH</span>
-        </button>
-        <button type="button" class="map-filter-pill map-filter-pill--regional active" data-layer="regional" role="switch" aria-checked="true">
-          <span class="pill-switch" aria-hidden="true"></span>
-          <span class="pill-label">REGIONAL SIMILARITIES</span>
-        </button>
-        <button type="button" class="map-filter-pill map-filter-pill--international active" data-layer="international" role="switch" aria-checked="true">
-          <span class="pill-switch" aria-hidden="true"></span>
-          <span class="pill-label">INTERNATIONAL SIMILARITIES</span>
-        </button>
+        // ---------- tabs ----------
+        const card = document.getElementById('rt-card');
+        const tabs = Array.from(document.querySelectorAll('.rt-tab'));
+        const navHeight = () => parseInt(getComputedStyle(document.documentElement).getPropertyValue('--nav-h'), 10) || 56;
+
+        function openTab(name, focus) {
+          tabs.forEach(t => {
+            const on = t.dataset.tab === name;
+            t.classList.toggle('is-active', on);
+            t.setAttribute('aria-selected', String(on));
+            t.tabIndex = on ? 0 : -1;
+            document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+            if (on && focus) t.focus();
+            // Phones: the tab bar scrolls sideways, so bring the open tab into view
+            if (on) {
+              const bar = t.parentElement;
+              bar.scrollLeft = t.offsetLeft - (bar.clientWidth - t.offsetWidth) / 2;
+            }
+          });
+          history.replaceState(null, '', `${location.pathname}${location.search}#${name}`);
+          // If the bar is stuck at the top, start the new tab from its beginning
+          const top = card.getBoundingClientRect().top;
+          if (top < navHeight()) window.scrollTo({ top: window.scrollY + top - navHeight(), behavior: 'smooth' });
+        }
+        tabs.forEach((t, i) => {
+          t.addEventListener('click', () => openTab(t.dataset.tab));
+          t.addEventListener('keydown', (e) => {
+            if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+            e.preventDefault();
+            const next = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+            openTab(next.dataset.tab, true);
+          });
+        });
+        const startTab = location.hash.slice(1);
+        if (tabs.some(t => t.dataset.tab === startTab)) openTab(startTab);
+
+        // Shadow on the tab bar while it is stuck under the navbar
+        const sentinel = document.getElementById('rt-sentinel');
+        if ('IntersectionObserver' in window && sentinel) {
+          new IntersectionObserver(([entry]) => {
+            document.getElementById('rt-tabs').classList.toggle('is-stuck',
+              !entry.isIntersecting && entry.boundingClientRect.top < navHeight() + 1);
+          }, { rootMargin: `-${navHeight() + 1}px 0px 0px 0px` }).observe(sentinel);
+        }
+
+        // ---------- culture + health for both dishes ----------
+        const tagLink = (t, extra = '') => `<a class="tag-chip ${extra}" href="/dictionary?tag=${encodeURIComponent(t)}">${esc(t)}</a>`;
+
+        function cultureHtml(info) {
+          const badge = info.source === 'ai'
+            ? '<span class="badge-mini">AI-generated</span><span class="footer-note">By GPT. Verify before citing.</span>'
+            : '<span class="badge-mini">Summary</span><span class="footer-note">Built from the dataset (GPT unavailable).</span>';
+          const adminNote = info.admin_fields.length ? `<span class="footer-note">${esc(info.admin_fields.join(' and '))} notes added by the CuiSync admin.</span>` : '';
+          return `
+            <h4>Culture</h4><p>${esc(info.culture)}</p>
+            <h4>History</h4><p>${esc(info.history)}</p>
+            <div class="quote-footer">${badge}${adminNote}</div>`;
+        }
+
+        function healthHtml(info) {
+          const rows = ((info.nutrition && info.nutrition.rows) || []).map(r => `
+            <li class="rt-nutrient">
+              <strong>${esc(r.name)}</strong>
+              <span>${r.value ? esc(r.value) : 'Value pending (nutrition API)'}${r.from && r.from.length ? ` &mdash; from ${esc(r.from.join(', '))}` : ''}</span>
+            </li>`).join('');
+          const notes = info.health.length
+            ? info.health.map(h => `<li>${esc(h)}</li>`).join('')
+            : '<li>No nutrition notes for these ingredients yet.</li>';
+          // Every allergen group as a tag: filled = in this dish, outlined = not.
+          // Each one opens the Dish Dictionary with the dishes that are free from it.
+          const found = new Map(info.allergens.map(a => [a.name, a]));
+          const groups = info.allergen_groups || info.allergens.map(a => a.name);
+          const allergenTags = groups.map(name => {
+            const a = found.get(name);
+            const cls = 'rt-allergen' + (a ? ' is-present' : '') + (a && a.avoid ? ' is-avoid' : '');
+            const title = a
+              ? `In this dish (from ${a.from.join(', ')})${a.avoid ? '. On your avoid list.' : ''} Click to see dishes without ${name}.`
+              : `Not in this dish. Click to see every dish without ${name}.`;
+            return `<li><a class="${cls}" href="/dictionary?xallergen=${encodeURIComponent(name)}" title="${esc(title)}">${esc(name)}</a></li>`;
+          }).join('');
+          const fromLine = info.allergens.length
+            ? `<p class="rt-allergen-from">${info.allergens.map(a => `<strong>${esc(a.name)}</strong> from ${esc(a.from.join(', '))}${a.avoid ? ' (on your avoid list)' : ''}`).join(' &middot; ')}</p>`
+            : '<p class="rt-allergen-from">None of these were found in the listed ingredients.</p>';
+          return `
+            <ul class="rt-nutrients">${rows}</ul>
+            <h4>Ingredient notes</h4><ul class="health-list">${notes}</ul>
+            <h4>Allergens</h4><ul class="rt-allergens">${allergenTags}</ul>${fromLine}`;
+        }
+
+        const byIdx = {};
+        document.querySelectorAll('.rt-column[data-idx]').forEach(col => {
+          (byIdx[col.dataset.idx] = byIdx[col.dataset.idx] || []).push(col);
+        });
+        Object.entries(byIdx).forEach(([idx, cols]) => {
+          fetch('/api/dish-info/' + idx)
+            .then(r => r.json())
+            .then(info => cols.forEach(col => {
+              col.querySelector('.rt-column-body').innerHTML =
+                col.dataset.part === 'culture' ? cultureHtml(info) : healthHtml(info);
+            }))
+            .catch(() => cols.forEach(col => {
+              col.querySelector('.rt-column-body').innerHTML = '<p>This information is not available right now.</p>';
+            }));
+        });
+      })();
+    </script>
+
+    <!-- ==================================
+         INTERACTIVE MAP: the most similar dishes (pins open their comparison),
+         with the top 10 in the side panel
+         ================================== -->
+    {% set mp = map_data %}
+    <section class="section-dark rmap-section" id="similar-map">
+      <div class="inner-content">
+        <h2 class="section-heading">Geographical distribution</h2>
+        <p class="rmap-intro">
+          {% if mp.target %}The 5 most similar dishes from {{ mp.target }} and the 15 most similar from other countries.
+          {% else %}The 20 most similar dishes from any country.{% endif %}
+          Click a dish to compare it with {{ source_dish.title }}.
+          <span class="rmap-hint">Drag to move the map; zoom with the + and &minus; buttons, Ctrl + scroll or a pinch.</span>
+        </p>
+
+        <div class="rmap" id="rmap">
+          <!-- Side panel: the top 10 (collapsible on bigger screens) -->
+          <aside class="rmap-side" id="rmap-side" aria-labelledby="rmap-list-title">
+            <button type="button" class="rmap-toggle" id="rmap-toggle" aria-expanded="true" aria-controls="rmap-side" aria-label="Hide the top 10 list">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+            </button>
+            <div class="rmap-panel">
+              <h3 class="rmap-list-title" id="rmap-list-title">Top {{ mp.listSize }} similar dishes</h3>
+              <ol class="rmap-list">
+                {% for d in mp.dishes if d.rank and d.rank <= mp.listSize %}
+                <li>
+                  <a class="rmap-item {{ 'is-current' if d.current }}" href="{{ d.url }}"
+                     {% if d.current %}aria-current="page"{% endif %}
+                     title="{{ 'You are viewing this comparison' if d.current else 'Compare with ' ~ d.title }}">
+                    <span class="rmap-item-rank">{{ d.rank }}</span>
+                    <img src="{{ d.image or url_for('static', filename='assets/no-image.svg') }}" alt="" loading="lazy" referrerpolicy="no-referrer"
+                         onerror="this.onerror=null;this.src='{{ url_for('static', filename='assets/no-image.svg') }}'">
+                    <span class="rmap-item-text">
+                      <span class="rmap-item-title">{{ d.title }}</span>
+                      <span class="rmap-item-meta">{{ d.label }}{% if d.current %} &middot; Viewing{% endif %}</span>
+                    </span>
+                    <span class="rmap-item-score">{{ d.score }}%</span>
+                  </a>
+                </li>
+                {% endfor %}
+              </ol>
+            </div>
+          </aside>
+
+          <div class="rmap-stage">
+          <div class="rmap-map" id="rmap-map">
+            <svg class="rmap-svg" id="rmap-svg" role="img" aria-label="Map of the most similar dishes"><g id="rmap-g"></g></svg>
+            <div class="rmap-pins" id="rmap-pins"></div>
+            <div class="rmap-tooltip" id="rmap-tooltip" hidden></div>
+          </div>
+
+          <div class="rmap-zoom" role="group" aria-label="Map controls">
+            <button type="button" id="rmap-focus" class="rmap-focus" aria-label="Focus on your dish" title="Focus on {{ source_dish.title }}">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+            </button>
+            <button type="button" id="rmap-zoom-in" aria-label="Zoom in">+</button>
+            <button type="button" id="rmap-zoom-out" aria-label="Zoom out">&minus;</button>
+            <button type="button" id="rmap-zoom-reset" class="rmap-zoom-reset" aria-label="Reset the map">Reset</button>
+          </div>
+          <div class="rmap-legend">
+            <span><i class="sw sw-origin"></i>{{ mp.source.label }} (your dish)</span>
+            {% if mp.target %}<span><i class="sw sw-target"></i>{{ mp.target }} (target)</span>{% endif %}
+            <span><i class="sw sw-other"></i>Other countries</span>
+          </div>
+          </div>
+        </div>
       </div>
-
-      <button type="button" class="btn-exit-map" id="closeMapModal">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
-        </svg>
-        <span>EXIT FULL SCREEN MAP</span>
-      </button>
-
-      <div class="modal-map-viewport" id="modalMapBody"></div>
-
-      <div class="map-zoom-controls">
-        <button type="button" class="map-zoom-btn" id="mapZoomIn" aria-label="Zoom in">+</button>
-        <button type="button" class="map-zoom-btn" id="mapZoomOut" aria-label="Zoom out">&minus;</button>
-        <button type="button" class="map-zoom-btn map-zoom-reset" id="mapZoomReset" aria-label="Reset zoom">RESET</button>
-      </div>
-    </main>
-
-  </div>
-</div>
-
+    </section>
+    <script type="application/json" id="rmap-data">{{ mp | tojson }}</script>
   </main>
 
   <app-footer></app-footer>
@@ -470,6 +498,7 @@
   <script src="{{ url_for('static', filename='scripts/components.js') }}"></script>
   <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+  <script src="{{ url_for('static', filename='scripts/results-map.js') }}"></script>
 
   <!-- ==================================
        EXTRACTED ENTITIES FILTERING
@@ -500,1049 +529,5 @@
     });
   </script>
 
-<script>
-  // Placeholder for dishes with no image or a broken image link
-  const NO_IMAGE_SRC = "{{ url_for('static', filename='assets/no-image.svg') }}";
-  function setDishImage(img, link) {
-    img.onerror = () => { img.onerror = null; img.src = NO_IMAGE_SRC; };
-    img.src = link || NO_IMAGE_SRC;
-  }
-</script>
-
-<script type="application/json" id="map-data">
-  {{ {
-    "sourceDish": source_dish,
-    "recommendedDish": recommended_dish,
-    "entities": entities,
-    "similarityScore": similarity_score,
-    "featureScores": feature_scores | default({}),
-    "regionalVariations": regional_variations,
-    "internationalSimilarities": international_similarities
-  } | tojson }}
-</script>
-
-<script>
-  const MAP_DATA = JSON.parse(document.getElementById('map-data').textContent);
-
-  document.addEventListener('DOMContentLoaded', () => {
-    // Elements
-    const openBtn = document.getElementById('openMapModal');
-    const closeBtn = document.getElementById('closeMapModal');
-    const modal = document.getElementById('mapModal');
-    const toggleSidebarBtn = document.getElementById('toggleSidebar');
-    const sidebar = document.getElementById('mapSidebar');
-
-    // Open or close the map panel (the arrow follows the .collapsed class)
-    function setSidebarOpen(open) {
-      if (!sidebar) return;
-      sidebar.classList.toggle('collapsed', !open);
-      if (toggleSidebarBtn) toggleSidebarBtn.setAttribute('aria-expanded', String(open));
-    }
-    const modalMapBody = document.getElementById('modalMapBody');
-    const mapPanWrapper = document.querySelector('.map-pan-wrapper');
-    const originalMapPlaceholder = document.querySelector('.map-pan-wrapper .map-placeholder');
-    // Default dish to show first
-    const activeDish = MAP_DATA.recommendedDish || MAP_DATA.sourceDish || {};
-
-    // True during a pinch (and a bit after), so lifting a finger off a pin isn't a tap
-    let suppressPinClick = false;
-
-    // Make the chip HTML for an entity list (escaped)
-    function escapeHtml(value) {
-      return String(value).replace(/[&<>"']/g, ch => (
-        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
-      ));
-    }
-
-    function createChips(items, chipClass) {
-      if (!Array.isArray(items) || !items.length) return '';
-      return items.map(item => `<span class="entity-chip ${chipClass}">${escapeHtml(item)}</span>`).join('');
-    }
-
-    // ----------------------------------------------------------------
-    // COMPARISON DATA FOR EACH DISH
-    // The main dish uses the entities from the server. Other pins use
-    // dish.entities if the server sent it, otherwise it's computed here
-    // from the dish's own entity lists.
-    // ----------------------------------------------------------------
-    const ENTITY_FIELDS = {
-      ingredients: ['ingredients', 'ingredient_text', 'ingredient_list'],
-      actions: ['actions', 'action_text', 'actions_text', 'cooking_actions', 'cooking_action_text'],
-      cookware: ['cookware', 'cookware_text'],
-      utensils: ['utensils', 'utensil_text', 'utensils_text']
-    };
-
-    function toEntityList(value) {
-      if (Array.isArray(value)) {
-        return value.map(v => String(v).trim()).filter(Boolean);
-      }
-      if (typeof value === 'string') {
-        return value.split(/[,;|\n]/).map(v => v.trim()).filter(Boolean);
-      }
-      return [];
-    }
-
-    function readDishList(dish, key) {
-      if (!dish) return null;
-      for (const field of ENTITY_FIELDS[key]) {
-        if (dish[field] !== undefined && dish[field] !== null) {
-          const list = toEntityList(dish[field]);
-          if (list.length) return list;
-        }
-      }
-      return null;
-    }
-
-    function compareLists(sourceList, targetList) {
-      const norm = s => s.trim().toLowerCase();
-      const targetByKey = new Map(targetList.map(x => [norm(x), x]));
-      const sourceKeys = new Set(sourceList.map(norm));
-      const result = { shared: [], source_unique: [], target_unique: [] };
-      const seen = new Set();
-
-      sourceList.forEach(item => {
-        const k = norm(item);
-        if (seen.has(k)) return;
-        seen.add(k);
-        (targetByKey.has(k) ? result.shared : result.source_unique).push(item);
-      });
-      targetByKey.forEach((item, k) => {
-        if (!sourceKeys.has(k)) result.target_unique.push(item);
-      });
-      return result;
-    }
-
-    // Returns {ingredients, actions, cookware, utensils} (null if a category has no data), or null if none
-    function getEntitiesFor(dish) {
-      if (!dish) return null;
-
-      // Original dish: nothing to compare, so show everything in the source color
-      if (dish === MAP_DATA.sourceDish) {
-        if (!MAP_DATA.entities) return null;
-        const own = {};
-        Object.keys(ENTITY_FIELDS).forEach(key => {
-          const cat = MAP_DATA.entities[key];
-          own[key] = cat
-            ? { shared: [], source_unique: [...(cat.shared || []), ...(cat.source_unique || [])], target_unique: [] }
-            : null;
-        });
-        return own;
-      }
-      if (dish === MAP_DATA.recommendedDish && MAP_DATA.entities) return MAP_DATA.entities;
-      if (dish.entities && typeof dish.entities === 'object') return dish.entities;
-
-      const out = {};
-      let found = false;
-      Object.keys(ENTITY_FIELDS).forEach(key => {
-        const a = readDishList(MAP_DATA.sourceDish, key);
-        const b = readDishList(dish, key);
-        if (a && b) {
-          out[key] = compareLists(a, b);
-          found = true;
-        } else {
-          out[key] = null;
-        }
-      });
-      return found ? out : null;
-    }
-
-    // shared / (shared + only source + only target), as a whole percent
-    function overlapPercent(cat) {
-      if (!cat) return null;
-      const shared = (cat.shared || []).length;
-      const total = shared + (cat.source_unique || []).length + (cat.target_unique || []).length;
-      return total ? Math.round((shared * 100) / total) : 0;
-    }
-
-    function getDishScore(dish) {
-      const raw = (dish === MAP_DATA.recommendedDish) ? MAP_DATA.similarityScore : dish && dish.score;
-      const n = Number(raw);
-      if (raw === null || raw === undefined || raw === '' || Number.isNaN(n)) return null;
-      return Math.min(Math.max(Math.round(n), 0), 100);
-    }
-
-    function joinNatural(list) {
-      const items = list.map(escapeHtml);
-      if (items.length <= 1) return items.join('');
-      return items.slice(0, -1).join(', ') + ' and ' + items[items.length - 1];
-    }
-
-    // Same GPT text as the results page, for the main dish
-    const pageQuote = document.querySelector('.similarity-section .quote-text');
-    const pageQuoteNote = document.querySelector('.similarity-section .footer-note');
-    const MAIN_EXPLANATION_HTML = pageQuote ? pageQuote.innerHTML : '';
-    const MAIN_EXPLANATION_NOTE = pageQuoteNote ? pageQuoteNote.textContent : '';
-    const pageQuoteBadge = document.querySelector('.similarity-section .badge-mini');
-    const MAIN_EXPLANATION_BADGE = pageQuoteBadge ? pageQuoteBadge.textContent : 'AI EXPLANATION';
-
-    function buildExplanation(dish, entities, score) {
-      const src = escapeHtml((MAP_DATA.sourceDish && MAP_DATA.sourceDish.title) || 'The source dish');
-      const tgt = escapeHtml(dish.title || 'this dish');
-      if (!entities) {
-        return `A detailed comparison between <strong>${src}</strong> and <strong>${tgt}</strong> isn't available yet.`;
-      }
-      const parts = [];
-      const sharedIng = (entities.ingredients && entities.ingredients.shared) || [];
-      const sharedAct = (entities.actions && entities.actions.shared) || [];
-      const sharedTools = [
-        ...((entities.cookware && entities.cookware.shared) || []),
-        ...((entities.utensils && entities.utensils.shared) || [])
-      ];
-      if (sharedIng.length) {
-        parts.push(`Both use ${joinNatural(sharedIng.slice(0, 5))}.`);
-      }
-      if (sharedAct.length) {
-        parts.push(`They share the cooking steps ${joinNatural(sharedAct.slice(0, 4).map(s => s.toLowerCase()))}.`);
-      }
-      if (sharedTools.length) {
-        parts.push(`Common tools include ${joinNatural(sharedTools.slice(0, 4).map(s => s.toLowerCase()))}.`);
-      }
-      if (!parts.length) {
-        parts.push('They have very little in common in their extracted ingredients, steps and tools.');
-      }
-      const lead = score === null ? '' : ` are ${score}% similar overall.`;
-      return `<strong>${src}</strong> and <strong>${tgt}</strong>${lead || ' compared.'} ${parts.join(' ')}`;
-    }
-
-    // GPT text for the other pins, from /api/explain-pin when clicked, then saved for the visit
-    const PIN_EXPL_CACHE = new Map();   // recipe idx -> { explanation, source }
-    let pinExplToken = 0;               // so a late answer is ignored if another pin was clicked
-
-    function showExplanation(elem, html, text, badge, note, loading) {
-      // Put the text in the explanation card of the Similarity tab
-      const targets = [
-        [elem, 'modalExplBadge', 'modalExplNote']
-      ];
-      targets.forEach(([el, badgeId, noteId]) => {
-        if (!el) return;
-        if (html !== null) el.innerHTML = html; else el.textContent = text;   // never insert GPT text as HTML
-        el.style.opacity = loading ? '0.6' : '';
-        el.style.fontStyle = loading ? 'italic' : '';
-        const b = document.getElementById(badgeId);
-        const n = document.getElementById(noteId);
-        if (b) b.textContent = badge;
-        if (n) n.textContent = note;
-      });
-    }
-
-    function loadPinExplanation(dish, entities, score) {
-      const elem = document.getElementById('modalExplanation');
-      if (!elem) return;
-      const token = ++pinExplToken;
-      const srcIdx = MAP_DATA.sourceDish && MAP_DATA.sourceDish.idx;
-
-      const useTemplate = () => showExplanation(
-        elem, buildExplanation(dish, entities, score), null, 'SUMMARY',
-        'GPT unavailable. Showing a template summary of the shared ingredients, cooking steps and tools.', false);
-      const useAnswer = (data) => showExplanation(
-        elem, null, data.explanation,
-        data.source === 'ai' ? 'AI EXPLANATION' : 'SUMMARY',
-        data.source === 'ai' ? '' : 'GPT unavailable. Showing a grounded template explanation.', false);
-
-      if (dish.idx === undefined || srcIdx === undefined) { useTemplate(); return; }
-      if (PIN_EXPL_CACHE.has(dish.idx)) { useAnswer(PIN_EXPL_CACHE.get(dish.idx)); return; }
-
-      showExplanation(elem, null, 'Generating AI explanation\u2026', 'AI EXPLANATION', '', true);
-      fetch(`/api/explain-pin?source=${encodeURIComponent(srcIdx)}&idx=${encodeURIComponent(dish.idx)}`)
-        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-        .then(data => {
-          if (!data || !data.explanation) throw new Error('empty explanation');
-          PIN_EXPL_CACHE.set(dish.idx, data);
-          if (token === pinExplToken) useAnswer(data);      // ignore if the user already clicked another pin
-        })
-        .catch(() => { if (token === pinExplToken) useTemplate(); });
-    }
-
-    function renderSimilarity(dish, entities) {
-      pinExplToken++;   // older requests don't matter anymore
-      const isOrigin = dish === MAP_DATA.sourceDish;
-      const simTab = document.getElementById('tab-similarity');
-      if (simTab) simTab.classList.toggle('is-origin', isOrigin);
-      const originNote = document.getElementById('modalOriginNote');
-      if (originNote) {
-        const srcTitle = (MAP_DATA.sourceDish && MAP_DATA.sourceDish.title) || 'This dish';
-        const tgtTitle = (MAP_DATA.recommendedDish && MAP_DATA.recommendedDish.title) || 'the other dishes';
-        originNote.textContent = `${srcTitle} is the original dish, so there is nothing to compare it against. Select ${tgtTitle} or another pin to see how it compares.`;
-      }
-      if (isOrigin) return;
-
-      const score = getDishScore(dish);
-
-      const donut = document.getElementById('modalDonut');
-      const scoreElem = document.getElementById('modalOverallScore');
-      if (donut) donut.style.setProperty('--percent', score === null ? 0 : score);
-      if (scoreElem) scoreElem.textContent = score === null ? 'N/A' : `${score}%`;
-
-      // Main dish: the model's scores. Other pins: the overlap of their entity lists.
-      const isMain = dish === MAP_DATA.recommendedDish;
-      const featureScores = MAP_DATA.featureScores || {};
-      document.querySelectorAll('#modalSimBars .sim-bar').forEach(bar => {
-        const key = bar.getAttribute('data-key');
-        const pct = (isMain && typeof featureScores[key] === 'number')
-          ? Math.min(Math.max(Math.round(featureScores[key] * 100), 0), 100)
-          : overlapPercent(entities && entities[key]);
-        const fill = bar.querySelector('.sim-bar-fill');
-        const val = bar.querySelector('.sim-bar-value');
-        if (fill) fill.style.setProperty('--pct', pct === null ? 0 : pct);
-        if (val) val.textContent = pct === null ? 'N/A' : `${pct}%`;
-      });
-
-      // Main dish uses the results page text, other pins ask the server for their own
-      const explElem = document.getElementById('modalExplanation');
-      if (explElem) {
-        if (isMain && MAIN_EXPLANATION_HTML.trim()) {
-          showExplanation(explElem, MAIN_EXPLANATION_HTML, null, MAIN_EXPLANATION_BADGE, MAIN_EXPLANATION_NOTE, false);
-        } else {
-          loadPinExplanation(dish, entities, score);
-        }
-      }
-    }
-
-    // Fill the sidebar with the selected dish
-    function updateSidebarDish(dish) {
-      if (!dish || typeof dish !== 'object') return;
-
-      // Header
-      const titleElem = document.getElementById('modalDishTitle');
-      if (titleElem) titleElem.textContent = dish.title || 'Unknown Dish';
-
-      const locElem = document.getElementById('modalDishLocation');
-      if (locElem) locElem.textContent = `${dish.country_region || ''}, ${dish.country || ''}`;
-
-      const regSubElem = document.getElementById('modalDishAlt');
-      if (regSubElem) regSubElem.textContent = `${(dish.alternative_title || '')}`;
-
-      const regAltElem = document.getElementById('modalDishRegion');
-      if (regAltElem) regAltElem.textContent = `${(dish.region || 'UNKNOWN').toUpperCase()} REGION`;
-
-      // Dish image
-      const imgElem = document.getElementById('modalDishImg');
-      if (imgElem) {
-        // "No image" placeholder if there's no image or it fails to load
-        setDishImage(imgElem, dish.image_link);
-        imgElem.style.display = 'block';
-      }
-
-      // Recipe link
-      const linkElem = document.getElementById('modalRecipeLink');
-      if (linkElem) {
-        if (dish.recipe_link) {
-          linkElem.href = dish.recipe_link;
-          linkElem.style.display = 'inline-flex';
-        } else {
-          linkElem.style.display = 'none';
-        }
-        // "No recipe link available yet" if there's no link
-        let noLinkElem = document.getElementById('modalNoRecipeLink');
-        if (!noLinkElem) {
-          noLinkElem = document.createElement('span');
-          noLinkElem.id = 'modalNoRecipeLink';
-          noLinkElem.className = 'no-recipe-link';
-          noLinkElem.textContent = 'No recipe link available yet';
-          linkElem.insertAdjacentElement('afterend', noLinkElem);
-        }
-        noLinkElem.style.display = dish.recipe_link ? 'none' : '';
-      }
-
-      // Dish names in the legend
-      const activeNameElems = document.querySelectorAll('.active-dish-name');
-      activeNameElems.forEach(el => {
-        el.textContent = dish.title || '';
-      });
-
-      const sourceLabelElem = document.getElementById('modalSourceDishLabel');
-      if (sourceLabelElem) {
-        sourceLabelElem.textContent = (MAP_DATA.sourceDish && MAP_DATA.sourceDish.title) || '';
-      }
-
-      // Chips for one category. Gold = shared, maroon = only in the searched dish,
-      // green = only in this dish.
-      function renderEntityGroup(elementId, categoryData) {
-        const wrapper = document.getElementById(elementId);
-        if (!wrapper) return;
-        if (!categoryData) {
-          wrapper.innerHTML = '<span class="entity-empty">Not available for this dish.</span>';
-          return;
-        }
-        wrapper.innerHTML =
-          createChips(categoryData.shared, 'chip-gold') +
-          createChips(categoryData.source_unique, 'chip-maroon') +
-          createChips(categoryData.target_unique, 'chip-green');
-      }
-
-      // Breakdown and summary for this dish (not always the main one)
-      const entities = getEntitiesFor(dish);
-      const recipeTab = document.getElementById('tab-recipe');
-      if (recipeTab) recipeTab.classList.toggle('is-origin', dish === MAP_DATA.sourceDish);
-      renderEntityGroup('modalIngredients', entities && entities.ingredients);
-      renderEntityGroup('modalActions', entities && entities.actions);
-      renderEntityGroup('modalCookware', entities && entities.cookware);
-      renderEntityGroup('modalUtensils', entities && entities.utensils);
-      renderSimilarity(dish, entities);
-    }
-
-    // ==================================
-    // MAP PINS: main dish, top 3 regional and top 5 international dishes,
-    // placed randomly inside their country, with hover preview and click.
-    // ==================================
-    const mapSvg = document.getElementById('world-map-img');
-    const pinsLayer = document.getElementById('map-pins-layer');
-
-    // ----------------------------------
-    // WORLD MAP: real country shapes, like the Analysis page.
-    // The SVG is always the same pixel size as the box, so the pins line up with
-    // the countries. Each pin keeps its longitude/latitude and gets placed again
-    // when the box changes size (small preview <-> full screen).
-    // ----------------------------------
-    const WORLD_TOPOLOGY_URL =
-      'https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json'; // Natural Earth
-
-    // Map is zoomed to Asia (same as the Analysis page)
-    const ASIA_FRAME = {
-      type: 'MultiPoint',
-      coordinates: [[22, -12], [150, 56]]
-    };
-
-    // Land colors, the countries in the results get tinted
-    const MAP_COLORS = {
-      land: '#e4d9c6',
-      border: '#fbf6ec',
-      origin: '#800d12',
-      target: '#a32e32',
-      other: '#d9a98f'
-    };
-
-    let worldTopologyPromise = null;
-    let worldFeatures = null;            // all country shapes
-    let mapProjection = null;            // projection for the current box size
-    let mapWidth = 0;                    // box size in pixels (same as the SVG viewBox)
-    let mapHeight = 0;
-    const countryFeatures = new Map();   // normalized country name -> map shape
-    const placedPins = [];               // { pin, lonlat } for each pin
-
-    // Load the world shapes once and reuse them
-    function loadWorldTopology() {
-      if (!worldTopologyPromise) {
-        worldTopologyPromise = d3.json(WORLD_TOPOLOGY_URL).catch(error => {
-          worldTopologyPromise = null;   // allow a retry next time
-          throw error;
-        });
-      }
-      return worldTopologyPromise;
-    }
-
-    // Match dataset names (like "Turkiye") to the map's names ("Turkey")
-    function normalizeMapCountryName(name) {
-      const key = String(name || '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, ' ');
-
-      const aliases = {
-        'turkiye': 'turkey',
-        'korea': 'south korea',
-        'korea, south': 'south korea',
-        'republic of korea': 'south korea',
-        'korea, republic of': 'south korea',
-        's. korea': 'south korea',
-        'viet nam': 'vietnam',
-        'burma': 'myanmar',
-        'russian federation': 'russia',
-        'united states': 'united states of america'
-      };
-
-      return aliases[key] || key;
-    }
-
-    async function loadWorldMapData() {
-      const topology = await loadWorldTopology();
-      worldFeatures = topojson.feature(topology, topology.objects.countries).features;
-      worldFeatures.forEach(feature => {
-        countryFeatures.set(normalizeMapCountryName(feature.properties.name), feature);
-      });
-    }
-
-    // Draw the countries in the box. Returns false if the box is hidden (no size yet).
-    function drawWorldMap() {
-      if (!mapSvg || !worldFeatures || !originalMapPlaceholder) return false;
-
-      const width = originalMapPlaceholder.clientWidth;
-      const height = originalMapPlaceholder.clientHeight;
-      if (width < 20 || height < 20) return false;
-
-      mapWidth = width;
-      mapHeight = height;
-      mapSvg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-      mapProjection = d3.geoMercator().fitSize([width, height], ASIA_FRAME);
-      const path = d3.geoPath(mapProjection);
-
-      // Countries on this results page
-      const originKey = normalizeMapCountryName(MAP_DATA.sourceDish && MAP_DATA.sourceDish.country);
-      const firstRegional = (MAP_DATA.regionalVariations || [])[0];
-      const targetKey = normalizeMapCountryName(
-        (MAP_DATA.recommendedDish && MAP_DATA.recommendedDish.country) ||
-        (firstRegional && firstRegional.country)
-      );
-      const otherKeys = new Set(
-        (MAP_DATA.internationalSimilarities || []).map(dish => normalizeMapCountryName(dish.country))
-      );
-
-      d3.select(mapSvg)
-        .selectAll('path')
-        .data(worldFeatures)
-        .join('path')
-        .attr('d', path)
-        .attr('stroke', MAP_COLORS.border)
-        .attr('stroke-width', 0.5)
-        .attr('fill', feature => {
-          const key = normalizeMapCountryName(feature.properties.name);
-          if (key === originKey) return MAP_COLORS.origin;
-          if (key === targetKey) return MAP_COLORS.target;
-          if (otherKeys.has(key)) return MAP_COLORS.other;
-          return MAP_COLORS.land;
-        });
-
-      return true;
-    }
-
-    // Place a pin at its longitude/latitude (as % of the box)
-    function positionPin(entry) {
-      if (!mapProjection) return;
-      const point = mapProjection(entry.lonlat);
-      if (!point) return;
-      entry.pin.style.left = `${(point[0] / mapWidth) * 100}%`;
-      entry.pin.style.top = `${(point[1] / mapHeight) * 100}%`;
-    }
-
-    // Redraw the map for the new size and move all the pins
-    function refreshWorldMap() {
-      if (drawWorldMap()) placedPins.forEach(positionPin);
-    }
-
-    // Random [longitude, latitude] inside the country
-    function randomLonLatInCountry(feature) {
-      const [[west, south], [east, north]] = d3.geoBounds(feature);
-      const lonSpan = east >= west ? east - west : east + 360 - west;   // shape that crosses the date line
-
-      for (let attempt = 0; attempt < 300; attempt++) {
-        let lon = west + Math.random() * lonSpan;
-        if (lon > 180) lon -= 360;
-        const lat = south + Math.random() * (north - south);
-
-        if (d3.geoContains(feature, [lon, lat])) return [lon, lat];
-      }
-
-      // Very thin shape, just use its center
-      return d3.geoCentroid(feature);
-    }
-
-    // Where a pin goes inside its country (null if the country isn't on the map).
-    // Try a few random spots and pick the one farthest from other pins so they don't overlap.
-    function getLonLatForCountry(country) {
-      const feature = countryFeatures.get(normalizeMapCountryName(country));
-      if (!feature) return null;
-
-      const candidates = Array.from({ length: 12 }, () => randomLonLatInCountry(feature));
-      if (!mapProjection || !placedPins.length) return candidates[0];
-
-      let best = candidates[0];
-      let bestGap = -1;
-      candidates.forEach(lonlat => {
-        const here = mapProjection(lonlat);
-        const gap = Math.min(...placedPins.map(other => {
-          const there = mapProjection(other.lonlat);
-          return Math.hypot(here[0] - there[0], here[1] - there[1]);
-        }));
-        if (gap > bestGap) {
-          bestGap = gap;
-          best = lonlat;
-        }
-      });
-      return best;
-    }
-
-    // One preview card, reused for every pin
-    const tooltip = document.createElement('div');
-    tooltip.className = 'map-pin-tooltip';
-    tooltip.innerHTML = `
-      <img class="map-pin-tooltip-img" alt="">
-      <div class="map-pin-tooltip-body">
-        <span class="map-pin-tooltip-title"></span>
-        <span class="map-pin-tooltip-meta"></span>
-        <span class="map-pin-tooltip-score"></span>
-      </div>
-    `;
-    document.body.appendChild(tooltip);
-    const tooltipImg = tooltip.querySelector('.map-pin-tooltip-img');
-    const tooltipTitle = tooltip.querySelector('.map-pin-tooltip-title');
-    const tooltipMeta = tooltip.querySelector('.map-pin-tooltip-meta');
-    const tooltipScore = tooltip.querySelector('.map-pin-tooltip-score');
-
-    function showTooltip(pinElem, dish, score) {
-      // On touch screens, tapping a pin shouldn't show the preview
-      if (window.matchMedia('(hover: none)').matches) return;
-
-      setDishImage(tooltipImg, dish.image_link);
-      tooltipTitle.textContent = dish.title || 'Unknown Dish';
-      tooltipMeta.textContent = `${dish.region || 'No Specific'} \u2022 ${dish.country || ''}`;
-      if (dish === MAP_DATA.sourceDish) {
-        tooltipScore.textContent = 'Original dish';
-      } else {
-        tooltipScore.textContent = (score !== null && score !== undefined && score !== '')
-          ? `${score}% similarity`
-          : '';
-      }
-
-      tooltip.classList.add('visible');
-
-      const pinRect = pinElem.getBoundingClientRect();
-      const tooltipRect = tooltip.getBoundingClientRect();
-
-      let left = pinRect.left + (pinRect.width / 2) - (tooltipRect.width / 2);
-      let top = pinRect.top - tooltipRect.height - 12;
-
-      // Keep the card on screen (show it below the pin if there's no room on top)
-      if (top < 8) {
-        top = pinRect.bottom + 12;
-      }
-      left = Math.max(8, Math.min(left, window.innerWidth - tooltipRect.width - 8));
-
-      tooltip.style.left = `${left}px`;
-      tooltip.style.top = `${top}px`;
-    }
-
-    function hideTooltip() {
-      tooltip.classList.remove('visible');
-    }
-
-    // Make one pin <button> for a dish and put it on the map
-    function createPin(dish, score, typeClass, extraClass) {
-      if (!dish || !dish.country) return null;
-
-      const lonlat = getLonLatForCountry(dish.country);
-      if (!lonlat) return null;
-
-      const pin = document.createElement('button');
-      pin.type = 'button';
-      pin.className = `map-pin map-pin--${typeClass}${extraClass ? ' ' + extraClass : ''}`;
-      pin.setAttribute('aria-label', `${dish.title || 'Dish'} (${dish.country || ''})`);
-
-      const img = document.createElement('img');
-      setDishImage(img, dish.image_link);
-      img.alt = dish.title || '';
-      img.referrerPolicy = 'no-referrer';
-      img.draggable = false;
-      pin.appendChild(img);
-
-      pin.addEventListener('mouseenter', () => showTooltip(pin, dish, score));
-      pin.addEventListener('focus', () => showTooltip(pin, dish, score));
-      pin.addEventListener('mouseleave', hideTooltip);
-      pin.addEventListener('blur', hideTooltip);
-      pin.addEventListener('click', () => {
-        // Ignore the tap at the end of a pinch
-        if (suppressPinClick) return;
-        document.querySelectorAll('.map-pin.is-active').forEach(p => p.classList.remove('is-active'));
-        pin.classList.add('is-active');
-        updateSidebarDish(dish);
-        // Open the panel again if it was closed
-        setSidebarOpen(true);
-      });
-
-      pinsLayer.appendChild(pin);
-
-      // The pin keeps its longitude/latitude and gets placed again after every resize
-      const entry = { pin, lonlat };
-      placedPins.push(entry);
-      positionPin(entry);
-
-      return pin;
-    }
-
-    function buildAllPins() {
-      if (!pinsLayer) return;
-      pinsLayer.innerHTML = '';
-      placedPins.length = 0;
-
-      // Original dish in its country (also a "main" pin, so MAIN DISH toggles both)
-      if (MAP_DATA.sourceDish) {
-        createPin(MAP_DATA.sourceDish, null, 'main', 'map-pin--origin');
-      }
-
-      if (MAP_DATA.recommendedDish) {
-        createPin(MAP_DATA.recommendedDish, MAP_DATA.similarityScore, 'main');
-      }
-
-      (MAP_DATA.regionalVariations || []).slice(0, 3).forEach(dish => {
-        createPin(dish, dish.score, 'regional');
-      });
-
-      (MAP_DATA.internationalSimilarities || []).slice(0, 5).forEach(dish => {
-        createPin(dish, dish.score, 'international');
-      });
-    }
-
-    // Load the shapes, draw the map, add the pins, and redraw when the box changes size
-    (async () => {
-      try {
-        await loadWorldMapData();
-      } catch (error) {
-        console.error('Unable to load world map:', error);
-        return;
-      }
-      drawWorldMap();
-      buildAllPins();
-      refreshWorldMap();
-
-      if (originalMapPlaceholder && 'ResizeObserver' in window) {
-        new ResizeObserver(refreshWorldMap).observe(originalMapPlaceholder);
-      }
-      window.addEventListener('resize', refreshWorldMap);
-    })();
-
-    // ==================================
-    // FULL-SCREEN MAP: PAN & ZOOM
-    // Desktop: drag to move, scroll or +/-/RESET to zoom.
-    // Mobile: 1 finger to move, 2 fingers to zoom.
-    // Dragging only starts on empty map space, so pins still work.
-    // ==================================
-    const zoomInBtn = document.getElementById('mapZoomIn');
-    const zoomOutBtn = document.getElementById('mapZoomOut');
-    const zoomResetBtn = document.getElementById('mapZoomReset');
-
-    const MIN_SCALE = 1;
-    const MAX_SCALE = 4;
-
-    // Pin size when zoomed. Zooming makes the pins bigger too, so we shrink them back,
-    // but not below PIN_MIN_SIZE so they stay clickable.
-    const PIN_SHRINK = 0.10;     // 10% smaller per +1x zoom
-    const PIN_MIN_SIZE = 0.80;   // never smaller than 80%
-    const PIN_LOCK_ZOOM = 3.0;   // from 3x zoom it stays at 80%
-    let mapScale = 1;
-    let mapTranslateX = 0;
-    let mapTranslateY = 0;
-    let isPanning = false;
-    let panStartX = 0;
-    let panStartY = 0;
-    let panStartTranslateX = 0;
-    let panStartTranslateY = 0;
-
-    function clamp(value, min, max) {
-      return Math.min(Math.max(value, min), max);
-    }
-
-    // How far the map can be dragged past its edges. More on the left so the
-    // part under the sidebar can be pulled into view.
-    const PAN_GUTTER = 160;
-
-    function clampMapTranslate() {
-      if (!modalMapBody) return;
-      const viewportWidth = modalMapBody.clientWidth;
-      const viewportHeight = modalMapBody.clientHeight;
-      const scaledWidth = viewportWidth * mapScale;
-      const scaledHeight = viewportHeight * mapScale;
-      const sidebarWidth = sidebar ? sidebar.offsetWidth : 0;
-
-      const minX = Math.min(0, viewportWidth - scaledWidth) - PAN_GUTTER;
-      const maxX = sidebarWidth + PAN_GUTTER;
-      const minY = Math.min(0, viewportHeight - scaledHeight) - PAN_GUTTER;
-      const maxY = PAN_GUTTER;
-
-      mapTranslateX = clamp(mapTranslateX, minX, maxX);
-      mapTranslateY = clamp(mapTranslateY, minY, maxY);
-    }
-
-    // will-change makes the map blurry when zoomed, so only use it while moving
-    // and remove it after so the map gets redrawn sharp.
-    let sharpenTimer = null;
-
-    function applyMapTransform() {
-      if (!originalMapPlaceholder) return;
-
-      originalMapPlaceholder.style.willChange = 'transform';
-      clearTimeout(sharpenTimer);
-      sharpenTimer = setTimeout(() => {
-        originalMapPlaceholder.style.willChange = 'auto';
-      }, 120);
-
-      originalMapPlaceholder.style.transform =
-        `translate(${mapTranslateX}px, ${mapTranslateY}px) scale(${mapScale})`;
-
-      // Visible pin size, divided by mapScale since the pins get zoomed too.
-      // 100% -> 90% -> 80%, then stays at 80% from 3x.
-      const pinSizeOnScreen = mapScale >= PIN_LOCK_ZOOM
-        ? PIN_MIN_SIZE
-        : Math.max(
-            PIN_MIN_SIZE,
-            1 - PIN_SHRINK * (mapScale - 1)
-          );
-
-      originalMapPlaceholder.style.setProperty(
-        '--pin-scale',
-        (pinSizeOnScreen / mapScale).toFixed(6)
-      );
-    }
-
-    function resetMapTransform() {
-      mapScale = 1;
-      mapTranslateX = 0;
-      mapTranslateY = 0;
-      applyMapTransform();
-    }
-
-    // Zoom toward a point and keep it under the cursor/finger
-    function zoomMapTo(newScale, pivotX, pivotY) {
-      const clampedScale = clamp(newScale, MIN_SCALE, MAX_SCALE);
-      const scaleRatio = clampedScale / mapScale;
-
-      mapTranslateX = pivotX - (pivotX - mapTranslateX) * scaleRatio;
-      mapTranslateY = pivotY - (pivotY - mapTranslateY) * scaleRatio;
-      mapScale = clampedScale;
-
-      clampMapTranslate();
-      applyMapTransform();
-    }
-
-    function zoomMapByFactor(factor) {
-      if (!modalMapBody) return;
-      const rect = modalMapBody.getBoundingClientRect();
-      zoomMapTo(mapScale * factor, rect.width / 2, rect.height / 2);
-    }
-
-    if (modalMapBody) {
-      // ---- MOBILE: our code handles all touch on the map ----
-      // Without touch-action: none the browser takes the pinch for itself.
-      // (Same rule is in the <style> at the top too.)
-      modalMapBody.style.touchAction = 'none';
-
-      // iOS Safari has its own pinch events that zoom the whole page, stop those
-      ['gesturestart', 'gesturechange', 'gestureend'].forEach(evt => {
-        modalMapBody.addEventListener(evt, e => e.preventDefault());
-      });
-
-      modalMapBody.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        const rect = modalMapBody.getBoundingClientRect();
-        const pivotX = e.clientX - rect.left;
-        const pivotY = e.clientY - rect.top;
-        const zoomFactor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-        zoomMapTo(mapScale * zoomFactor, pivotX, pivotY);
-      }, { passive: false });
-
-      // ---- Touch / mouse: 1 finger (or mouse) moves, 2 fingers zoom ----
-      const activePointers = new Map();   // pointerId -> { x, y }
-      let isPinching = false;
-      let pinchStartDistance = 0;
-      let pinchStartScale = 1;
-      let pinchLastMidX = 0;
-      let pinchLastMidY = 0;
-      let pinchClickTimer = null;
-
-      function getPinchPoints() {
-        const [a, b] = Array.from(activePointers.values());
-        return {
-          distance: Math.hypot(b.x - a.x, b.y - a.y) || 1,
-          midX: (a.x + b.x) / 2,
-          midY: (a.y + b.y) / 2
-        };
-      }
-
-      function startPinch() {
-        const { distance, midX, midY } = getPinchPoints();
-        isPanning = false;
-        isPinching = true;
-        pinchStartDistance = distance;
-        pinchStartScale = mapScale;
-        pinchLastMidX = midX;
-        pinchLastMidY = midY;
-
-        // So the pins don't react when the fingers lift after a pinch
-        suppressPinClick = true;
-        clearTimeout(pinchClickTimer);
-      }
-
-      modalMapBody.addEventListener('pointerdown', (e) => {
-        activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-
-        // Second finger down (even on a pin): start the pinch
-        if (activePointers.size === 2) {
-          startPinch();
-          return;
-        }
-        if (activePointers.size > 2) return;
-
-        // One finger: move the map, unless it started on a pin
-        if (e.target.closest('.map-pin')) return;
-
-        isPanning = true;
-        try { modalMapBody.setPointerCapture(e.pointerId); } catch (_) { /* pointer already gone */ }
-        modalMapBody.classList.add('is-panning');
-        panStartX = e.clientX;
-        panStartY = e.clientY;
-        panStartTranslateX = mapTranslateX;
-        panStartTranslateY = mapTranslateY;
-      });
-
-      modalMapBody.addEventListener('pointermove', (e) => {
-        if (activePointers.has(e.pointerId)) {
-          activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-        }
-
-        if (isPinching && activePointers.size >= 2) {
-          const { distance, midX, midY } = getPinchPoints();
-          const rect = modalMapBody.getBoundingClientRect();
-
-          // Follow the middle of the fingers and zoom around it
-          mapTranslateX += midX - pinchLastMidX;
-          mapTranslateY += midY - pinchLastMidY;
-          pinchLastMidX = midX;
-          pinchLastMidY = midY;
-
-          zoomMapTo(
-            pinchStartScale * (distance / pinchStartDistance),
-            midX - rect.left,
-            midY - rect.top
-          );
-          return;
-        }
-
-        if (!isPanning) return;
-        mapTranslateX = panStartTranslateX + (e.clientX - panStartX);
-        mapTranslateY = panStartTranslateY + (e.clientY - panStartY);
-        clampMapTranslate();
-        applyMapTransform();
-      });
-
-      const endMapPointer = (e) => {
-        activePointers.delete(e.pointerId);
-
-        if (isPinching && activePointers.size < 2) {
-          isPinching = false;
-
-          // One finger left: keep moving from there without jumping
-          if (activePointers.size === 1) {
-            const [rest] = Array.from(activePointers.values());
-            isPanning = true;
-            modalMapBody.classList.add('is-panning');
-            panStartX = rest.x;
-            panStartY = rest.y;
-            panStartTranslateX = mapTranslateX;
-            panStartTranslateY = mapTranslateY;
-            return;
-          }
-        }
-
-        if (activePointers.size === 0) {
-          isPanning = false;
-          modalMapBody.classList.remove('is-panning');
-
-          // Pins work again shortly after the last finger lifts
-          if (suppressPinClick) {
-            clearTimeout(pinchClickTimer);
-            pinchClickTimer = setTimeout(() => { suppressPinClick = false; }, 300);
-          }
-        }
-      };
-
-      modalMapBody.addEventListener('pointerup', endMapPointer);
-      modalMapBody.addEventListener('pointercancel', endMapPointer);
-      modalMapBody.addEventListener('pointerleave', (e) => {
-        if (e.pointerType === 'mouse') endMapPointer(e);
-      });
-    }
-
-    if (zoomInBtn) zoomInBtn.addEventListener('click', () => zoomMapByFactor(1.4));
-    if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => zoomMapByFactor(1 / 1.4));
-    if (zoomResetBtn) zoomResetBtn.addEventListener('click', resetMapTransform);
-
-    // Full-screen map buttons. The map is moved (not copied) into the overlay
-    // so the pins keep their click and hover events.
-    if (openBtn && modal) {
-      openBtn.addEventListener('click', () => {
-        if (modalMapBody && originalMapPlaceholder) {
-          modalMapBody.appendChild(originalMapPlaceholder);
-        }
-
-        resetMapTransform();
-        updateSidebarDish(activeDish);
-        setSidebarOpen(true);
-        modal.classList.add('active');
-        document.body.style.overflow = 'hidden';
-        requestAnimationFrame(refreshWorldMap);
-      });
-    }
-
-    const closeModal = () => {
-      if (modal) {
-        modal.classList.remove('active');
-        document.body.style.overflow = '';
-      }
-
-      resetMapTransform();
-
-      // Move the map back to the small preview
-      if (mapPanWrapper && originalMapPlaceholder && !mapPanWrapper.contains(originalMapPlaceholder)) {
-        mapPanWrapper.insertBefore(originalMapPlaceholder, mapPanWrapper.firstChild);
-      }
-      requestAnimationFrame(refreshWorldMap);
-    };
-
-    if (closeBtn) {
-      closeBtn.addEventListener('click', closeModal);
-    }
-
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && modal && modal.classList.contains('active')) {
-        closeModal();
-      }
-    });
-
-    // Open/close the sidebar
-    if (toggleSidebarBtn && sidebar) {
-      toggleSidebarBtn.addEventListener('click', () => {
-        setSidebarOpen(sidebar.classList.contains('collapsed'));
-      });
-    }
-
-    // Sidebar tabs
-    if (sidebar) {
-      const tabBtns = sidebar.querySelectorAll('.tab-btn');
-      const tabContents = sidebar.querySelectorAll('.tab-content');
-
-      tabBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-          tabBtns.forEach(b => b.classList.remove('active'));
-          tabContents.forEach(c => c.classList.remove('active'));
-
-          btn.classList.add('active');
-          const targetTab = btn.getAttribute('data-tab');
-          const targetContent = sidebar.querySelector(`#tab-${targetTab}`);
-          if (targetContent) {
-            targetContent.classList.add('active');
-          }
-        });
-      });
-    }
-
-    // Map layer toggles. All 3 start on. Each pill turns its own pins on/off.
-    const filterPills = document.querySelectorAll('.map-filter-pill');
-    filterPills.forEach(pill => {
-      pill.classList.add('active');
-      pill.setAttribute('aria-checked', 'true');
-
-      pill.addEventListener('click', () => {
-        pill.classList.toggle('active');
-        const isActive = pill.classList.contains('active');
-        pill.setAttribute('aria-checked', String(isActive));
-        const layer = pill.getAttribute('data-layer');
-
-        document.querySelectorAll(`.map-pin--${layer}`).forEach(pinEl => {
-          pinEl.style.display = isActive ? '' : 'none';
-        });
-      });
-    });
-  });
-</script>
 </body>
-</html>
+</html>

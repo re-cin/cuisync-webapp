@@ -13,6 +13,23 @@ services:
         value: 3.11.9
       - key: OPENAI_MODEL
         value: gpt-4o
+      # Keeps users logged in across restarts (Render makes a random value once)
+      - key: SECRET_KEY
+        generateValue: true
+      # Accounts live in Supabase (accounts.py). Set these on the Render dashboard.
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # First admin account (made in Supabase when there is no admin yet).
+      - key: CUISYNC_ADMIN_USER
+        value: admin
+      - key: CUISYNC_ADMIN_EMAIL
+        sync: false
+      - key: CUISYNC_ADMIN_PASSWORD
+        sync: false
       # Filled in on the Render dashboard (kept secret, not in GitHub):
       - key: OPENAI_API_KEY
         sync: false

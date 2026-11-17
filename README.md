@@ -107,3 +107,23 @@ The application computes the recipe-level similarity first using `softmatch.py`.
 The GPT prompt uses few-shot examples from `cuisync_prompts.py` and includes a grounding check so the generated paragraph is rejected if it introduces unsupported culinary entities. If the API is unavailable or the grounding check fails, the app uses a grounded template explanation instead.
 
 The GPT explanation does not calculate the similarity itself. GPT explains the recommendation produced by CuiSync and uses the Shapley contributions as evidence for which feature type contributed most.
+
+
+### Panel revisions (redefense, Nov 2026)
+
+New files: `accounts.py` (users, profiles, search history, stored in Supabase), `dataset_store.py` (admin-editable dishes, countries and GPT prompts), `search_tools.py` (keyword, ingredient and tag search, possible cuisines), `cultural_info.py` (culture, history, health notes, allergens), plus the templates `explore.html`, `profile.html`, `auth.html` and `static/css/panel.css`. The admin templates are in `templates/admin/`.
+
+* **Accounts (Supabase)**: logins, roles, profiles and search history are stored in Supabase.
+  1. In Supabase, open **SQL Editor**, paste `supabase_setup.sql` and click **Run** (once; safe to run again). It adds the profile columns (username, email, cooking role, home country, favourite cuisines, allergens, bio), the `search_history` table and the dashboard functions to your `profiles` setup.
+  2. Copy `.env.example` to `.env` and fill in `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` (Supabase: **Project Settings → API**). The service key is secret: keep it in `.env` / the Render dashboard only.
+  3. `pip install -r requirements.txt` (adds `requests`), then `python app.py`.
+  Users sign up with email, username and password and log in with either their email or their username. Without the Supabase settings the site still runs; only log in and accounts are off.
+* **Dishes in Supabase**: the dishes (`recipes.json`) that admins add, edit or delete are saved in Supabase, so edits stay after a restart or redeploy (on Render the disk is wiped each time). The country list and GPT prompts still stay in `admin_data/`.
+  1. In Supabase, open **SQL Editor**, paste `supabase_dataset.sql` and click **Run** (once; safe to run again). It makes the `recipes` table.
+  2. Start the app once. If the `recipes` table is empty, the app uploads `recipes.json` (or `admin_data/recipes.json` if dishes were already edited) into it by itself.
+  The `.npy` and `*_items.json` vector files stay as files (from the Google Drive folder, or downloaded by `fetch_data.py` on Render); the app rebuilds what it needs from them and the dishes in Supabase. Without the tables the app keeps saving admin edits in `admin_data/` like before.
+* **Admin page**: admins log in on their own page, **`/admin/login`** (normal users use `/login`). Admins only see the admin pages; normal users only see the user site. When Supabase has no admin yet, the app creates one on start: username `admin`, email `admin@cuisync.app`, password `cuisync-admin` (change them with `CUISYNC_ADMIN_USER`, `CUISYNC_ADMIN_EMAIL` and `CUISYNC_ADMIN_PASSWORD` in `.env` before the first run). Change the password at `/admin/account`. You can also make any account an admin in Supabase: **Table Editor → profiles → role = admin**.
+* **Ingredient NER** (Add / Edit Dish in the admin): put the BERT model files (`config.json`, `model.safetensors`, `tokenizer.json`, `tokenizer_config.json` from `ingredient_BERT_FINAL_MODEL.zip`) in a folder `ner_model/` next to `app.py` and run `pip install "transformers>=5" torch`, or run it on a Hugging Face Space (`ner_space/`) and set `NER_API_URL` and `NER_API_TOKEN` in `.env`. See `ner.py`.
+* Admin changes are saved in `admin_data/` (not uploaded to GitHub). The original `recipes.json` and `.npy` files are never overwritten. **Reset to original dataset** on the Dataset tab undoes dataset edits.
+* New dishes reuse the vectors of known ingredients/actions; brand-new items borrow the closest known vector. The Overview tab lists items with no match (run the vectorizer again for those).
+* Set `SECRET_KEY` in `.env` when the app runs on a server, so logins survive restarts.

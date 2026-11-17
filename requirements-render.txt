@@ -21,3 +21,6 @@ python-dotenv>=1.0.0
 
 # Downloads the dataset files during the build (fetch_data.py)
 huggingface_hub>=0.24.0
+
+# Accounts in Supabase (accounts.py)
+requests>=2.31.0
