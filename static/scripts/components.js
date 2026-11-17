@@ -81,12 +81,45 @@ class AppNav extends HTMLElement {
         account.textContent = 'Profile';
         account.href = '/profile';
         if (path.startsWith('/profile')) account.classList.add('active');
-        const out = document.createElement('a');
-        out.href = '/logout';
-        out.textContent = 'Log out';
-        account.after(out);
+        // Logged in: the pill becomes an account menu (avatar + name + arrow).
+        // Search history, Account settings and Log out live inside it.
+        if (topAccount) this.buildAccountMenu(topAccount, me, path);
       })
       .catch(() => {});
+  }
+
+  buildAccountMenu(topAccount, me, path) {
+    const esc = (t) => String(t || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const name = me.name || me.username || 'Account';
+    const wrap = document.createElement('div');
+    wrap.className = 'acct-menu' + (path.startsWith('/profile') ? ' is-current' : '');
+    wrap.innerHTML = `
+      <button type="button" class="acct-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Account menu for ${esc(name)}">
+        <span class="acct-avatar" aria-hidden="true">${esc(name.charAt(0).toUpperCase())}</span>
+        <span class="acct-name">${esc(name)}</span>
+        <svg class="acct-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="acct-panel" role="menu" hidden>
+        <div class="acct-who">
+          <span class="acct-who-name">${esc(name)}</span>
+          ${me.username ? `<span class="acct-who-user">@${esc(me.username)}</span>` : ''}
+        </div>
+        <a role="menuitem" href="/profile#history">Search history</a>
+        <a role="menuitem" href="/profile#account">Account settings</a>
+        <a role="menuitem" href="/logout" class="acct-logout">Log out</a>
+      </div>`;
+    topAccount.replaceWith(wrap);
+    const btn = wrap.querySelector('.acct-btn');
+    const panel = wrap.querySelector('.acct-panel');
+    const setOpen = (open) => {
+      panel.hidden = !open;
+      btn.setAttribute('aria-expanded', String(open));
+      wrap.classList.toggle('is-open', open);
+    };
+    btn.addEventListener('click', (e) => { e.stopPropagation(); setOpen(panel.hidden); });
+    document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) setOpen(false); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !panel.hidden) { setOpen(false); btn.focus(); } });
+    panel.querySelectorAll('a').forEach(a => a.addEventListener('click', () => setOpen(false)));
   }
 
   initNavigation() {
@@ -179,4 +212,4 @@ class AppFooter extends HTMLElement {
 }
 
 customElements.define('app-nav', AppNav);
-customElements.define('app-footer', AppFooter);
+customElements.define('app-footer', AppFooter);

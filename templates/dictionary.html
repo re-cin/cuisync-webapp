@@ -30,7 +30,6 @@
 
     <!-- Welcome message -->
     <header class="dict-intro">
-      <span class="dict-eyebrow">&#9670; Dish dictionary</span>
       <h1 class="dict-title">Welcome to the Dish Dictionary page</h1>
       <p class="dict-lead">
         Please browse the dishes through the category tiles below. You can also use the
@@ -41,14 +40,13 @@
     <!-- Dish search -->
     <form class="dict-hero-search" id="dict-hero-search" role="search" onsubmit="return false">
       <label class="dict-search">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
         <span class="sr-only">Search dishes by name</span>
         <input type="search" id="dict-q" placeholder="Search for a dish" autocomplete="off">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
       </label>
-      <button type="submit" class="dict-search-btn" id="dict-search-go">Search</button>
     </form>
 
-    <!-- Browse by category: Origin, Ingredients, Directions (cooking actions, cookware, utensils), Sort -->
+    <!-- Browse by category: Origin, Region, Ingredients, Directions (cooking actions, cookware, utensils), Sort by dish title -->
     <section class="dict-browse" aria-labelledby="dict-browse-title">
     <h2 class="dict-section-title" id="dict-browse-title">Browse by category</h2>
     <form class="dict-toolbar" id="dict-toolbar" onsubmit="return false">
@@ -70,6 +68,21 @@
             </label>
             {% endfor %}
           </div>
+        </div>
+      </div>
+      </div>
+
+      <!-- Region (more than one allowed), filled in by dictionary.js -->
+      <div class="dict-field">
+        <span class="dict-field-label" id="dict-label-region">Region</span>
+      <div class="dict-dd" data-dd="region">
+        <button type="button" class="dict-dd-btn" aria-haspopup="true" aria-expanded="false" aria-labelledby="dict-label-region dict-value-region">
+          <span class="dict-dd-value" id="dict-value-region" data-dd-value>All</span>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="dict-dd-panel" hidden>
+          <p class="dict-dd-hint">Pick one or more regions</p>
+          <div class="dict-dd-options" id="dict-region-options"></div>
         </div>
       </div>
       </div>
@@ -118,31 +131,22 @@
         <span class="dict-field-label" id="dict-label-sort">Sort by</span>
         <div class="dict-dd dict-dd--sort" data-dd="sort">
           <button type="button" class="dict-dd-btn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="dict-label-sort dict-value-sort">
-            <span class="dict-dd-value" id="dict-value-sort" data-dd-value>Name (A–Z)</span>
+            <span class="dict-dd-value" id="dict-value-sort" data-dd-value>Dish title (A–Z)</span>
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
           </button>
           <div class="dict-dd-panel" role="listbox" aria-labelledby="dict-label-sort" hidden>
-            <button type="button" class="dict-sort-opt" role="option" data-sort="az">Name (A–Z)</button>
-            <button type="button" class="dict-sort-opt" role="option" data-sort="za">Name (Z–A)</button>
-            <button type="button" class="dict-sort-opt" role="option" data-sort="country">Country (A–Z)</button>
-            <button type="button" class="dict-sort-opt" role="option" data-sort="region">Region</button>
+            <button type="button" class="dict-sort-opt" role="option" data-sort="az">Dish title (A–Z)</button>
+            <button type="button" class="dict-sort-opt" role="option" data-sort="za">Dish title (Z–A)</button>
           </div>
         </div>
-        <!-- The value the page reads (kept so the sort code stays the same) -->
-        <select id="dict-sort" hidden aria-hidden="true" tabindex="-1">
-          <option value="az">Name (A–Z)</option>
-          <option value="za">Name (Z–A)</option>
-          <option value="country">Country (A–Z)</option>
-          <option value="region">Region</option>
-        </select>
       </div>
     </form>
 
-    <!-- What's selected: ticked boxes, untick to remove -->
+    <!-- What's selected: click a chip's x to remove it -->
     <div class="dict-active" id="dict-active" hidden>
       <span class="dict-active-label">Selected:</span>
       <div class="dict-active-chips" id="dict-active-chips"></div>
-      <button type="button" class="dict-reset" id="dict-reset">Untick all</button>
+      <button type="button" class="dict-reset" id="dict-reset">Remove selected</button>
     </div>
     </section>
 
@@ -170,12 +174,15 @@
     <li class="dict-card">
       <div class="dict-card-img">
         <img alt="" loading="lazy" referrerpolicy="no-referrer">
-        <span class="dict-card-country"></span>
       </div>
       <div class="dict-card-body">
         <h2 class="dict-card-title"></h2>
         <p class="dict-card-alt"></p>
-        <div class="dict-card-tags"></div>
+      </div>
+      <!-- Footer: where the dish is from, and a hint that the card opens -->
+      <div class="dict-card-foot">
+        <span class="dict-card-place"></span>
+        <span class="dict-card-view" aria-hidden="true">View dish <span class="dict-card-arrow">&rarr;</span></span>
       </div>
     </li>
   </template>
@@ -196,7 +203,7 @@
         <div class="dp-side-body">
           <h2 class="dp-title" id="dp-title"></h2>
           <p class="dp-alt" id="dp-alt"></p>
-          <div class="dp-tags" id="dp-tags"></div>
+          <div class="dp-tags dp-place" id="dp-tags"></div>
           <a class="dp-similar" id="dp-similar" href="#">
             Find similar dishes <span class="dp-similar-arrow" aria-hidden="true">&rarr;</span>
           </a>
