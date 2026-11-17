@@ -543,7 +543,8 @@ body.dp-open { overflow: hidden; }
 }
 .dp-alt { margin: 4px 0 0; font-size: 0.86rem; font-style: italic; color: var(--text-muted); }
 .dp-alt[hidden] { display: none; }
-.dp-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 20px; }
+/* No tags in the popup: space between the name and "Find similar dishes" */
+.dp-side-body .dp-similar { margin-top: 18px; }
 .dp-similar {
   display: flex;
   align-items: center;
@@ -608,13 +609,11 @@ body.dp-open { overflow: hidden; }
 .dp-panel li { font-size: 0.86rem; line-height: 1.6; color: var(--text-dark); }
 .dp-panel p { margin: 0; }
 .dp-loading { color: var(--text-muted) !important; font-style: italic; }
-.dp-intro { color: var(--text-muted) !important; font-size: 0.82rem !important; margin-bottom: 4px !important; }
 
 /* Recipe breakdown */
-.dp-group + .dp-group h4,
-.dp-intro + .dp-group h4 { margin-top: 18px; }
+.dp-group + .dp-group h4 { margin-top: 18px; }
 .dp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.dp-chip {                         /* opens the dictionary filtered by it -> clickable -> rounded */
+.dp-chip {                         /* plain label: ingredient / action / tool in this recipe */
   padding: 4px 10px;
   border: 1px solid #c97a7a;
   border-radius: 999px;
@@ -623,10 +622,7 @@ body.dp-open { overflow: hidden; }
   font-size: 0.7rem;
   font-weight: 600;
   text-decoration: none;
-  transition: filter 0.15s ease, box-shadow 0.15s ease;
 }
-.dp-chip:hover { filter: brightness(0.94); box-shadow: 0 0 0 1px currentColor inset; }
-.dp-chip:focus-visible,
 .dp-allergen:focus-visible,
 .dp-recipe:focus-visible { outline: 2px solid var(--gold-accent); outline-offset: 2px; }
 .dp-none { font-size: 0.8rem; font-style: italic; color: var(--text-muted); }
@@ -756,9 +752,7 @@ body.dp-open { overflow: hidden; }
 
 /* ---------- Welcome message: same header as the FAQs / Statistics pages ---------- */
 .dict-intro {
-  margin-bottom: 40px;
-  padding-bottom: 40px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  margin-bottom: 28px;
 }
 .dict-eyebrow {                     /* "◆ Help center" / "◆ Asian cuisine profile" style */
   display: block;
@@ -791,7 +785,7 @@ body.dp-open { overflow: hidden; }
 .dict-hero-search .dict-search {
   flex: 1;
   min-height: 46px;
-  padding: 0 8px 0 16px;
+  padding: 0 16px 0 16px;
   border: 0;
   border-radius: 999px;
   background: transparent;
@@ -799,21 +793,6 @@ body.dp-open { overflow: hidden; }
 }
 .dict-hero-search .dict-search svg { color: var(--maroon-main); }
 .dict-hero-search .dict-search input { font-size: 0.85rem; }
-.dict-search-btn {
-  flex: none;
-  padding: 0 26px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--maroon-main);
-  color: #ffffff;
-  font: inherit;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-}
-.dict-search-btn:hover { background: var(--maroon-light); }
-.dict-search-btn:focus-visible { outline: 2px solid var(--gold-accent); outline-offset: 2px; }
 
 /* ---------- Browse by category: heading + one row of dropdowns ---------- */
 .dict-browse { margin-bottom: 8px; }
@@ -825,27 +804,30 @@ body.dp-open { overflow: hidden; }
   color: #ffffff;
   margin: 0 0 14px;
 }
-.dict-toolbar { grid-template-columns: repeat(3, minmax(0, 1fr)) auto; }
+.dict-toolbar { grid-template-columns: repeat(4, minmax(0, 1fr)) auto; }
 .dict-status { scroll-margin-top: 90px; margin-top: 14px; }
 
-/* Selected: ticked boxes right under the dropdowns (untick to remove) */
+/* Selected: chips right under the dropdowns (click the x to remove) */
 .dict-browse .dict-active { margin-top: 14px; }
 .dict-picked {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 5px 12px 5px 9px;
+  padding: 5px 9px 5px 12px;
+  border: 0;
   border-radius: 999px;
   background: var(--gold-accent);
   color: var(--text-dark);
+  font-family: inherit;
   font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
 .dict-picked:hover { background: var(--gold-light); }
-.dict-picked input { margin: 0; accent-color: var(--maroon-main); cursor: pointer; }
-.dict-picked:focus-within { outline: 2px solid #ffffff; outline-offset: 2px; }
+.dict-picked-x { font-size: 1rem; line-height: 1; font-weight: 700; color: var(--maroon-main); }
+.dict-picked.is-exclude .dict-picked-x { color: var(--gold-light); }
+.dict-picked:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
 .dict-picked.is-exclude { background: transparent; border: 1px solid var(--gold-accent); color: var(--gold-light); }
 .dict-picked.is-exclude:hover { background: rgba(255, 255, 255, 0.1); }
 
@@ -934,10 +916,7 @@ body.dp-open { overflow: hidden; }
 }
 @media (max-width: 600px) {
   .dict-toolbar { grid-template-columns: minmax(0, 1fr); }
-  .dict-hero-search { flex-direction: column; border-radius: 14px; }
-  .dict-hero-search .dict-search { border-radius: 10px; }
   .dict-hero-search .dict-search input { font-size: 16px; }
-  .dict-search-btn { min-height: 44px; border-radius: 10px; }
   .dict-dd--browse .dict-dd-panel { width: 100%; }
   .dict-cat-list { grid-template-columns: 1fr; }
   .dict-cat-filter input { font-size: 16px; }
@@ -945,7 +924,7 @@ body.dp-open { overflow: hidden; }
 
 /* Header sizes on small screens: same as the FAQs page */
 @media (max-width: 850px) {
-  .dict-intro { margin-bottom: 24px; padding-bottom: 24px; }
+  .dict-intro { margin-bottom: 20px; }
   .dict-intro .dict-lead { font-size: 0.88rem; }
 }
 
@@ -1095,3 +1074,335 @@ body.dp-open { overflow: hidden; }
 }
 .dict-sort-opt.is-selected { font-weight: 600; color: var(--maroon-main); }
 .dict-sort-opt.is-selected::after { content: '\2713'; float: right; margin-left: 12px; color: var(--maroon-main); }
+
+/* ==========================================================================
+   BROWSE BY CATEGORY: no gold. Neutral borders, maroon accents.
+   (Overrides the gold rules above for the dropdowns and the Selected row.)
+   ========================================================================== */
+.dict-toolbar .dict-dd-btn:hover,
+.dict-toolbar .dict-sort:hover { border-color: rgba(74, 74, 74, 0.7); background: #efe8d6; }
+.dict-toolbar .dict-dd-btn:focus-visible,
+.dict-toolbar .dict-dd.is-open .dict-dd-btn,
+.dict-toolbar .dict-sort:focus-within { border-color: var(--maroon-main); }
+.dict-toolbar .dict-dd-btn svg { color: var(--maroon-main); }
+.dict-toolbar .dict-dd-panel { border-color: rgba(74, 74, 74, 0.35); }
+.dict-toolbar .dict-cat-filter:focus-within { border-color: var(--maroon-main); }
+.dict-cat-filter { border-color: rgba(74, 74, 74, 0.25); }
+.dict-cat-tab:focus-visible { outline-color: var(--maroon-main); }
+.dict-cat-tab[data-count]:not([data-count=""])::after { background: var(--maroon-main); color: #ffffff; }
+.dict-toolbar .dict-check:hover,
+.dict-toolbar .dict-cat-list .dict-check:hover,
+.dict-toolbar .dict-cat-tab:not(.is-active):hover,
+.dict-sort-opt:hover,
+.dict-sort-opt:focus-visible { background: rgba(128, 13, 18, 0.08); color: var(--maroon-main); }
+
+/* Selected row: cream chips with maroon text and x, white "Remove selected" */
+.dict-picked { background: var(--cream-bg); color: var(--maroon-main); }
+.dict-picked:hover { background: #ffffff; }
+.dict-picked-x { color: var(--maroon-main); }
+.dict-reset { color: rgba(255, 255, 255, 0.85); }
+.dict-reset:hover { color: #ffffff; }
+
+/* Card and popup tags are plain labels now (they don't filter the page) */
+.dict-tag { cursor: default; }
+.dict-tag:hover { background: var(--input-bg); }
+.dict-tag.is-region:hover { background: var(--gold-accent); }
+
+/* Original recipe link sits at the top of the Recipe breakdown tab */
+.dp-recipe { margin-top: 0; margin-bottom: 16px; }
+
+/* ==========================================================================
+   DISH POPUP: softer look, less maroon
+   - neutral beige pills, sans-serif sentence-case headings
+   - light tabs with a thin maroon underline (no solid maroon bar)
+   - outlined "Find similar dishes" (country badge and entity pills keep their red)
+   ========================================================================== */
+/* Left: the dish */
+.dp-side { border-right-color: #e4dccd; }
+.dp-title { color: #2f2620; }
+.dp-alt { color: #7a6e62; }
+.dp-similar {
+  border: 1px solid var(--maroon-main);
+  background: transparent;
+  color: var(--maroon-main);
+}
+.dp-similar-arrow { color: var(--maroon-main); }
+.dp-similar:hover { background: rgba(128, 13, 18, 0.06); }
+.dp-similar:focus-visible { outline-color: var(--maroon-main); }
+
+/* Right: tabs on the cream background, active one underlined */
+.dp-tabs {
+  display: flex;
+  gap: 28px;
+  padding: 0 64px 0 32px;
+  background: transparent;
+  border-bottom: 1px solid #e4dccd;
+}
+.dp-tab {
+  padding: 18px 0 14px;
+  border-top: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  color: #8a7e72;
+  font-weight: 500;
+}
+.dp-tab:hover { background: transparent; color: #2f2620; }
+.dp-tab.is-active { background: transparent; color: #2f2620; font-weight: 600; border-bottom-color: var(--maroon-main); }
+.dp-tab:focus-visible { outline: 2px solid var(--maroon-main); outline-offset: 2px; }
+.dp-close { background: transparent; color: #8a7e72; }
+.dp-close:hover { background: #ece5d8; color: #2f2620; }
+.dp-close:focus-visible { outline-color: var(--maroon-main); }
+
+/* Section headings: sans serif, sentence case */
+.dp-panel h4 {
+  font-family: 'Poppins', 'DM Sans', sans-serif;
+  font-size: 0.86rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #2f2620;
+}
+
+/* Pills: keep the red accent (pink fill, maroon text), slightly bigger text */
+.dp-chip {
+  font-size: 0.76rem;
+  font-weight: 500;
+  padding: 5px 12px;
+}
+.dp-recipe:focus-visible { outline-color: var(--maroon-main); }
+
+/* "View the original recipe": a real button at the top of the Recipe breakdown */
+.dp-recipe {
+  margin: 0 0 18px;
+  padding: 9px 16px;
+  border: 1px solid var(--maroon-main);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--maroon-main);
+  font-size: 0.8rem;
+  font-weight: 600;
+  gap: 8px;
+}
+.dp-recipe:hover { background: rgba(128, 13, 18, 0.06); }
+
+/* Rows: label on the left, pills on the right, thin lines between */
+.dp-rows { border-top: 1px solid #e4dccd; }
+.dp-row {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  padding: 14px 0;
+  border-bottom: 1px solid #e4dccd;
+}
+.dp-panel .dp-row h4 {
+  margin: 3px 0 0;
+  font-family: 'Playfair Display', serif;   /* row labels: serif, like the dish name */
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #2f2620;
+}
+
+@media (max-width: 850px) {
+  .dp-tabs { padding: 0 56px 0 20px; gap: 20px; overflow-x: auto; scrollbar-width: none; }
+  .dp-tab { flex: none; padding: 16px 0 12px; }
+  .dp-tabs { background: var(--pill-bg); }   /* sticky on phones: keep it solid */
+  .dp-close { background: var(--pill-bg); }
+}
+@media (max-width: 600px) {
+  .dp-row { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .dp-panel .dp-row h4 { margin-top: 0; }
+}
+
+/* Country + region tags: on the dish cards and under the dish name in the popup */
+.dict-tag.is-country { background: #e7b1b1; border-color: #c97a7a; color: #7a1418; font-weight: 600; }
+.dict-tag.is-country:hover { background: #e7b1b1; }
+.dp-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.dp-tags:empty { display: none; }
+
+/* ==========================================================================
+   DISH POPUP, design A: warm neutral
+   - off-white background, neutral tags on the left, dark underline on the active tab
+   - maroon only on "Find similar dishes" (solid, at the bottom) and "View the original recipe"
+   - the recipe pills on the right keep their red
+   ========================================================================== */
+.dp-dialog { background: #faf7f2; }
+.dp-side { border-right-color: #e8e1d5; }
+.dp-title { color: #2f2620; }
+.dp-alt { color: #8a7e72; }
+
+/* Country + region tags under the name: neutral */
+.dp-tags .dict-tag,
+.dp-tags .dict-tag.is-country,
+.dp-tags .dict-tag.is-region {
+  border: 0;
+  background: #ebe5db;
+  color: #3a2f27;
+  font-weight: 500;
+}
+
+/* "Find similar dishes": solid maroon, pinned to the bottom of the left side */
+.dp-side-body .dp-similar { margin-top: auto; }
+.dp-tags { margin-bottom: 20px; }
+.dp-similar {
+  border: 0;
+  background: var(--maroon-main);
+  color: #ffffff;
+}
+.dp-similar-arrow { color: #ffffff; }
+.dp-similar:hover { background: var(--maroon-dark); }
+
+/* Tabs: dark text, dark underline on the active one */
+.dp-tabs { border-bottom-color: #e8e1d5; }
+.dp-tab { color: #9a8f83; }
+.dp-tab.is-active { color: #2f2620; border-bottom-color: #2f2620; }
+.dp-close:hover { background: #ebe5db; }
+
+/* Rows: softer dividers */
+.dp-rows { border-top-color: #eee8de; }
+.dp-row { border-bottom-color: #eee8de; }
+
+@media (max-width: 850px) {
+  .dp-tabs, .dp-close { background: #faf7f2; }
+  .dp-side-body .dp-similar { margin-top: 18px; }   /* stacked on phones: no empty gap */
+}
+
+/* Tabs: red accent on the names and the underline */
+.dp-tab { color: rgba(128, 13, 18, 0.55); }
+.dp-tab:hover { color: var(--maroon-main); }
+.dp-tab.is-active { color: var(--maroon-main); border-bottom-color: var(--maroon-main); }
+.dp-tabs { border-bottom-color: rgba(128, 13, 18, 0.15); }
+
+/* Dish name in the popup: maroon */
+.dp-title { color: var(--maroon-main); }
+
+/* ==========================================================================
+   DISH CARDS, design C: clean photo, name, then a footer row
+   ("India · South Asia" on the left, "View dish ->" on the right)
+   ========================================================================== */
+.dict-card-body { padding: 16px 20px 0; }
+.dict-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 12px 20px;
+  border-top: 1px solid #e3d9c7;
+  font-size: 0.78rem;
+}
+.dict-card-place { color: #5a4e44; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dict-card-view { flex: none; color: var(--maroon-main); font-weight: 600; }
+.dict-card-arrow { display: inline-block; transition: transform 0.15s ease; }
+.dict-card:hover .dict-card-arrow { transform: translateX(3px); }
+
+/* "900 dishes found": one size, one weight, one colour */
+.dict-count strong { font-weight: inherit; font-size: inherit; color: inherit; }
+
+
+/* Popup: country shows once (under the name), not on the photo too */
+.dp-country { display: none; }
+
+/* Popup: Country / Region as a small labelled block under the dish name */
+.dp-tags.dp-place {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 16px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #eee8de;
+  font-size: 0.84rem;
+}
+.dp-tags.dp-place:empty { display: none; }
+.dp-place-label { color: #8a7e72; }
+.dp-place-value { color: #2f2620; font-weight: 600; }
+.dp-place-value { color: var(--maroon-main); }
+
+/* Popup close button: plain maroon x, no grey circle */
+.dp-close { background: transparent; color: var(--maroon-main); }
+.dp-close:hover { background: rgba(128, 13, 18, 0.08); color: var(--maroon-main); }
+
+/* Popup scrollbars: slim and warm instead of the grey system bar */
+.dp-body,
+.dp-side,
+.dp-dialog { scrollbar-width: thin; scrollbar-color: rgba(128, 13, 18, 0.35) transparent; }
+.dp-body::-webkit-scrollbar,
+.dp-side::-webkit-scrollbar,
+.dp-dialog::-webkit-scrollbar { width: 8px; }
+.dp-body::-webkit-scrollbar-track,
+.dp-side::-webkit-scrollbar-track,
+.dp-dialog::-webkit-scrollbar-track { background: transparent; }
+.dp-body::-webkit-scrollbar-thumb,
+.dp-side::-webkit-scrollbar-thumb,
+.dp-dialog::-webkit-scrollbar-thumb { background: rgba(128, 13, 18, 0.3); border-radius: 999px; }
+.dp-body::-webkit-scrollbar-thumb:hover,
+.dp-side::-webkit-scrollbar-thumb:hover,
+.dp-dialog::-webkit-scrollbar-thumb:hover { background: rgba(128, 13, 18, 0.5); }
+
+/* Selected chips (Browse by category): gold */
+.dict-picked { background: var(--gold-accent); color: var(--maroon-dark); }
+.dict-picked:hover { background: var(--gold-light); }
+.dict-picked-x { color: var(--maroon-dark); }
+@media (max-width: 850px) { .dp-close { background: #faf7f2; } }
+
+/* Popup close button: just the x, no circle (also on hover and on phones) */
+.dp-close,
+.dp-close:hover { background: transparent !important; box-shadow: none !important; border-radius: 0; }
+.dp-close:hover { color: var(--maroon-dark); opacity: 0.75; }
+
+/* Recipe breakdown pills: back to beige with dark brown text */
+.dp-chip { border: 0; background: #ece5d8; color: #3a2f27; }
+
+/* Row labels (Ingredients, Cooking actions, Cookware, Utensils): maroon */
+.dp-panel .dp-row h4 { color: var(--maroon-main); }
+
+/* Popup close button, option 4: white x on a small solid maroon square (desktop and phones) */
+.dp-close {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px !important;
+  background: var(--maroon-main) !important;
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+.dp-close svg { width: 16px; height: 16px; }
+.dp-close:hover { background: var(--maroon-dark) !important; color: #ffffff !important; opacity: 1 !important; }
+.dp-close:focus-visible { outline: 2px solid var(--maroon-main); outline-offset: 2px; }
+
+/* Popup close button: gold square, dark maroon x */
+.dp-close { background: var(--gold-accent) !important; color: var(--maroon-dark) !important; }
+.dp-close:hover { background: var(--gold-light) !important; color: var(--maroon-dark) !important; }
+
+/* Popup close button: maroon square with a gold x and thin gold border */
+.dp-close {
+  background: var(--maroon-main) !important;
+  color: var(--gold-accent) !important;
+  border: 1px solid var(--gold-accent) !important;
+}
+.dp-close:hover { background: var(--maroon-dark) !important; color: var(--gold-light) !important; border-color: var(--gold-light) !important; }
+
+/* Popup close button: back to the original look (dark maroon, white x), but square */
+.dp-close {
+  background: var(--maroon-dark) !important;
+  color: #ffffff !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+}
+.dp-close:hover { background: var(--maroon-light) !important; color: #ffffff !important; }
+
+/* Popup close button: beige square with a dark x (no red) */
+.dp-close {
+  background: #ebe5db !important;
+  color: #2f2620 !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+}
+.dp-close:hover { background: #ddd5c7 !important; color: #2f2620 !important; }
+
+/* Breadcrumb (Home / Dish dictionary): gold */
+.dict-breadcrumb,
+.dict-breadcrumb a,
+.dict-breadcrumb span,
+.dict-breadcrumb .current { color: var(--gold-accent); }
+.dict-breadcrumb a:hover { color: var(--gold-light); }

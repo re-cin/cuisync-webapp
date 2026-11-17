@@ -53,7 +53,7 @@
   <!-- ==================================
        RECENT SEARCHES (comparisons opened by this user / this browser; hidden when empty)
        ================================== -->
-  {% from "partials/recent_card.html" import recent_card with context %}
+  {% from "partials/recent_card.html" import recent_row with context %}
   {% set recent = recent_searches() %}
   {% if recent %}
   <section class="recent-section" aria-labelledby="recent-heading">
@@ -62,9 +62,9 @@
         <h2 class="recent-heading" id="recent-heading">&#9670; RECENT SEARCHES</h2>
         <a class="recent-see-all" href="{{ url_for('recent_searches') }}">See all <span aria-hidden="true">&rarr;</span></a>
       </div>
-      <div class="recent-row">
-        {% for c in recent %}{{ recent_card(c) }}{% endfor %}
-      </div>
+      <ul class="recent-list">
+        {% for c in recent %}{{ recent_row(c) }}{% endfor %}
+      </ul>
     </div>
   </section>
   {% endif %}

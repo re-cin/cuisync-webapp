@@ -752,7 +752,7 @@ def get_search_results(dish_name, origin_country, target_country, force=False, r
 # Every dish-vs-dish comparison someone opens is kept: logged-in users in the accounts
 # database, guests in their browser session (cookie). Entries older than 30 days are not shown.
 RECENT_DAYS = 30
-GUEST_RECENT_MAX = 20     # the session cookie is small, so guests keep fewer
+GUEST_RECENT_MAX = 20     # not used any more: guests have no search history
 
 
 def record_recent(source_idx, target_idx, score, link_params):
@@ -767,13 +767,10 @@ def record_recent(source_idx, target_idx, score, link_params):
     }
     key = f"{entry['st']}|{entry['tt']}|{entry['tg']}|{entry['ing']}".lower()
     user = current_user()
+    if not user:            # guests: no search history is kept
+        return
     try:
-        if user:
-            accounts.add_recent(user["id"], key, entry)
-        else:
-            entry["k"] = key
-            items = [e for e in session.get("recent", []) if e.get("k") != key]
-            session["recent"] = [entry] + items[:GUEST_RECENT_MAX - 1]
+        accounts.add_recent(user["id"], key, entry)
     except Exception as error:   # recent searches must never break a comparison
         app.logger.warning("Could not save recent search: %s", error)
 
@@ -786,10 +783,26 @@ def _find_recipe(idx, title):
     return next((i for i, r in enumerate(RECIPES) if normalize_name(r.get("title", "")) == key), None)
 
 
+def time_ago(ts):
+    """'Just now', '5 minutes ago', '2 hours ago', 'Yesterday', '3 days ago' (for the recent searches list)."""
+    secs = max(0, int(time.time() - (ts or 0)))
+    if secs < 60:
+        return "Just now"
+    for size, word in ((86400, "day"), (3600, "hour"), (60, "minute")):
+        if secs >= size:
+            n = secs // size
+            if word == "day" and n == 1:
+                return "Yesterday"
+            return f"{n} {word}{'s' if n > 1 else ''} ago"
+
+
 def recent_entries(limit=None):
     """Cards for the recent searches, newest first."""
     user = current_user()
-    raw = accounts.list_recent(user["id"]) if user else session.get("recent", [])
+    if not user:            # guests have no search history
+        session.pop("recent", None)
+        return []
+    raw = accounts.list_recent(user["id"])
     cutoff = time.time() - RECENT_DAYS * 86400
     cards = []
     for e in raw:
@@ -816,6 +829,7 @@ def recent_entries(limit=None):
                        "country_label": STORE.label_of(tgt["country"]), "image": tgt.get("image_link") or ""},
             "score": e.get("sc", 0),
             "ts": e.get("ts", 0),
+            "ago": time_ago(e.get("ts", 0)),
             "url": url_for("compare", **params),
         })
         if limit and len(cards) >= limit:
@@ -825,7 +839,10 @@ def recent_entries(limit=None):
 
 @app.route("/recent")
 def recent_searches():
-    """All recent searches (the "See all" link of the home page row)."""
+    """All recent searches (the "See all" link of the home page row). Logged-in users only."""
+    if not current_user():
+        flash("Log in to keep and see your search history.", "info")
+        return redirect(url_for("login", next=request.path))
     cards = recent_entries()
     origins = sorted({(c["source"]["country"], c["source"]["country_label"]) for c in cards},
                      key=lambda c: c[1])
@@ -1313,7 +1330,7 @@ def login():
             session.clear()
             session["user_id"] = user["id"]
             session.permanent = bool(request.form.get("remember"))  # "Keep me signed in"
-            flash(f"Welcome back, {user['name']}!", "success")
+            # no message after logging in
             nxt = request.form.get("next")
             return redirect(_safe_next(nxt) if nxt else url_for("home"))
         flash("Wrong email / username or password.", "error")
@@ -1332,8 +1349,8 @@ def register():
                                            email=request.form.get("email", ""))
                 session.clear()
                 session["user_id"] = uid
-                flash("Your account is ready. Set up your profile below.", "success")
-                return redirect(url_for("profile"))
+                # no message after signing up; there is no profile to set up any more, so go home
+                return redirect(url_for("home"))
             except ValueError as error:
                 flash(str(error), "error")
     return render_template("auth.html", mode="register", next="",
@@ -1343,7 +1360,7 @@ def register():
 @app.route("/logout")
 def logout():
     session.clear()
-    flash("You are logged out.", "info")
+    # no message after logging out
     return redirect(url_for("home"))
 
 
@@ -1361,11 +1378,36 @@ def profile():
     return render_template(
         "profile.html",
         user=user,
-        history=accounts.get_history(user["id"]),
+        # Only dish similarity searches (text / image: dish -> best match) are shown
+        history=_history_with_images([h for h in accounts.get_history(user["id"])
+                                      if h.get("search_type") in ("text", "image")]),
         cooking_roles=accounts.COOKING_ROLES,
         allergen_choices=accounts.ALLERGEN_CHOICES,
         all_countries=STORE.countries,
     )
+
+
+def _history_with_images(history):
+    """Adds the dish photos to each search history row: the searched dish ("img_from")
+    and the result dish ("img_to"). Found by name (+ country when there are duplicates)."""
+    by_name = {}
+    for r in RECIPES:
+        by_name.setdefault(normalize_name(r.get("title", "")), []).append(r)
+
+    def image_of(title, country=None):
+        found = by_name.get(normalize_name(title or ""), [])
+        if country:
+            found = [r for r in found if r.get("country", "").lower() == str(country).lower()] or found
+        return next((r.get("image_link") for r in found if r.get("image_link")), "")
+
+    rows = []
+    for h in history:
+        h = dict(h)
+        if h.get("search_type") in ("text", "image"):
+            h["img_from"] = image_of(h.get("dish_name"), h.get("origin_country"))
+        h["img_to"] = image_of(h.get("result_title"), h.get("result_country"))
+        rows.append(h)
+    return rows
 
 
 @app.route("/profile/password", methods=["POST"])
@@ -1422,7 +1464,7 @@ def api_me():
     user = current_user()
     if not user:
         return jsonify({"logged_in": False})
-    return jsonify({"logged_in": True, "name": user["name"]})
+    return jsonify({"logged_in": True, "name": user["name"], "username": user.get("username", "")})
 
 
 # ---------------- explore: keyword, ingredient and tag search (Galang 1, 4, 7; Oab 6) ----------------
@@ -1640,9 +1682,9 @@ def dictionary_entity_options(dishes):
 
 @app.route("/dictionary")
 def dictionary():
-    """All dishes in the dataset. Clickable tags anywhere in the system link here
-    with ?tag=<tag> (and countries with ?country=<name>). Filtering, sorting and paging
-    happen in the browser (static/scripts/dictionary.js)."""
+    """All dishes in the dataset. Filters: Origin (?country=), Region (?region=),
+    Ingredients and Directions (?ingredient= / ?action= / ?cookware= / ?utensil=).
+    Filtering, sorting and paging happen in the browser (static/scripts/dictionary.js)."""
     visible = {c["value"] for c in STORE.dropdown_countries()}
     counts = Counter(r["country"].lower() for r in RECIPES if r["country"].lower() in visible)
     dishes = []
@@ -1657,10 +1699,8 @@ def dictionary():
             "c": country,
             "l": STORE.label_of(r["country"]),
             "g": search_tools.recipe_tags(r, STORE.region_of),
-            "x": dish_allergens(r),   # allergens, for the "Don't show" filter
             "i": r.get("image_link") or "",
         })
-    tag_groups, _ = search_tools.all_tags([RECIPES[d["id"]] for d in dishes], STORE.region_of)
 
     # Ingredient / cooking action / cookware / utensil links (from the comparison page):
     # the matching dishes are found here, so the page doesn't need every recipe's item lists.
@@ -1673,16 +1713,12 @@ def dictionary():
             ids = [d["id"] for d in dishes
                    if any(entity_matches(item, wanted) for item in parse_items(RECIPES[d["id"]].get(field, "")))]
             entity_filters.append({"kind": kind, "label": label, "value": wanted, "ids": ids})
-    allergen_counts = Counter(a for d in dishes for a in d["x"])
     return render_template(
         "dictionary.html",
         entity_filters=entity_filters,
-        # [(allergen, number of dishes that HAVE it)] for the "Don't show" dropdown
-        allergen_options=[(a, allergen_counts.get(a, 0)) for a in cultural_info.ALLERGENS],
         dishes=dishes,
         entity_options=dictionary_entity_options(dishes),
         countries=[{**c, "count": counts[c["value"]]} for c in STORE.dropdown_countries()],
-        tag_groups=tag_groups,
     )
 
 
@@ -1852,7 +1888,7 @@ def admin_login():
             session.clear()
             session["user_id"] = found["id"]
             session.permanent = bool(request.form.get("remember"))
-            flash(f"Welcome back, {found['name']}!", "success")
+            # no message after logging in
             ok = nxt.startswith("/admin") and not nxt.startswith("//") and not nxt.startswith("/admin/login")
             return redirect(nxt if ok else url_for("admin_page"))
         flash("This account is not an admin." if found else "Wrong email / username or password.", "error")
@@ -1862,7 +1898,7 @@ def admin_login():
 @app.route("/admin/logout", methods=["POST"])
 def admin_logout():
     session.clear()
-    flash("You are logged out.", "info")
+    # no message after logging out
     return redirect(url_for("admin_login"))
 
 

@@ -41,3 +41,26 @@
 </a>
 {% endif %}
 {% endmacro %}
+
+
+{# One row of the home page "Recent searches" list: two overlapping thumbnails,
+   "Dish A vs Dish B", the countries and when it was searched, the match, and View. #}
+{% macro recent_row(c) %}
+{% set no_image = url_for('static', filename='assets/no-image.svg') %}
+<li>
+  <a class="rr-row" href="{{ c.url }}" title="Open the comparison of {{ c.source.title }} and {{ c.target.title }}">
+    <span class="rr-thumbs" aria-hidden="true">
+      <img src="{{ c.source.image or no_image }}" alt="" loading="lazy" referrerpolicy="no-referrer"
+           onerror="this.onerror=null;this.src='{{ no_image }}'">
+      <img src="{{ c.target.image or no_image }}" alt="" loading="lazy" referrerpolicy="no-referrer"
+           onerror="this.onerror=null;this.src='{{ no_image }}'">
+    </span>
+    <span class="rr-text">
+      <span class="rr-names">{{ c.source.title }} <span class="rr-vs">vs</span> {{ c.target.title }}</span>
+      <span class="rr-meta">{{ c.source.country_label }} &middot; {{ c.target.country_label }} &middot; {{ c.ago }}</span>
+    </span>
+    <span class="rr-score">{{ c.score }}% match</span>
+    <span class="rr-view">View <span class="rr-arrow" aria-hidden="true">&rarr;</span></span>
+  </a>
+</li>
+{% endmacro %}

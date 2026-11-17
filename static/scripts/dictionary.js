@@ -1,8 +1,8 @@
-// Dish Dictionary: every dish in the dataset with search, filters, sort and pages.
-// Filters: country (any of them), tags to SHOW (all of them), and tags / allergens to
-// leave out ("Don't show": a dish with any of them is hidden).
-// The state lives in the link (?q=&country=&tag=&xtag=&xallergen=&sort=&page=), so a tag clicked anywhere
-// in the system can open this page already filtered (/dictionary?tag=Grilled).
+// Dish Dictionary: every dish in the dataset with search, filters, sort by dish title (A–Z / Z–A) and pages.
+// Filters: Origin (any ticked country), Region (any ticked region), Ingredients and Directions
+// (a dish must have every ticked item). Nothing else filters this page.
+// The state lives in the link (?q=&country=&region=&ingredient=&action=&cookware=&utensil=&sort=&page=).
+// An old ?tag=<region> link (e.g. ?tag=East Asia) still opens the page filtered by that region.
 document.addEventListener('DOMContentLoaded', () => {
   const PAGE_SIZE = 12;
   const DISHES = JSON.parse(document.getElementById('dict-data').textContent);
@@ -17,7 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const grid = document.getElementById('dict-grid');
   const cardTpl = document.getElementById('dict-card-template');
   const qInput = document.getElementById('dict-q');
-  const sortSelect = document.getElementById('dict-sort');
   const countEl = document.getElementById('dict-count');
   const countWord = document.getElementById('dict-count-word');
   const emptyEl = document.getElementById('dict-empty');
@@ -34,28 +33,41 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   const countryLabel = new Map(DISHES.map(d => [d.c, d.l]));
 
+  // Region dropdown: one checkbox per region, with how many dishes it has
+  const regionCounts = new Map();
+  DISHES.forEach(d => { if (d._region !== '~') regionCounts.set(d._region, (regionCounts.get(d._region) || 0) + 1); });
+  const regionBox = document.getElementById('dict-region-options');
+  if (regionBox) {
+    Array.from(regionCounts.keys()).sort((a, b) => a.localeCompare(b)).forEach(r => {
+      const label = document.createElement('label');
+      label.className = 'dict-check';
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.name = 'region';
+      input.value = r;
+      const span = document.createElement('span');
+      span.textContent = r;
+      const small = document.createElement('small');
+      small.textContent = regionCounts.get(r);
+      label.append(input, span, small);
+      regionBox.appendChild(label);
+    });
+  }
+  const regionByLower = new Map(Array.from(regionCounts.keys()).map(r => [r.toLowerCase(), r]));
+
   // ------------------------------------------------------------------
   // State <-> link
   // ------------------------------------------------------------------
-  const state = { q: '', countries: new Set(), tags: new Set(), xtags: new Set(), xallergens: new Set(),
+  const state = { q: '', countries: new Set(), regions: new Set(),
                   entities: [], sort: 'az', page: 1 };
   const knownCountries = new Set(Array.from(document.querySelectorAll('input[name="country"]')).map(i => i.value));
-  // Tags come from the dishes (card tags and ?tag= links still filter the page)
-  const knownTags = new Set(DISHES.flatMap(d => d.g));
-  const tagByLower = new Map(Array.from(knownTags).map(t => [t.toLowerCase(), t]));
-  // No "Hide" dropdown on the page any more, but links like ?xallergen=Peanuts
-  // (from the dish popup's allergen tags) still work: allergens come from the dishes
-  const allergenByLower = new Map(DISHES.flatMap(d => d.x || []).map(a => [a.toLowerCase(), a]));
 
   function readLink() {
     const p = new URLSearchParams(location.search);
     state.q = p.get('q') || '';
     state.countries = new Set(p.getAll('country').map(c => c.toLowerCase()).filter(c => knownCountries.has(c)));
-    // Tags match without caring about upper/lower case ("grilled" finds "Grilled")
-    state.tags = new Set(p.getAll('tag').map(t => tagByLower.get(t.toLowerCase())).filter(Boolean));
-    state.xtags = new Set(p.getAll('xtag').map(t => tagByLower.get(t.toLowerCase()))
-      .filter(t => t && !state.tags.has(t)));
-    state.xallergens = new Set(p.getAll('xallergen').map(a => allergenByLower.get(a.toLowerCase())).filter(Boolean));
+    state.regions = new Set([...p.getAll('region'), ...p.getAll('tag')]
+      .map(r => regionByLower.get(r.toLowerCase())).filter(Boolean));
     state.entities = [];
     ['ingredient', 'action', 'cookware', 'utensil'].forEach(kind => {
       p.getAll(kind).forEach(v => {
@@ -65,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (f) state.entities.push(f);
       });
     });
-    state.sort = ['az', 'za', 'country', 'region'].includes(p.get('sort')) ? p.get('sort') : 'az';
+    state.sort = p.get('sort') === 'za' ? 'za' : 'az';
     state.page = Math.max(1, parseInt(p.get('page'), 10) || 1);
   }
 
@@ -73,9 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const p = new URLSearchParams();
     if (state.q) p.set('q', state.q);
     state.countries.forEach(c => p.append('country', c));
-    state.tags.forEach(t => p.append('tag', t));
-    state.xtags.forEach(t => p.append('xtag', t));
-    state.xallergens.forEach(a => p.append('xallergen', a));
+    state.regions.forEach(r => p.append('region', r));
     state.entities.forEach(e => p.append(e.kind, e.value));
     if (state.sort !== 'az') p.set('sort', state.sort);
     if (state.page > 1) p.set('page', state.page);
@@ -90,20 +100,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const words = norm(state.q).split(/\s+/).filter(Boolean);
     const list = DISHES.filter(d =>
       (!state.countries.size || state.countries.has(d.c)) &&
-      Array.from(state.tags).every(t => d.g.includes(t)) &&
-      !d.g.some(t => state.xtags.has(t)) &&
-      !(d.x || []).some(a => state.xallergens.has(a)) &&
+      (!state.regions.size || state.regions.has(d._region)) &&
       state.entities.every(e => e.ids.has(d.id)) &&
       words.every(w => d._name.includes(w))
     );
-    const byName = (a, b) => a.t.localeCompare(b.t);
-    const sorters = {
-      az: byName,
-      za: (a, b) => b.t.localeCompare(a.t),
-      country: (a, b) => a.l.localeCompare(b.l) || byName(a, b),
-      region: (a, b) => a._region.localeCompare(b._region) || a.l.localeCompare(b.l) || byName(a, b),
-    };
-    return list.sort(sorters[state.sort]);
+    // Sorted by the dish title only: A–Z or Z–A
+    const dir = state.sort === 'za' ? -1 : 1;
+    return list.sort((a, b) => dir * a.t.localeCompare(b.t));
   }
 
   // ------------------------------------------------------------------
@@ -114,31 +117,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const img = li.querySelector('img');
     img.onerror = () => { img.onerror = null; img.src = NO_IMAGE; };
     img.src = d.i || NO_IMAGE;
-    li.querySelector('.dict-card-country').textContent = d.l;
     li.querySelector('.dict-card-title').textContent = d.t;
     const alt = li.querySelector('.dict-card-alt');
     if (d.a && d.a.toLowerCase() !== d.t.toLowerCase()) alt.textContent = d.a;
     else alt.remove();
 
-    // Tags are clickable: they filter this page by that tag
-    const tagBox = li.querySelector('.dict-card-tags');
-    d.g.forEach((t, i) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'dict-tag' + (i === 0 && t === d._region ? ' is-region' : '') + (state.tags.has(t) ? ' is-active' : '');
-      b.textContent = t;
-      b.title = state.tags.has(t) ? `Filtering by ${t}` : `Show all dishes tagged ${t}`;
-      b.addEventListener('click', (e) => {
-        e.stopPropagation();   // a tag filters the page; the rest of the card opens the popup
-        if (state.tags.has(t)) return;
-        state.tags.add(t);
-        state.page = 1;
-        update(true, true);
-      });
-      tagBox.appendChild(b);
-    });
+    // Footer: "India · South Asia"
+    li.querySelector('.dict-card-place').textContent = d._region !== '~' ? `${d.l} · ${d._region}` : d.l;
 
-    // The rest of the card opens the dish popup
+    // The whole card opens the dish popup
     li.tabIndex = 0;
     li.setAttribute('role', 'button');
     li.setAttribute('aria-label', `${d.t}, ${d.l}. Open details`);
@@ -152,7 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ------------------------------------------------------------------
-  // Dish popup: image + name + tags + "Find similar dishes" on the left,
+  // Dish popup: image + name + "Find similar dishes" on the left,
   // Recipe breakdown / Culture & history / Health info tabs on the right
   // (TEMPLATE content for now, from /api/dish/<id>)
   // ------------------------------------------------------------------
@@ -189,24 +176,29 @@ document.addEventListener('DOMContentLoaded', () => {
   const templateNote = (text) => `
     <div class="dp-note"><span class="dp-badge">Template preview</span><span>${text}</span></div>`;
 
+  // Recipe breakdown: "View the original recipe" button on top, then one row per group
+  // (label on the left, pills on the right), divided by thin lines
   function recipeHtml(info) {
     const groups = [['ingredient', 'Ingredients'], ['action', 'Cooking actions'],
                     ['cookware', 'Cookware'], ['utensil', 'Utensils']];
+    const recipeLink = info.recipe ? `<a class="dp-recipe" href="${esc(info.recipe)}" target="_blank" rel="noopener">
+        View the original recipe
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg></a>` : '';
+    // Pill text in sentence case ("Amaretti cookie")
+    const sentence = (t) => { const l = String(t).toLowerCase(); return l.charAt(0).toUpperCase() + l.slice(1); };
+    const rows = groups.map(([kind, label]) => [label, ((info.entities && info.entities[kind]) || []).map(sentence)]);
     return `
-      <p class="dp-intro">The ingredients, cooking actions and tools in this recipe. Click any of them to see every dish that has it.</p>
-      ${groups.map(([kind, label]) => {
-        const items = (info.entities && info.entities[kind]) || [];
+      ${recipeLink}
+      <div class="dp-rows">${rows.map(([label, items]) => {
         return `
-          <div class="dp-group">
-            <h4>${label}</h4>
-            <div class="dp-chips">${items.length
-              ? items.map(n => `<a class="dp-chip" href="/dictionary?${kind}=${encodeURIComponent(n.toLowerCase())}" title="See every dish with ${esc(n.toLowerCase())}">${esc(n)}</a>`).join('')
-              : '<span class="dp-none">None listed.</span>'}</div>
-          </div>`;
+        <div class="dp-row">
+          <h4>${label}</h4>
+          <div class="dp-chips">${items.length
+            ? items.map(n => `<span class="dp-chip">${esc(n)}</span>`).join('')
+            : '<span class="dp-none">None</span>'}</div>
+        </div>`;
       }).join('')}
-      ${info.recipe ? `<a class="dp-recipe" href="${esc(info.recipe)}" target="_blank" rel="noopener">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg>
-        Original recipe</a>` : ''}`;
+      </div>`;
   }
 
   function cultureHtml(info) {
@@ -235,16 +227,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const notes = (info.health || []).length
       ? info.health.map(h => `<li>${esc(h)}</li>`).join('')
       : '<li>No nutrition notes for these ingredients yet.</li>';
-    // Every allergen group as a tag: filled = in this dish, outlined = not.
-    // Each one shows the dishes that are free from it.
+    // Every allergen group as a label: filled = in this dish, outlined = not.
     const found = new Map((info.allergens || []).map(a => [a.name, a]));
     const groups = info.allergen_groups || Array.from(found.keys());
     const tags = groups.map(name => {
       const a = found.get(name);
       const cls = 'dp-allergen' + (a ? ' is-present' : '') + (a && a.avoid ? ' is-avoid' : '');
-      const title = a ? `In this dish (from ${a.from.join(', ')}). Click to see dishes without ${name}.`
-                      : `Not in this dish. Click to see every dish without ${name}.`;
-      return `<li><a class="${cls}" href="/dictionary?xallergen=${encodeURIComponent(name)}" title="${esc(title)}">${esc(name)}</a></li>`;
+      const title = a ? `In this dish (from ${a.from.join(', ')}).` : 'Not in this dish.';
+      return `<li><span class="${cls}" title="${esc(title)}">${esc(name)}</span></li>`;
     }).join('');
     const fromLine = found.size
       ? `<p class="dp-allergen-from">${Array.from(found.values()).map(a => `<strong>${esc(a.name)}</strong> from ${esc(a.from.join(', '))}${a.avoid ? ' (on your avoid list)' : ''}`).join(' &middot; ')}</p>`
@@ -274,23 +264,18 @@ document.addEventListener('DOMContentLoaded', () => {
     alt.textContent = d.a && d.a.toLowerCase() !== d.t.toLowerCase() ? d.a : '';
     alt.hidden = !alt.textContent;
 
-    // Tags: clickable, they close the popup and filter the page (like the card tags)
-    const tagBox = document.getElementById('dp-tags');
-    tagBox.innerHTML = '';
-    d.g.forEach(t => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'dict-tag' + (t === d._region ? ' is-region' : '') + (state.tags.has(t) ? ' is-active' : '');
-      b.textContent = t;
-      b.title = `Show all dishes tagged ${t}`;
-      b.addEventListener('click', () => {
-        closeDish();
-        if (state.tags.has(t)) return;
-        state.tags.add(t);
-        state.page = 1;
-        update(true, true);
-      });
-      tagBox.appendChild(b);
+    // Country and region under the dish name: "Country  Malaysia" / "Region  Southeast Asia"
+    const place = document.getElementById('dp-tags');
+    place.innerHTML = '';
+    [['Country', d.l], ['Region', d._region !== '~' ? d._region : '']].forEach(([label, value]) => {
+      if (!value) return;
+      const k = document.createElement('span');
+      k.className = 'dp-place-label';
+      k.textContent = label;
+      const v = document.createElement('span');
+      v.className = 'dp-place-value';
+      v.textContent = value;
+      place.append(k, v);
     });
     // Puts this dish in the home page "Search by text" bar
     document.getElementById('dp-similar').href = `/?dish=${d.id}#search-section`;
@@ -409,7 +394,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Controls follow the state
     qInput.value = state.q;
-    sortSelect.value = state.sort;
     document.querySelectorAll('.dict-sort-opt').forEach(o => {
       const on = o.dataset.sort === state.sort;
       o.classList.toggle('is-selected', on);
@@ -417,39 +401,38 @@ document.addEventListener('DOMContentLoaded', () => {
       if (on) setDropdownValue('sort', o.textContent);
     });
     document.querySelectorAll('input[name="country"]').forEach(i => { i.checked = state.countries.has(i.value); });
-    document.querySelectorAll('input[name="tag"]').forEach(i => { i.checked = state.tags.has(i.value); });
-    document.querySelectorAll('input[name="xtag"]').forEach(i => { i.checked = state.xtags.has(i.value); });
-    document.querySelectorAll('input[name="xallergen"]').forEach(i => { i.checked = state.xallergens.has(i.value); });
-    const hidden = state.xtags.size + state.xallergens.size;
-    setDropdownValue('exclude', hidden === 0 ? 'None'
-      : hidden === 1 ? [...state.xallergens, ...state.xtags][0] : `${hidden} things`);
+    document.querySelectorAll('input[name="region"]').forEach(i => { i.checked = state.regions.has(i.value); });
     setDropdownValue('country', state.countries.size === 0
       ? 'All' 
       : state.countries.size === 1 ? countryLabel.get([...state.countries][0]) : `${state.countries.size} countries`);
+    setDropdownValue('region', state.regions.size === 0
+      ? 'All'
+      : state.regions.size === 1 ? [...state.regions][0] : `${state.regions.size} regions`);
     checklists.forEach(cl => cl.sync());
 
     // Active filters (each chip removes its filter -> clickable -> rounded)
     const chips = [];
     // The dish search is not listed here: Selected is only for Browse by category picks
     state.countries.forEach(c => chips.push([countryLabel.get(c) || c, () => state.countries.delete(c)]));
-    state.tags.forEach(t => chips.push([t, () => state.tags.delete(t)]));
-    state.xallergens.forEach(a => chips.push([`No ${a}`, () => state.xallergens.delete(a), true]));
-    state.xtags.forEach(t => chips.push([`No ${t}`, () => state.xtags.delete(t), true]));
+    state.regions.forEach(r => chips.push([r, () => state.regions.delete(r)]));
     state.entities.forEach(e => chips.push([titleCase(e.value), () => {
       state.entities = state.entities.filter(x => x !== e);
     }]));
     activeRow.hidden = chips.length === 0;
-    activeChips.replaceChildren(...chips.map(([label, remove, isExclude]) => {
-      const item = document.createElement('label');
-      item.className = 'dict-picked' + (isExclude ? ' is-exclude' : '');
-      const box = document.createElement('input');
-      box.type = 'checkbox';
-      box.checked = true;
-      box.setAttribute('aria-label', `Untick ${label}`);
-      box.addEventListener('change', () => { remove(); state.page = 1; update(true); });
+    activeChips.replaceChildren(...chips.map(([label, remove]) => {
+      // Each chip is a button: the name, then an x that removes it
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'dict-picked';
+      item.setAttribute('aria-label', `Remove ${label}`);
+      item.addEventListener('click', () => { remove(); state.page = 1; update(true); });
       const text = document.createElement('span');
       text.textContent = label;
-      item.append(box, text);
+      const x = document.createElement('span');
+      x.className = 'dict-picked-x';
+      x.setAttribute('aria-hidden', 'true');
+      x.textContent = '×';
+      item.append(text, x);
       return item;
     }));
   }
@@ -539,7 +522,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       const mine = state.entities.filter(e => kinds.includes(e.kind));
       setDropdownValue(dd.dataset.dd, mine.length === 0 ? 'All'
-        : mine.length === 1 ? titleCase(mine[0].value) : `${mine.length} ticked`);
+        : mine.length === 1 ? titleCase(mine[0].value) : `${mine.length} selected`);
     };
 
     if (tabsBox) {
@@ -578,28 +561,18 @@ document.addEventListener('DOMContentLoaded', () => {
     state.page = 1;
     update(true, true);
   });
-  sortSelect.addEventListener('change', () => {
-    state.sort = sortSelect.value;
-    state.page = 1;
-    update(false);
-  });
-  document.querySelectorAll('input[name="country"], input[name="tag"], input[name="xtag"], input[name="xallergen"]').forEach(input => {
+  document.querySelectorAll('input[name="country"], input[name="region"]').forEach(input => {
     input.addEventListener('change', () => {
-      const set = { country: state.countries, tag: state.tags, xtag: state.xtags, xallergen: state.xallergens }[input.name];
+      const set = { country: state.countries, region: state.regions }[input.name];
       input.checked ? set.add(input.value) : set.delete(input.value);
-      // A tag is either shown or hidden, not both
-      if (input.checked && input.name === 'tag') state.xtags.delete(input.value);
-      if (input.checked && input.name === 'xtag') state.tags.delete(input.value);
       state.page = 1;
       update(false);
     });
   });
   document.getElementById('dict-reset').addEventListener('click', () => {
-    // "Untick all" clears the Browse by category picks but keeps the dish search
+    // "Remove selected" clears the Browse by category picks but keeps the dish search
     state.countries.clear();
-    state.tags.clear();
-    state.xtags.clear();
-    state.xallergens.clear();
+    state.regions.clear();
     state.entities = [];
     state.page = 1;
     update(true);
@@ -607,8 +580,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Sort: custom list (a native select shows the system's blue highlight)
   document.querySelectorAll('.dict-sort-opt').forEach(o => {
     o.addEventListener('click', () => {
-      sortSelect.value = o.dataset.sort;
-      sortSelect.dispatchEvent(new Event('change'));
+      state.sort = o.dataset.sort;
+      state.page = 1;
+      update(false);
       closeAll();
       document.querySelector('.dict-dd[data-dd="sort"] .dict-dd-btn').focus();
     });
