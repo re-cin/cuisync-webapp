@@ -70,24 +70,37 @@
 
       <h2 class="section-title">DISCOVER ASIAN<br>CUISINE SIMILARITIES</h2>
       <p class="section-subtitle">Search for similarities using text, tags or an image</p>
-      <p class="more-search-links">
-        {% if current_user %}<a href="/profile#history">My search history</a>{% else %}<a href="/login">Log in to save your searches</a>{% endif %}
-      </p>
 
+      <!-- On phones "SEARCH BY" is shown once above the buttons instead of in each button -->
+      <p class="tab-toggle-label" aria-hidden="true">SEARCH BY</p>
       <div class="tab-toggle">
-        <button type="button" class="tab-btn active" id="btn-text-tab" onclick="switchTab('text')">Search by text</button>
-        <button type="button" class="tab-btn" id="btn-tag-tab" onclick="switchTab('tag')">Search by tag</button>
-        <button type="button" class="tab-btn" id="btn-image-tab" onclick="switchTab('image')">Search by image</button>
+        <button type="button" class="tab-btn active" id="btn-text-tab" onclick="switchTab('text')"><span class="tab-btn-prefix">SEARCH BY</span>TEXT</button>
+        <button type="button" class="tab-btn" id="btn-tag-tab" onclick="switchTab('tag')"><span class="tab-btn-prefix">SEARCH BY</span>TAGS</button>
+        <button type="button" class="tab-btn" id="btn-image-tab" onclick="switchTab('image')"><span class="tab-btn-prefix">SEARCH BY</span>IMAGE-TO-TEXT</button>
       </div>
 
       <!-- TEXT SEARCH FORM -->
       <form class="search-form active" id="text-search-form" action="/search-text" method="POST">
         
+
+        <!-- How it works: shown at the top so first-time users read it before searching -->
+        <div class="search-guide" role="note" data-guide="text" hidden>
+          <span class="search-guide-icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+          </span>
+          <p>
+            <strong>Type a dish, then select a country.</strong>
+            We'll show you that country's dish that is most similar to yours,
+            based on the ingredients and cooking steps they share.
+          </p>
+          <button type="button" class="search-guide-ok" data-guide-ok>OK</button>
+        </div>
+
         <!-- Search by dish name (ingredients moved to the Ingredient sub-tab of "Search by tag") -->
         <input type="hidden" name="search_mode" value="dish">
 
         <div class="form-group full-width" id="dish-mode-group">
-          <label for="dish-name-input">Dish name</label>
+          <label for="dish-name-input">DISH NAME</label>
           <div class="search-dropdown-wrapper">
             <input 
               type="text" 
@@ -97,51 +110,79 @@
               autocomplete="off" 
               required
             />
-            <!-- Inside the search bar: reopen the popup / clear the dish -->
-            <div class="dish-input-actions">
-              <button type="button" id="dish-change-btn" class="dish-change-btn" hidden>Click to change</button>
-              <button type="button" id="dish-clear-btn" class="dish-clear-btn" aria-label="Clear dish name" hidden>&times;</button>
-            </div>
+            <!-- Shows when the popup was closed without picking a dish: reopens it -->
+            <button type="button" id="dish-choose-btn" class="input-choose-btn" hidden></button>
+            <!-- Clears the search bar (shown once something is typed) -->
+            <button type="button" id="dish-clear-input" class="input-clear-btn" aria-label="Clear the dish name" hidden>&times;</button>
             <ul id="dish-dropdown-list" class="dropdown-list hidden"></ul>
             <!-- The exact recipe picked from the list (some recipes share a name) -->
             <input type="hidden" name="recipe_id" id="dish-recipe-id">
           </div>
         </div>
 
-        <!-- Dish picked from the popup: a preview only (changing it is done in the name box) -->
-        <div id="text-selected-dish" class="selected-dish-card is-static" style="display: none;">
+        <!-- Selected dish and target country side by side (stacked on phones) -->
+        <div class="text-pick-row">
+        <!-- Dish picked from the popup -->
+        <button type="button" id="text-selected-dish" class="selected-dish-card" style="display: none;" aria-label="Change selected dish">
           <div class="selected-dish-info">
-            <span class="selected-dish-label">Selected dish</span>
+            <span class="selected-dish-label">SELECTED DISH</span>
             <strong id="text-selected-name"></strong>
             <span id="text-selected-alt" class="selected-dish-alt-name"></span>
             <span id="text-selected-country" class="selected-dish-country"></span>
+            <span class="selected-dish-change">Click to change</span>
           </div>
           <img id="text-selected-image" class="selected-dish-image" alt="" />
+        </button>
+
+        <!-- Shows when the popup was closed without picking a dish (same as the image search) -->
+        <button type="button" id="text-select-prompt" class="select-dish-prompt" style="display: none;" aria-label="Select a dish">
+          <span class="select-dish-prompt-icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="8" y1="6" x2="21" y2="6"></line>
+              <line x1="8" y1="12" x2="21" y2="12"></line>
+              <line x1="8" y1="18" x2="21" y2="18"></line>
+              <circle cx="3.5" cy="6" r="1"></circle>
+              <circle cx="3.5" cy="12" r="1"></circle>
+              <circle cx="3.5" cy="18" r="1"></circle>
+            </svg>
+          </span>
+          <span class="select-dish-prompt-info">
+            <span class="selected-dish-label">NO DISH SELECTED</span>
+            <strong>Select a dish</strong>
+            <span id="text-select-prompt-count" class="select-dish-prompt-count"></span>
+          </span>
+          <span class="select-dish-prompt-arrow" aria-hidden="true">&rsaquo;</span>
+        </button>
+
+        <!-- Country of origin is not shown: it comes from the picked dish (shown on the card above).
+             The hidden select still sends it with the form. -->
+        <div id="text-origin-group" hidden>
+          <div id="text-origin-display" class="origin-display is-placeholder">Country of Origin</div>
+          <select id="text-origin" name="origin_country" class="origin-select-hidden" tabindex="-1" aria-hidden="true">
+            <option value="" disabled selected>Country of Origin</option>
+            {% for c in countries %}<option value="{{ c.value }}">{{ c.label }}</option>{% endfor %}
+          </select>
         </div>
 
-        <div class="form-row">
-          <!-- The origin comes from the dish picked in the popup -->
-          <div class="form-group full-width" id="text-origin-group">
-            <label id="text-origin-label">Country of origin</label>
-            <!-- Filled in from the chosen dish (same as the image search). The hidden select sends the value. -->
-            <div id="text-origin-display" class="origin-display is-placeholder"
-                 role="status" aria-live="polite" aria-labelledby="text-origin-label">Country of origin</div>
-            <select id="text-origin" name="origin_country" class="origin-select-hidden" tabindex="-1" aria-hidden="true">
-              <option value="" disabled selected>Country of origin</option>
-              {% for c in countries %}<option value="{{ c.value }}">{{ c.label }}</option>{% endfor %}
-            </select>
-          </div>
-
-          <!-- Filled in by the country picker popup (country-picker.js) -->
-          <input type="hidden" id="text-target" name="target_country">
+        <!-- Target country: shown as a card like the selected dish (country-picker.js builds it) -->
+        <div class="text-target-group" id="text-target-group" hidden>
+          <select id="text-target" name="target_country" data-country-picker aria-label="Target country">
+            <option value="" disabled selected>Select target country...</option>
+            <option value="any">Any country (best match)</option>
+            {% for c in countries %}<option value="{{ c.value }}">{{ c.label }}</option>{% endfor %}
+          </select>
         </div>
+        </div>
+
+        <hr>
 
         <div class="form-footer">
-          <p class="form-note">
-            Pick your dish, then choose the country to compare it with<br>
-            on the map. We match ingredients and cooking processes.
+          <p class="form-note" data-guide-note="text" hidden>
+            <strong>Type a dish, then select a country.</strong><br>
+            We'll show you that country's dish that is most similar to yours,<br>
+            based on the ingredients and cooking steps they share.
           </p>
-          <button type="submit" class="btn btn-red">Search the dish</button>     
+          <button type="submit" class="btn btn-red">SEARCH THE DISH</button>     
         </div>
       </form>
 
@@ -156,11 +197,23 @@
         <!-- Ingredients go along so a specific target country only uses dishes that have them -->
         <input type="hidden" name="ingredients" id="tag-ingredients">
 
+        <!-- How it works: shown at the top so first-time users read it before searching -->
+        <div class="search-guide" role="note" data-guide="tag" hidden>
+          <span class="search-guide-icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+          </span>
+          <p>
+            <strong>Pick tags, choose a dish, then select a country.</strong>
+            We'll list every dish that matches your tags. Choose one, and we'll show you
+            that country's dish that is most similar to it.
+          </p>
+          <button type="button" class="search-guide-ok" data-guide-ok>OK</button>
+        </div>
+
         <div class="search-mode-toggle tag-subtabs" role="tablist" aria-label="Search by">
-          <button type="button" class="search-mode-btn active" data-panel="region" role="tab" aria-selected="true" aria-controls="tag-panel-region">Region</button>
-          <button type="button" class="search-mode-btn" data-panel="ingredient" role="tab" aria-selected="false" aria-controls="tag-panel-ingredient">Ingredient</button>
-          <button type="button" class="search-mode-btn" data-panel="method" role="tab" aria-selected="false" aria-controls="tag-panel-method">Cooking method</button>
-          <button type="button" class="search-mode-btn" data-panel="type" role="tab" aria-selected="false" aria-controls="tag-panel-type">Dish type</button>
+          <button type="button" class="search-mode-btn active" data-panel="region" role="tab" aria-selected="true" aria-controls="tag-panel-region">REGION</button>
+          <button type="button" class="search-mode-btn" data-panel="ingredient" role="tab" aria-selected="false" aria-controls="tag-panel-ingredient">INGREDIENT</button>
+          <button type="button" class="search-mode-btn" data-panel="method" role="tab" aria-selected="false" aria-controls="tag-panel-method">COOKING METHOD</button>
         </div>
 
         <!-- Region tab: regions AND countries of origin (pick a country alone if you only
@@ -168,7 +221,7 @@
         <div class="form-group full-width tag-panel" id="tag-panel-region" data-panel="region" role="tabpanel"
              data-options="{{ home_tag_groups().get('Region', []) | map('first') | list | tojson | forceescape }}"
              data-countries="{{ home_country_options() | tojson | forceescape }}">
-          <label for="tag-entry-region">Region or country <span class="label-hint">(type to search, press Enter to add)</span></label>
+          <label for="tag-entry-region">REGION OR COUNTRY <span class="label-hint">(type to search, press Enter to add)</span></label>
           <div class="search-dropdown-wrapper">
             <div class="ingredient-chip-input tag-chip-input">
               <div class="ingredient-chips" data-chips></div>
@@ -186,16 +239,17 @@
           </div>
           <div class="tag-quick-row">
             <span class="tag-quick-label">Countries:</span>
-            <div class="tag-quick-options">
-                {% for value, label, n in home_country_options() %}
-                <button type="button" class="tag-quick" data-kind="country" data-value="{{ value }}" aria-pressed="false">{{ label }} <small>{{ n }}</small></button>
+            <!-- data-desktop-lines: also folded on computers (first line + "View more") -->
+            <div class="tag-quick-options" data-desktop-lines="1">
+                {% for opt in home_country_options() %}
+                <button type="button" class="tag-quick" data-kind="country" data-value="{{ opt[0] }}" aria-pressed="false">{{ opt[1] }} <small>{{ opt[2] }}</small></button>
                 {% endfor %}
             </div>
           </div>
         </div>
         <div class="form-group full-width tag-panel" id="tag-panel-ingredient" data-panel="ingredient" role="tabpanel" hidden
              data-free="1">
-          <label for="tag-entry-ingredient">Ingredient <span class="label-hint">(any ingredient in our dataset; press Enter or comma after each one)</span></label>
+          <label for="tag-entry-ingredient">INGREDIENT <span class="label-hint">(any ingredient in our dataset; press Enter or comma after each one)</span></label>
           <div class="search-dropdown-wrapper">
             <div class="ingredient-chip-input tag-chip-input">
               <div class="ingredient-chips" data-chips></div>
@@ -214,7 +268,7 @@
         </div>
         <div class="form-group full-width tag-panel" id="tag-panel-method" data-panel="method" role="tabpanel" hidden
              data-options="{{ home_tag_groups().get('Cooking method', []) | map('first') | list | tojson | forceescape }}">
-          <label for="tag-entry-method">Cooking method <span class="label-hint">(type to search, press Enter to add)</span></label>
+          <label for="tag-entry-method">COOKING METHOD <span class="label-hint">(type to search, press Enter to add)</span></label>
           <div class="search-dropdown-wrapper">
             <div class="ingredient-chip-input tag-chip-input">
               <div class="ingredient-chips" data-chips></div>
@@ -231,45 +285,67 @@
             </div>
           </div>
         </div>
-        <div class="form-group full-width tag-panel" id="tag-panel-type" data-panel="type" role="tabpanel" hidden
-             data-options="{{ home_tag_groups().get('Dish type', []) | map('first') | list | tojson | forceescape }}">
-          <label for="tag-entry-type">Dish type <span class="label-hint">(type to search, press Enter to add)</span></label>
-          <div class="search-dropdown-wrapper">
-            <div class="ingredient-chip-input tag-chip-input">
-              <div class="ingredient-chips" data-chips></div>
-              <input type="text" id="tag-entry-type" placeholder="Example: Noodles, Soup" autocomplete="off">
-            </div>
-            <ul class="dropdown-list hidden" data-dropdown></ul>
-          </div>
-          <div class="tag-quick-row">
-            <span class="tag-quick-label">Quick picks:</span>
-            <div class="tag-quick-options">
-                {% for t, n in home_tag_groups().get("Dish type", []) %}
-                <button type="button" class="tag-quick" data-value="{{ t }}" aria-pressed="false">{{ t }} <small>{{ n }}</small></button>
-                {% endfor %}
-            </div>
-          </div>
-        </div>
-
-        <!-- Everything picked in the four sub-tabs -->
         <div class="tag-summary" id="tag-summary">
           <div class="tag-summary-head">
-            <span class="tag-summary-title">Your tags <span id="tag-summary-count"></span></span>
+            <span class="tag-summary-title">YOUR TAGS <span id="tag-summary-count"></span></span>
             <button type="button" class="tag-summary-clear" id="tag-summary-clear" hidden>Clear all</button>
           </div>
           <div class="tag-summary-chips" id="tag-summary-chips"></div>
-          <p class="tag-summary-empty" id="tag-summary-empty">Nothing picked yet. Add tags from any of the four tabs above.</p>
+          <p class="tag-summary-empty" id="tag-summary-empty">Nothing picked yet. Add tags from any of the three tabs above.</p>
         </div>
 
-        <!-- Filled in by the country picker popup (country-picker.js) -->
-        <input type="hidden" id="tag-target" name="target_country">
+        <!-- Same as the text search: the dish picked from the popup and the target country side by side -->
+        <div class="text-pick-row">
+          <button type="button" id="tag-selected-dish" class="selected-dish-card" style="display: none;" aria-label="Change selected dish">
+            <div class="selected-dish-info">
+              <span class="selected-dish-label">SELECTED DISH</span>
+              <strong id="tag-selected-name"></strong>
+              <span id="tag-selected-alt" class="selected-dish-alt-name"></span>
+              <span id="tag-selected-country" class="selected-dish-country"></span>
+              <span class="selected-dish-change">Click to change</span>
+            </div>
+            <img id="tag-selected-image" class="selected-dish-image" alt="" />
+          </button>
+
+          <!-- Shows when the popup was closed without picking a dish -->
+          <button type="button" id="tag-select-prompt" class="select-dish-prompt" style="display: none;" aria-label="Select a dish">
+            <span class="select-dish-prompt-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="8" y1="6" x2="21" y2="6"></line>
+                <line x1="8" y1="12" x2="21" y2="12"></line>
+                <line x1="8" y1="18" x2="21" y2="18"></line>
+                <circle cx="3.5" cy="6" r="1"></circle>
+                <circle cx="3.5" cy="12" r="1"></circle>
+                <circle cx="3.5" cy="18" r="1"></circle>
+              </svg>
+            </span>
+            <span class="select-dish-prompt-info">
+              <span class="selected-dish-label">NO DISH SELECTED</span>
+              <strong>Select a dish</strong>
+              <span id="tag-select-prompt-count" class="select-dish-prompt-count"></span>
+            </span>
+            <span class="select-dish-prompt-arrow" aria-hidden="true">&rsaquo;</span>
+          </button>
+
+          <!-- Target country: only shown once a dish is picked -->
+          <div class="text-target-group" id="tag-target-group" hidden>
+            <select id="tag-target" name="target_country" data-country-picker aria-label="Target country">
+              <option value="" disabled selected>Select target country...</option>
+              <option value="any">Any country (best match)</option>
+              {% for c in countries %}<option value="{{ c.value }}">{{ c.label }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <hr>
 
         <div class="form-footer">
-          <p class="form-note">
-            Pick tags to see every dish that has them, choose one,<br>
-            then pick the country to compare it with on the map
+          <p class="form-note" data-guide-note="tag" hidden>
+            <strong>Pick tags, choose a dish, then select a country.</strong><br>
+            We'll list every dish that matches your tags. Choose one, and we'll show you<br>
+            that country's dish that is most similar to it.
           </p>
-          <button type="submit" class="btn btn-red">Find dishes</button>
+          <button type="submit" class="btn btn-red">FIND DISHES</button>
         </div>
       </form>
 
@@ -277,6 +353,19 @@
       <form class="search-form" id="image-search-form" action="/search-image" method="POST" enctype="multipart/form-data">
         
         <input type="hidden" name="extracted_dish_name" id="hidden-dish-name">
+
+        <!-- How it works: shown at the top so first-time users read it before searching -->
+        <div class="search-guide" role="note" data-guide="image" hidden>
+          <span class="search-guide-icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+          </span>
+          <p>
+            <strong>Upload a photo, pick a dish, then select a country.</strong>
+            We'll show you that country's dish that is most similar to yours,
+            based on the ingredients and cooking steps they share.
+          </p>
+          <button type="button" class="search-guide-ok" data-guide-ok>OK</button>
+        </div>
         
         <div class="upload-dropzone" id="dropzone">
           <input type="file" id="image-upload-input" name="dish_image" accept="image/*" hidden>
@@ -297,11 +386,11 @@
             <div class="dropzone-actions">
               <button type="button" class="dropzone-btn" id="upload-photo-btn">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                Upload photo
+                Upload Photo
               </button>
               <button type="button" class="dropzone-btn dropzone-btn-camera" id="camera-btn">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                Take a photo
+                Take a Photo
               </button>
             </div>
           </div>
@@ -310,72 +399,84 @@
             <img id="preview-img" src="" alt="Uploaded Photo Preview">
             <p id="file-name" class="file-name-text"></p>
             
-            <button type="button" id="selected-dish-card" class="selected-dish-card" style="display: none;" aria-label="Change selected dish">
-              
-              <div class="selected-dish-info">
-                <span class="selected-dish-label">Selected dish</span>
-                <strong id="selected-dish-name"></strong>
-                <span id="selected-dish-alt-name" class="selected-dish-alt-name"></span>
-                <span id="selected-dish-country" class="selected-dish-country"></span>
-                <span class="selected-dish-change">Click to change</span>
-              </div>
-              <img id="selected-dish-image" class="selected-dish-image" alt="" />
-            </button>
-
-            <!-- Shows when the dish picker was closed without picking a dish -->
-            <button type="button" id="select-dish-prompt" class="select-dish-prompt" style="display: none;" aria-label="Select dish from the image">
-              <span class="select-dish-prompt-icon" aria-hidden="true">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="8" y1="6" x2="21" y2="6"></line>
-                  <line x1="8" y1="12" x2="21" y2="12"></line>
-                  <line x1="8" y1="18" x2="21" y2="18"></line>
-                  <circle cx="3.5" cy="6" r="1"></circle>
-                  <circle cx="3.5" cy="12" r="1"></circle>
-                  <circle cx="3.5" cy="18" r="1"></circle>
-                </svg>
-              </span>
-              <span class="select-dish-prompt-info">
-                <span class="selected-dish-label">No dish selected</span>
-                <strong>Select dish from the image</strong>
-                <span id="select-dish-prompt-count" class="select-dish-prompt-count"></span>
-              </span>
-              <span class="select-dish-prompt-arrow" aria-hidden="true">&rsaquo;</span>
-            </button>
-
             <div id="ocr-loading" class="ocr-loading" style="display: none;" role="status" aria-live="polite">
               <span class="ocr-loading-title">Scanning image…</span>
               <div class="ocr-loading-track" aria-hidden="true"><span></span></div>
               <p class="ocr-loading-note" id="ocr-loading-note">Note: Use a clear, readable photo.</p>
             </div>
 
-            <button type="button" class="btn-remove-image" id="remove-img-btn">Remove photo</button>
+            <div class="dropzone-preview-actions">
+              <!-- Shows when the dish popup was closed without picking a dish: reopens it -->
+              <button type="button" class="btn-choose-dish" id="img-choose-btn" hidden></button>
+              <button type="button" class="btn-remove-image" id="remove-img-btn">Remove Photo</button>
+            </div>
           </div>
         </div>
 
-        <div class="form-row">
-          <div class="form-group full-width">
-            <label id="img-origin-label">Country of origin</label>
-            <!-- Filled in from the dish in the photo, not a dropdown. The hidden select sends the value. -->
-            <div id="img-origin-display" class="origin-display is-placeholder"
-                 role="status" aria-live="polite" aria-labelledby="img-origin-label">Country of origin</div>
-            <select id="img-origin" name="origin_country" class="origin-select-hidden" tabindex="-1" aria-hidden="true">
-              <option value="" disabled selected>Country of origin</option>
+        <!-- Country of origin is not shown: it comes from the dish found in the photo
+             (shown on the card below). The hidden select still sends it with the form. -->
+        <div id="img-origin-group" hidden>
+          <div id="img-origin-display" class="origin-display is-placeholder">Country of Origin</div>
+          <select id="img-origin" name="origin_country" class="origin-select-hidden" tabindex="-1" aria-hidden="true">
+            <option value="" disabled selected>Country of Origin</option>
+            {% for c in countries %}<option value="{{ c.value }}">{{ c.label }}</option>{% endfor %}
+          </select>
+        </div>
+
+        <!-- Same as the text search: the dish from the photo and the target country side by side.
+             "THE DISH" when the photo had one dish, "SELECTED DISH" when it was picked from several. -->
+        <div class="text-pick-row">
+          <button type="button" id="selected-dish-card" class="selected-dish-card" style="display: none;" aria-label="Change selected dish">
+            
+            <div class="selected-dish-info">
+              <span class="selected-dish-label" id="selected-dish-label">SELECTED DISH</span>
+              <strong id="selected-dish-name"></strong>
+              <span id="selected-dish-alt-name" class="selected-dish-alt-name"></span>
+              <span id="selected-dish-country" class="selected-dish-country"></span>
+              <span class="selected-dish-change">Click to change</span>
+            </div>
+            <img id="selected-dish-image" class="selected-dish-image" alt="" />
+          </button>
+
+          <!-- Shows when the dish picker was closed without picking a dish -->
+          <button type="button" id="select-dish-prompt" class="select-dish-prompt" style="display: none;" aria-label="Select dish from the image">
+            <span class="select-dish-prompt-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="8" y1="6" x2="21" y2="6"></line>
+                <line x1="8" y1="12" x2="21" y2="12"></line>
+                <line x1="8" y1="18" x2="21" y2="18"></line>
+                <circle cx="3.5" cy="6" r="1"></circle>
+                <circle cx="3.5" cy="12" r="1"></circle>
+                <circle cx="3.5" cy="18" r="1"></circle>
+              </svg>
+            </span>
+            <span class="select-dish-prompt-info">
+              <span class="selected-dish-label">NO DISH SELECTED</span>
+              <strong>Select dish from the image</strong>
+              <span id="select-dish-prompt-count" class="select-dish-prompt-count"></span>
+            </span>
+            <span class="select-dish-prompt-arrow" aria-hidden="true">&rsaquo;</span>
+          </button>
+
+          <!-- Target country: only shown once a dish is found / picked -->
+          <div class="text-target-group" id="img-target-group" hidden>
+            <select id="img-target" name="target_country" data-country-picker aria-label="Target country">
+              <option value="" disabled selected>Select target country...</option>
+              <option value="any">Any country (best match)</option>
               {% for c in countries %}<option value="{{ c.value }}">{{ c.label }}</option>{% endfor %}
             </select>
           </div>
-
-          <!-- Filled in by the country picker popup (country-picker.js) -->
-          <input type="hidden" id="img-target" name="target_country">
         </div>
 
         <hr>
 
         <div class="form-footer">
-          <p class="form-note">
-            Pick the dish from your photo, then choose the country<br>
-            to compare it with on the map.
+          <p class="form-note" data-guide-note="image" hidden>
+            <strong>Upload a photo, pick a dish, then select a country.</strong><br>
+            We'll show you that country's dish that is most similar to yours,<br>
+            based on the ingredients and cooking steps they share.
           </p>
-          <button type="submit" class="btn btn-red">Search the dish</button>
+          <button type="submit" class="btn btn-red">SEARCH THE DISH</button>
         </div>
       </form>
 
@@ -435,62 +536,11 @@
       <div class="modal-icon">!</div>
       <h3 id="modal-title-text" class="modal-title">We Can't Find Your Dish</h3>
       <p id="modal-desc-text" class="modal-desc"></p>
-      <button type="button" class="btn btn-red modal-ok-btn" onclick="closeErrorModal()">Try again</button>
+      <button type="button" class="btn btn-red modal-ok-btn" onclick="closeErrorModal()">TRY AGAIN</button>
     </div>
   </div>
-
-  <!-- COUNTRY PICKER: after a dish is chosen, pick the country to compare it with
-       (map on the left, list with "Any country" on the right). See country-picker.js -->
-  <div class="cp-overlay" id="cp-overlay" hidden>
-    <div class="cp-dialog" role="dialog" aria-modal="true" aria-labelledby="cp-title" tabindex="-1">
-      <button type="button" class="cp-close" id="cp-close" aria-label="Close">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
-
-      <div class="cp-stage">
-        <div class="cp-map" id="cp-map">
-          <svg class="cp-svg" id="cp-svg" role="img" aria-label="Map of Asia: click a country to choose it"><g id="cp-g"></g></svg>
-          <div class="cp-tooltip" id="cp-tooltip" hidden></div>
-        </div>
-        <div class="cp-zoom" role="group" aria-label="Map controls">
-          <button type="button" id="cp-zoom-in" aria-label="Zoom in">+</button>
-          <button type="button" id="cp-zoom-out" aria-label="Zoom out">&minus;</button>
-          <button type="button" id="cp-zoom-reset" class="cp-zoom-reset" aria-label="Reset the map">Reset</button>
-        </div>
-        <div class="cp-legend">
-          <span><i class="sw sw-origin"></i>Your dish's country</span>
-          <span><i class="sw sw-pick"></i>Can be chosen</span>
-          <span><i class="sw sw-selected"></i>Chosen</span>
-        </div>
-      </div>
-
-      <aside class="cp-side">
-        <div class="cp-head">
-          <h3 class="cp-title" id="cp-title">Choose a country</h3>
-          <p class="cp-dish">Find dishes similar to <strong id="cp-dish-name"></strong>
-            <span id="cp-dish-country"></span> in&hellip;</p>
-        </div>
-        <button type="button" class="cp-option cp-option--any" data-value="any" aria-pressed="false">
-          <span class="cp-option-name">Any country</span>
-          <span class="cp-option-meta">Best matches from every other country</span>
-        </button>
-        <label class="cp-search">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
-          <input type="search" id="cp-search" placeholder="Search countries" autocomplete="off" aria-label="Search countries">
-        </label>
-        <ul class="cp-list" id="cp-list"></ul>
-        <div class="cp-footer">
-          <button type="button" class="btn btn-red cp-go" id="cp-go" disabled>Choose a country</button>
-        </div>
-      </aside>
-    </div>
-  </div>
-  <script type="application/json" id="cp-countries">{{ home_country_options() | tojson }}</script>
 
   <script src="{{ url_for('static', filename='scripts/components.js') }}"></script>
-  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
-  <script src="{{ url_for('static', filename='scripts/country-picker.js') }}"></script>
   <script src="{{ url_for('static', filename='scripts/ocr.js') }}"></script>
   
   <script>
@@ -662,7 +712,7 @@
       }
 
       dropzone.addEventListener('click', (event) => {
-        if (!event.target.closest('#remove-img-btn')) fileInput.click();
+        if (!event.target.closest('#remove-img-btn') && !event.target.closest('#img-choose-btn')) fileInput.click();
       });
       fileInput.addEventListener('change', () => {
         if (fileInput.files[0]) displayPreview(fileInput.files[0]);
@@ -808,6 +858,63 @@
 </script>
 
 <!-- Text search: dish / ingredients, autocomplete, popup of matching dishes (panel revisions) -->
+<script>
+  /* How-it-works box, one per search tab (text, tag, image): shown at the top of that tab
+     until the user presses its OK, and that tab's form stays locked until then.
+     Pressing OK in one tab doesn't affect the others.
+     The same short message is always next to the Search button too.
+     Guests see the boxes again on every visit; logged-in users only until they press OK. */
+  (function () {
+    const userId = {{ (current_user.id if current_user else '') | tojson }};
+    const FORMS = { text: 'text-search-form', tag: 'tag-search-form', image: 'image-search-form' };
+    const keyOf = (name) => (userId ? `cuisync-guide-ok-${userId}-${name}` : null);
+    function seen(name) {
+      const key = keyOf(name);
+      if (!key) return false;
+      try { return localStorage.getItem(key) === '1'; } catch (e) { return false; }
+    }
+    // Until OK is pressed, that tab's search bar / upload / tags and its Search button are disabled
+    function lockForm(name, locked) {
+      const form = document.getElementById(FORMS[name]);
+      if (!form) return;
+      form.classList.toggle('is-locked', locked);
+      const submit = form.querySelector('button[type="submit"]');
+      if (submit) submit.disabled = locked;
+      form.querySelectorAll('#dish-name-input, #image-upload-input, #camera-input').forEach((el) => {
+        el.disabled = locked;
+      });
+    }
+    function show(name, dismissed) {
+      const guide = document.querySelector(`[data-guide="${name}"]`);
+      if (guide) guide.hidden = dismissed;
+      lockForm(name, !dismissed);
+    }
+    // The short message next to the Search button is always shown
+    document.querySelectorAll('[data-guide-note]').forEach((n) => { n.hidden = false; });
+    Object.keys(FORMS).forEach((name) => show(name, seen(name)));
+    document.querySelectorAll('[data-guide-ok]').forEach((btn) => {
+      const name = btn.closest('[data-guide]').dataset.guide;
+      btn.addEventListener('click', () => {
+        const key = keyOf(name);
+        if (key) { try { localStorage.setItem(key, '1'); } catch (e) {} }
+        show(name, true);
+      });
+    });
+  })();
+</script>
+<script>
+  /* The dish card / target country row takes no space while it has nothing to show,
+     so the gap above the gold line is the same in every tab */
+  document.querySelectorAll('.text-pick-row').forEach((row) => {
+    const update = () => {
+      const empty = Array.from(row.children).every((el) => el.hidden || el.style.display === 'none');
+      row.classList.toggle('is-empty', empty);
+    };
+    new MutationObserver(update).observe(row, { subtree: true, attributes: true, attributeFilter: ['style', 'hidden'] });
+    update();
+  });
+</script>
+<script src="{{ url_for('static', filename='scripts/country-picker.js') }}"></script>
 <script src="{{ url_for('static', filename='scripts/text-search.js') }}"></script>
 <script src="{{ url_for('static', filename='scripts/tag-search.js') }}"></script>
 
@@ -869,13 +976,13 @@
       <h2 class="sim-warning-title" id="simWarningTitle">Low Similarity Warning</h2>
       <div class="sim-warning-score" aria-hidden="true">
         <span class="sim-warning-score-value" id="simWarningScore"></span>
-        <span class="sim-warning-score-label">Similar</span>
+        <span class="sim-warning-score-label">SIMILAR</span>
       </div>
       <p class="sim-warning-message" id="simWarningMessage"></p>
       <p class="sim-warning-note">Do you still want to see the closest dish we found?</p>
       <div class="sim-warning-actions">
-        <button type="button" class="sim-warning-btn secondary" id="simWarningNo">No</button>
-        <button type="button" class="sim-warning-btn primary" id="simWarningYes">View results anyway</button>
+        <button type="button" class="sim-warning-btn secondary" id="simWarningNo">NO</button>
+        <button type="button" class="sim-warning-btn primary" id="simWarningYes">VIEW RESULTS ANYWAY</button>
       </div>
     </div>
   </div>
@@ -905,7 +1012,6 @@
 
       function pickOption(select, wanted) {
         if (!select) return;
-        if (!select.options) { select.value = wanted || ""; return; }   // hidden field (target country)
         const match = [...select.options].find(
           (o) => o.value.trim().toLowerCase() === String(wanted || "").trim().toLowerCase()
         );
@@ -921,6 +1027,7 @@
         pickOption(document.getElementById("text-origin"), data.dataset.origin);
         document.getElementById("text-origin").dispatchEvent(new Event("change"));
         pickOption(document.getElementById("text-target"), data.dataset.target);
+        document.getElementById("text-target").dispatchEvent(new Event("change"));
         const idInput = document.getElementById("dish-recipe-id");
         if (idInput) idInput.value = data.dataset.recipeId || "";
         if (dishInput) dishInput.focus();

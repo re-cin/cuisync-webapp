@@ -1127,260 +1127,893 @@ hr {
     height: 120px;
   }
 }
+/* ---------------- Target country picker (matches the Selected dish card) ---------------- */
+.country-picker {
+  position: relative;
+  width: min(100%, 480px);
+  margin: 4px auto 6px;
+}
 
-/* ==========================================================================
-   TEXT RULES (whole system)
-   - Section headers: Playfair Display, ALL CAPS
-   - Everything else (buttons, tabs, labels, badges): sentence case
-   - Dish names on cards: Playfair Display, maroon
-   ========================================================================== */
-.modal-title,
-.sim-warning-title { font-family: 'Playfair Display', serif; text-transform: uppercase; letter-spacing: 0.04em; }
-.dish-picker-info .dish-picker-country { text-transform: none; letter-spacing: 0.02em; }
-.hero-content .subtitle,
-.btn,
-.tab-btn,
-.form-group label,
-.selected-dish-label,
-.tag-summary-title,
-.sim-warning-score-label,
-.sim-warning-btn { letter-spacing: 0.02em; }
-/* Dish names on cards */
-.selected-dish-card strong,
-.dish-picker-info strong { color: var(--maroon-main); }
+.country-picker-native {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
 
-/* ==========================================================================
-   COUNTRY PICKER POPUP: map on the left, country list (with "Any country") on the right.
-   Opens after a dish is chosen (country-picker.js).
-   ========================================================================== */
-body.cp-open { overflow: hidden; }
-.cp-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 2100;
+.country-picker-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 13px 15px;
+  border: 1px solid var(--gold-border);
+  border-radius: 8px;
+  background: #faf8f5;
+  color: var(--text-dark);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.country-picker-card.is-empty {
+  border: 1.5px dashed var(--maroon-main);
+}
+
+.country-picker-card:hover,
+.country-picker-card:focus-visible,
+.country-picker.is-open .country-picker-card {
+  border-color: var(--maroon-main);
+  border-style: solid;
+  background: #f4eddd;
+  outline: none;
+}
+
+.country-picker-card:hover { transform: translateY(-1px); }
+
+.country-picker-card.needs-attention {
+  border-color: var(--maroon-main);
+  box-shadow: 0 0 0 3px rgba(128, 0, 0, 0.18);
+}
+
+.country-picker-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 32px;
-  background: rgba(20, 4, 4, 0.72);
-  opacity: 0;
-  transition: opacity 0.18s ease;
-}
-.cp-overlay[hidden] { display: none; }
-.cp-overlay.is-open { opacity: 1; }
-.cp-dialog {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  width: min(1100px, 100%);
-  height: min(660px, 100%);
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--pill-bg);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
-  transform: translateY(10px);
-  transition: transform 0.2s ease;
-}
-.cp-overlay.is-open .cp-dialog { transform: none; }
-.cp-dialog:focus { outline: none; }
-.cp-close {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 5;
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border: 0;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
   border-radius: 50%;
-  background: var(--maroon-dark);
-  color: #ffffff;
-  cursor: pointer;
+  background: var(--maroon-main);
+  color: var(--text-white);
 }
-.cp-close:hover { background: var(--maroon-light); }
-.cp-close:focus-visible { outline: 2px solid var(--gold-accent); outline-offset: 2px; }
 
-/* ---------- map ---------- */
-.cp-stage { position: relative; min-height: 0; background: #5c0a0e; }
-.cp-map { position: absolute; inset: 0; overflow: hidden; cursor: grab; touch-action: none; }
-.cp-map:active { cursor: grabbing; }
-.cp-svg { display: block; width: 100%; height: 100%; }
-.cp-svg path { transition: fill 0.15s ease; }
-.cp-svg path.is-pickable { cursor: pointer; }
-.cp-svg path.is-pickable:hover { filter: brightness(0.9); }
-.cp-map.is-offline::after {
-  content: 'Map unavailable offline. Choose a country from the list.';
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 20px;
-  text-align: center;
-  font-size: 0.82rem;
-  color: var(--text-sub);
-}
-.cp-tooltip {
-  position: absolute;
-  z-index: 3;
-  display: grid;
-  gap: 1px;
-  padding: 7px 10px;
-  border-radius: 6px;
-  background: var(--maroon-dark);
-  border: 1px solid rgba(220, 179, 73, 0.3);
-  color: #ffffff;
-  font-size: 0.7rem;
-  pointer-events: none;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
-}
-.cp-tooltip strong { color: var(--gold-accent); font-size: 0.78rem; }
-.cp-tooltip[hidden] { display: none; }
-.cp-zoom { position: absolute; right: 14px; bottom: 14px; z-index: 4; display: flex; gap: 6px; }
-.cp-zoom button {
-  display: grid;
-  place-items: center;
-  min-width: 34px;
-  height: 34px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 8px;
-  background: var(--gold-accent);
-  color: #1a1a1a;
-  font: inherit;
-  font-size: 1.05rem;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-}
-.cp-zoom .cp-zoom-reset { font-size: 0.7rem; letter-spacing: 0.02em; }
-.cp-zoom button:hover { background: #c79f37; }
-.cp-zoom button:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
-.cp-legend {
-  position: absolute;
-  left: 14px;
-  bottom: 14px;
-  z-index: 4;
+.country-picker-info {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px 14px;
-  padding: 8px 12px;
-  border-radius: 6px;
-  background: rgba(60, 6, 9, 0.85);
-  color: #ffffff;
-  font-size: 0.7rem;
-}
-.cp-legend span { display: inline-flex; align-items: center; gap: 6px; }
-.cp-legend .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
-.cp-legend .sw-origin { background: #dcb349; }
-.cp-legend .sw-pick { background: #f2bfa8; }
-.cp-legend .sw-selected { background: #b52a24; box-shadow: 0 0 0 1px #ffffff inset; }
-
-/* ---------- list ---------- */
-.cp-side { display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--gold-border); }
-.cp-head { padding: 22px 56px 12px 20px; }
-.cp-title {
-  margin: 0;
-  font-family: 'Playfair Display', serif;
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--maroon-main);
-}
-.cp-dish { margin: 6px 0 0; font-size: 0.84rem; line-height: 1.5; color: var(--text-muted); }
-.cp-dish strong { font-family: 'Playfair Display', serif; font-size: 0.98rem; color: var(--maroon-main); }
-.cp-search {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 10px 20px 8px;
-  padding: 0 12px;
-  border: 1px solid var(--gold-border);
-  border-radius: 8px;
-  background: var(--input-bg);
-  color: var(--text-muted);
-}
-.cp-search input {
+  flex-direction: column;
   flex: 1;
   min-width: 0;
-  padding: 9px 0;
-  border: 0;
-  background: transparent;
-  font: inherit;
-  font-size: 0.84rem;
-  color: var(--text-dark);
 }
-.cp-search input:focus { outline: none; }
-.cp-search:focus-within { border-color: var(--maroon-main); }
-.cp-list { flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: 0 12px 8px; list-style: none; }
-.cp-empty { padding: 14px 8px; font-size: 0.8rem; color: var(--text-muted); }
-.cp-option {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  width: 100%;
-  padding: 9px 10px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: transparent;
-  font: inherit;
-  text-align: left;
-  color: var(--text-dark);
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-}
-.cp-option:hover { background: var(--input-bg); }
-.cp-option:focus-visible { outline: 2px solid var(--gold-accent); outline-offset: 1px; }
-.cp-option-name { font-size: 0.9rem; font-weight: 600; }
-.cp-option-meta { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; }
-.cp-option.is-origin .cp-option-name::after {
-  content: '';
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  margin-left: 6px;
-  border-radius: 2px;
-  background: var(--gold-accent);
-  vertical-align: middle;
-}
-.cp-option.is-selected { background: var(--maroon-main); border-color: var(--maroon-main); color: #ffffff; }
-.cp-option.is-selected .cp-option-meta { color: var(--gold-light); }
-/* "Any country": its own row above the list */
-.cp-option--any {
-  display: grid;
-  gap: 2px;
-  width: auto;
-  margin: 0 20px;
-  padding: 12px 14px;
-  border: 1px solid var(--gold-border);
-  background: var(--pill-bg);
-}
-.cp-option--any .cp-option-meta { white-space: normal; }
-.cp-option--any:hover { background: var(--input-bg); }
-.cp-option--any.is-selected { background: var(--maroon-main); }
-.cp-footer { padding: 12px 20px 18px; border-top: 1px solid var(--gold-border); }
-.cp-go { width: 100%; }
-.cp-go:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* ---------- phones: map on top, list under it ---------- */
-@media (max-width: 760px) {
-  .cp-overlay { padding: 0; align-items: stretch; }
-  .cp-dialog {
-    grid-template-columns: 1fr;
-    grid-template-rows: 38vh minmax(0, 1fr);
-    width: 100%;
-    height: 100%;
-    border-radius: 0;
+.country-picker-name {
+  display: block;
+  margin-top: 3px;
+  color: var(--maroon-dark);
+  font-family: 'Playfair Display', serif;
+  font-size: 1.1rem;
+}
+
+.country-picker-hint {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.country-picker-arrow {
+  color: var(--maroon-main);
+  font-size: 1.8rem;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.country-picker.is-open .country-picker-arrow { transform: rotate(90deg); }
+
+.country-picker-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  padding: 10px;
+  border: 1px solid var(--gold-border);
+  border-radius: 8px;
+  background: #faf8f5;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+  animation: select-dish-prompt-in 0.18s ease;
+}
+
+
+.country-picker-list {
+  max-height: 280px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.country-picker-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 6px;
+  color: var(--text-dark);
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.country-picker-option > span:not(.country-picker-any-icon):not(.country-picker-check) { flex: 1; }
+
+.country-picker-option:hover,
+.country-picker-option.is-active {
+  background: #f4eddd;
+}
+
+.country-picker-option.is-selected {
+  color: var(--maroon-dark);
+  font-weight: 600;
+}
+
+.country-picker-option.is-any {
+  margin-bottom: 6px;
+  border: 1px solid var(--gold-border);
+  background: #fff;
+}
+
+.country-picker-option.is-any strong {
+  display: block;
+  color: var(--maroon-dark);
+  font-family: 'Playfair Display', serif;
+}
+
+.country-picker-option.is-any small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.country-picker-any-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--maroon-main);
+  color: var(--text-white);
+}
+
+.country-picker-check { color: var(--maroon-main); font-weight: 700; }
+
+.country-picker-empty {
+  padding: 10px 12px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .country-picker-panel { animation: none; }
+  .country-picker-card, .country-picker-arrow { transition: none; }
+}
+
+/* Selected dish + target country in one row */
+.text-pick-row {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  gap: 16px;
+  width: 100%;
+  margin: 4px 0 10px;
+}
+
+.text-pick-row > .selected-dish-card,
+.text-pick-row > .select-dish-prompt,
+.text-pick-row > .text-target-group {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 480px;
+  width: auto;
+  margin: 0;
+}
+
+/* Same height: both cards stretch to the taller one */
+.text-pick-row > .selected-dish-card,
+.text-pick-row > .select-dish-prompt {
+  margin: 0 !important;
+  align-self: stretch;
+}
+
+.text-pick-row > .text-target-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.text-pick-row > .text-target-group[hidden] { display: none; }
+
+.text-pick-row .country-picker {
+  display: flex;
+  flex: 1;
+  width: 100%;
+  margin: 0;
+}
+
+.text-pick-row .country-picker-card { flex: 1; }
+
+.text-pick-row .selected-dish-image {
+  width: 120px;
+  height: 90px;
+}
+
+@media (max-width: 720px) {
+  .text-pick-row {
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
   }
-  .cp-side { border-left: 0; border-top: 1px solid var(--gold-border); }
-  .cp-head { padding: 14px 16px 6px; }
-  .cp-title { font-size: 1.05rem; }
-  .cp-option--any { margin: 0 16px; }
-  .cp-search { margin: 8px 16px 6px; }
-  .cp-footer { padding: 10px 16px calc(14px + env(safe-area-inset-bottom, 0px)); }
-  .cp-close { top: calc(10px + env(safe-area-inset-top, 0px)); right: 10px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
-  .cp-zoom { top: 10px; left: 10px; right: auto; bottom: auto; }
-  .cp-legend { left: 10px; bottom: 10px; font-size: 0.62rem; gap: 4px 10px; padding: 6px 8px; }
+  .text-pick-row > .selected-dish-card,
+  .text-pick-row > .select-dish-prompt,
+  .text-pick-row > .text-target-group {
+    flex: none;
+    width: 100%;
+  }
+}
+
+/* Dish preview, "Select a dish" prompt and target country card share one background */
+.selected-dish-card,
+.select-dish-prompt,
+.country-picker-card {
+  background: #f4eddd;
+}
+
+.selected-dish-card:hover,
+.selected-dish-card:focus,
+.select-dish-prompt:hover,
+.select-dish-prompt:focus-visible,
+.country-picker-card:hover,
+.country-picker-card:focus-visible,
+.country-picker.is-open .country-picker-card {
+  background: #efe3cc;
+}
+
+.text-target-group.is-revealed { animation: select-dish-prompt-in 0.25s ease; }
+@media (prefers-reduced-motion: reduce) { .text-target-group.is-revealed { animation: none; } }
+
+/* Dish photo fills the card from top to bottom (flush with the right edge) */
+.selected-dish-card {
+  align-items: stretch;
+  padding: 0;
+  overflow: hidden;
+}
+
+.selected-dish-card .selected-dish-info {
+  justify-content: center;
+  padding: 13px 0 13px 15px;
+}
+
+.selected-dish-card .selected-dish-image,
+.text-pick-row .selected-dish-card .selected-dish-image {
+  align-self: stretch;
+  width: 150px;
+  height: auto;
+  min-height: 100px;
+  border-radius: 0;
+  box-shadow: none;
+  object-fit: cover;
+}
+
+.text-pick-row .selected-dish-card .selected-dish-image { width: 130px; }
+
+/* Soft fade on the photo's left edge into the card */
+.selected-dish-card .selected-dish-image {
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 45%);
+          mask-image: linear-gradient(to right, transparent 0%, #000 45%);
+}
+
+/* Hero: Search now + Log in side by side, with a short note under them */
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+
+.btn-hero-outline {
+  border: 1.5px solid var(--gold-accent);
+  background: rgba(0, 0, 0, 0.12);
+  color: var(--gold-accent);
+  text-decoration: none;
+  padding: 8.5px 34px;
+}
+
+.btn-hero-outline:hover,
+.btn-hero-outline:focus-visible {
+  background: var(--gold-accent);
+  color: var(--maroon-dark);
+  transform: translateY(-2px);
+  outline: none;
+}
+
+.hero-login-note {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 14px;
+  color: #f1e0d6;
+  font-size: 0.8rem;
+  font-weight: 300;
+  opacity: 0.9;
+}
+
+.hero-login-note svg { color: var(--gold-accent); flex-shrink: 0; }
+
+.form-note strong { color: var(--maroon-dark); font-weight: 600; }
+
+/* How-it-works note at the top of the text and image search */
+.search-guide {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0 0 22px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--maroon-main);
+  border-radius: 8px;
+  background: #f4eddd;
+  color: var(--text-dark);
+}
+
+.search-guide-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--maroon-main);
+  color: var(--text-white);
+}
+
+.search-guide p {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.search-guide strong {
+  display: block;
+  color: var(--maroon-dark);
+  font-family: 'Playfair Display', serif;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+/* Footer with only the button: keep the button on the right */
+.form-footer > .btn:last-child { margin-left: auto; }
+
+@media (max-width: 820px) {
+  .form-footer > .btn:last-child { margin-left: 0; }
+  .search-guide { text-align: left; }
+}
+
+.search-guide[hidden], .form-note[hidden] { display: none !important; }
+.search-guide p { flex: 1; }
+
+.search-guide-ok {
+  align-self: center;
+  flex-shrink: 0;
+  padding: 7px 22px;
+  border: none;
+  border-radius: 6px;
+  background: var(--maroon-main);
+  color: var(--gold-accent);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.search-guide-ok:hover,
+.search-guide-ok:focus-visible {
+  background: var(--maroon-dark);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+/* Locked until the how-it-works box's OK is pressed */
+.search-form.is-locked #dish-mode-group,
+.search-form.is-locked .upload-dropzone {
+  opacity: 0.5;
+  pointer-events: none;
+  user-select: none;
+}
+
+.search-form.is-locked #dish-name-input { cursor: not-allowed; }
+
+.search-form button[type="submit"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Draw attention to OK while the form is locked */
+.search-form.is-locked .search-guide-ok {
+  animation: guide-ok-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes guide-ok-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(128, 13, 18, 0.45); }
+  50%      { box-shadow: 0 0 0 6px rgba(128, 13, 18, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search-form.is-locked .search-guide-ok { animation: none; }
+}
+
+/* Phones: the text gets the full width and OK becomes a full-width button under it */
+@media (max-width: 820px) {
+  .search-guide {
+    flex-wrap: wrap;
+    gap: 10px 12px;
+    padding: 14px 14px 14px 12px;
+    margin-bottom: 18px;
+  }
+  .search-guide p {
+    flex: 1 1 0;
+    min-width: 0;
+    font-size: 0.82rem;
+  }
+  .search-guide strong {
+    font-size: 1.02rem;
+    margin-bottom: 2px;
+  }
+  .search-guide-ok {
+    flex: 1 0 100%;
+    padding: 11px 0;
+    font-size: 0.8rem;
+  }
+}
+
+/* Phones: let the note after OK wrap naturally (no forced line breaks) */
+@media (max-width: 820px) {
+  .form-note br { display: none; }
+  .form-note strong { display: block; margin-bottom: 2px; }
+  .form-note { max-width: 340px; margin: 0 auto; }
+}
+
+/* Phones: after OK, the note becomes a small hint card under the Search button */
+@media (max-width: 820px) {
+  .form-footer > .btn { order: 1; }
+  .form-footer > .form-note {
+    order: 2;
+    position: relative;
+    max-width: none;
+    width: 100%;
+    margin: -8px 0 0;
+    padding: 10px 12px 10px 40px;
+    border-left: 3px solid var(--maroon-main);
+    border-radius: 6px;
+    background: #f4eddd;
+    text-align: left;
+    font-size: 0.75rem;
+    line-height: 1.45;
+  }
+  .form-footer > .form-note::before {
+    content: "i";
+    position: absolute;
+    left: 12px;
+    top: 11px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--maroon-main);
+    color: var(--text-white);
+    font-family: Georgia, serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+  }
+  .form-footer > .form-note strong { font-size: 0.8rem; }
+}
+
+/* Desktop too: Search button first, then the note as a small hint card under it */
+.form-footer {
+  flex-wrap: wrap;
+  row-gap: 14px;
+}
+
+.form-footer > .btn { order: 1; }
+
+.form-footer > .form-note {
+  order: 2;
+  position: relative;
+  width: 100%;
+  margin: 0;
+  padding: 10px 12px 10px 40px;
+  border-left: 3px solid var(--maroon-main);
+  border-radius: 6px;
+  background: #f4eddd;
+  text-align: left;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.form-footer > .form-note br { display: none; }
+.form-footer > .form-note strong { display: block; margin-bottom: 2px; font-size: 0.82rem; }
+
+.form-footer > .form-note::before {
+  content: "i";
+  position: absolute;
+  left: 12px;
+  top: 11px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--maroon-main);
+  color: var(--text-white);
+  font-family: Georgia, serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+@media (max-width: 820px) {
+  .form-footer > .form-note { margin-top: -8px; font-size: 0.75rem; }
+  .form-footer > .form-note strong { font-size: 0.8rem; }
+}
+
+/* Desktop: hint card on the left, Search button on the right, same row */
+@media (min-width: 821px) {
+  .form-footer {
+    flex-wrap: nowrap;
+    gap: 20px;
+  }
+  .form-footer > .form-note {
+    order: 1;
+    flex: 1 1 auto;
+    width: auto;
+    max-width: 560px;
+  }
+  .form-footer > .btn { order: 2; flex-shrink: 0; }
+}
+
+/* Desktop: hint card and Search button share one height */
+@media (min-width: 821px) {
+  .form-footer { align-items: stretch; }
+  .form-footer > .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .form-footer > .form-note {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .form-footer > .form-note::before { top: 50%; transform: translateY(-50%); }
+}
+
+/* Desktop: the hint card shrinks to the Search button's height (button keeps its size) */
+@media (min-width: 821px) {
+  .form-footer { align-items: center; }
+  .form-footer > .btn { display: inline-block; align-self: center; }
+  .form-footer > .form-note {
+    max-width: none;
+    align-self: center;
+    display: block;
+    padding: 4px 10px 4px 34px;
+    font-size: 0.7rem;
+    line-height: 1.3;
+  }
+  .form-footer > .form-note strong {
+    display: inline;
+    margin: 0 4px 0 0;
+    font-size: 0.72rem;
+  }
+  .form-footer > .form-note::before {
+    left: 10px;
+    width: 16px;
+    height: 16px;
+    line-height: 16px;
+    font-size: 0.65rem;
+  }
+}
+
+@media (min-width: 821px) {
+  .form-footer > .form-note {
+    padding: 5px 8px 5px 30px;
+    font-size: 0.68rem;
+    line-height: 1.35;
+    min-height: 0;
+  }
+  .form-footer > .form-note::before { left: 8px; }
+}
+
+@media (min-width: 821px) {
+  .form-footer > .form-note { padding-top: 7px; padding-bottom: 7px; }
+}
+
+/* No left stripe on the how-it-works messages */
+.form-footer > .form-note,
+.search-guide {
+  border-left: 0;
+}
+
+/* Search tabs: "SEARCH BY" once above the buttons on phones */
+.tab-toggle-label { display: none; }
+.tab-btn-prefix { margin-right: 0.35em; }
+@media (max-width: 600px) {
+  .tab-toggle-label {
+    display: block;
+    margin: 0 0 8px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 2px;
+  }
+  .tab-btn-prefix {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+/* Search by Tag locked until OK: the tabs, search bars and quick picks */
+.search-form.is-locked .tag-subtabs,
+.search-form.is-locked .tag-panel {
+  opacity: 0.5;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Bottom hint next to the Search button: same background as the page */
+.form-footer > .form-note { background: transparent; }
+
+/* Even spacing around the gold line in each search tab:
+   form -> line, line -> message/button, and button -> bottom divider are all 28px */
+.search-form .text-pick-row { margin: 0; }
+.search-form .text-pick-row:not(:empty) + hr,
+.search-form hr { margin: 28px 0; }
+.search-form .form-footer { margin: 0 0 28px; }
+.search-form .form-group:last-of-type { margin-bottom: 0; }
+
+/* The space from the Search button down to the bottom divider's line matches
+   the space from the gold line down to the button (about 30px each) */
+.search-form .form-footer { margin-bottom: 0; }
+.search-section .search-form ~ .section-divider { margin-top: 21px; }
+
+/* Dish card with only one dish: not clickable (no hover, no pointer) */
+.selected-dish-card.is-static {
+  cursor: default;
+  pointer-events: none;
+}
+.selected-dish-card.is-static:hover,
+.selected-dish-card.is-static:focus {
+  border-color: var(--gold-border);
+  background: #f4eddd;
+  transform: none;
+}
+
+/* Empty dish/target row: hidden, so the space above the gold line is the normal 28px */
+.search-form .text-pick-row.is-empty { display: none; }
+.search-form .text-pick-row { margin-top: 14px; }
+
+/* Phones: the divider under the search forms runs edge to edge, like the gold line above the button */
+@media (max-width: 820px) {
+  .search-section .search-form ~ .section-divider .line { flex: 1; width: auto; }
+}
+
+/* × inside the dish name search bar */
+#dish-mode-group .search-dropdown-wrapper { position: relative; }
+#dish-name-input { padding-right: 44px; }
+.input-clear-btn {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(128, 13, 18, 0.1);
+  color: var(--maroon-main);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.input-clear-btn:hover,
+.input-clear-btn:focus-visible {
+  background: var(--maroon-main);
+  color: #fff;
+  outline: none;
+}
+.input-clear-btn[hidden] { display: none; }
+
+/* "Choose a dish (N)" inside the dish name search bar (popup closed without a pick) */
+.input-choose-btn {
+  position: absolute;
+  top: 50%;
+  right: 44px;
+  transform: translateY(-50%);
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--maroon-main);
+  color: var(--gold-light, #f8e5c8);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+  cursor: pointer;
+  animation: input-choose-in 0.2s ease;
+}
+@keyframes input-choose-in { from { opacity: 0; } to { opacity: 1; } }
+.input-choose-btn:hover,
+.input-choose-btn:focus-visible { background: var(--maroon-dark); outline: none; }
+.input-choose-btn[hidden] { display: none; }
+#dish-name-input.has-choose-btn { padding-right: 190px; }
+
+/* Upload area: "Choose a dish (N)" next to Remove Photo */
+.dropzone-preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.btn-choose-dish {
+  padding: 6px 16px;
+  border: 1px solid var(--maroon-main);
+  border-radius: 20px;
+  background: var(--maroon-main);
+  color: #fff;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.btn-choose-dish:hover { background: var(--maroon-dark); }
+.btn-choose-dish[hidden] { display: none; }
+
+/* Target country card: text starts at the top, level with "SELECTED DISH",
+   and the country name is big */
+.country-picker-card { align-items: flex-start; }
+.country-picker-card .country-picker-icon { margin-top: 2px; }
+.country-picker-card .country-picker-arrow { align-self: center; }
+.country-picker-card .country-picker-name {
+  font-size: 1.55rem;
+  line-height: 1.15;
+  margin-top: 4px;
+}
+.country-picker-card.is-empty .country-picker-name { font-size: 1.1rem; line-height: 1.3; }
+
+/* Target country card: label at the top, big country name in the middle,
+   "Click to change" at the bottom (level with the country line of the dish card) */
+.country-picker-card .country-picker-info {
+  align-self: stretch;
+  justify-content: space-between;
+  gap: 4px;
+}
+.country-picker-card:not(.is-empty) .country-picker-name {
+  font-size: 2.1rem;
+  line-height: 1.1;
+  margin: 2px 0;
+}
+.country-picker-card .country-picker-hint { margin-top: 0; }
+
+/* Target country card: text on the left, globe icon + arrow together on the right */
+.country-picker-card .country-picker-info  { order: 1; }
+.country-picker-card .country-picker-icon  { order: 2; align-self: center; margin-top: 0; }
+.country-picker-card .country-picker-arrow { order: 3; margin-left: -4px; }
+
+/* "Choose a Target country" is big too, filling the card like a picked country */
+.country-picker-card.is-empty .country-picker-name {
+  font-size: 1.6rem;
+  line-height: 1.15;
+  margin: 2px 0;
+}
+
+/* ---------------- Target country list ----------------
+   Computers: a dropdown under the card. Phones: a popup in the middle of the screen,
+   so the whole list can be scrolled without scrolling the page. */
+.country-picker-head { display: none; }
+
+@media (max-width: 600px) {
+  html.country-picker-open,
+  html.country-picker-open body { overflow: hidden; }
+
+  .country-picker-panel {
+    position: fixed;
+    inset: 0;
+    z-index: 2100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 18px;
+    border: 0;
+    border-radius: 0;
+    background: rgba(38, 20, 10, 0.55);
+    box-shadow: none;
+    animation: none;
+  }
+  .country-picker-panel[hidden] { display: none; }
+
+  .country-picker-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: min(100%, 380px);
+    padding: 16px 16px 10px 18px;
+    border-radius: 14px 14px 0 0;
+    background: #faf8f5;
+  }
+  .country-picker-head-title {
+    color: var(--maroon-dark);
+    font-family: 'Playfair Display', serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+  }
+  .country-picker-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--maroon-main);
+    color: #fff;
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .country-picker-list {
+    width: min(100%, 380px);
+    max-height: min(60vh, 460px);
+    max-height: min(60dvh, 460px);
+    margin: 0;
+    padding: 0 10px 12px;
+    border-radius: 0 0 14px 14px;
+    background: #faf8f5;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .country-picker-option { padding: 12px 12px; font-size: 0.95rem; }
 }

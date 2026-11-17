@@ -108,6 +108,8 @@ def _error_from(response):
         data = response.json()
     except ValueError:
         data = {}
+    if not isinstance(data, dict):   # some replies are a list, not an error object
+        data = {}
     text = " ".join(str(data.get(k, "")) for k in ("msg", "message", "error_description", "error", "code", "details"))
     lowered = text.lower()
     if "already" in lowered and ("registered" in lowered or "exists" in lowered):
@@ -133,7 +135,9 @@ def _rpc(name, **args):
 
 
 def _count(table, params=None):
-    response = _rest("GET", table, params=dict(params or {}, select="id", limit="1"), prefer="count=exact")
+    # With "count=exact" and a limit, Supabase answers 206 (Partial Content) once there are more rows than the limit
+    response = _rest("GET", table, params=dict(params or {}, select="id", limit="1"), prefer="count=exact",
+                     ok=(200, 206))
     total = response.headers.get("Content-Range", "*/0").split("/")[-1]
     return int(total) if total.isdigit() else 0
 

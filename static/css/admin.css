@@ -546,7 +546,6 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 0.85em; }
 .tag-count { border-radius: 4px; }
 /* Colour key above the NER chips (the chips themselves have buttons, so they stay rounded) */
 .legend .chip { border-radius: 4px; }
-=======
 /* Admin log in without the pills: logo at the top, text centred in the remaining space */
 .login-brand.no-pills { justify-content: flex-start; }
 .login-brand.no-pills .login-brand-copy { margin: auto 0; }

@@ -980,6 +980,172 @@ span.tag-chip:not(.removable) { border-radius: 4px; }
 .tag-summary-title { letter-spacing: 0.02em; }
 /* Dish names on cards */
 .dish-card-body h3 { color: var(--maroon-main); }
+/* "Your tags" under the search bar: plain, no box */
+.tag-panel .tag-summary {
+  margin: 10px 0 14px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+/* Each place has its own look so picks aren't confused with choices:
+   - search bar: soft beige chips (what you typed / picked in this tab)
+   - "Your tags": solid chips with the group name (the summary of everything)
+   - quick picks: an outlined button with a light tint when picked */
+.tag-chip-input .ingredient-chip {
+  background: #efe3cc;
+  color: var(--maroon-dark);
+  border: 1px solid var(--gold-border);
+}
+.tag-chip-input .ingredient-chip button { color: var(--maroon-main); }
+
+.tag-quick.is-active {
+  background: rgba(128, 13, 18, 0.08);
+  border: 1.5px solid var(--maroon-main);
+  color: var(--maroon-dark);
+  font-weight: 600;
+}
+.tag-quick.is-active small { color: var(--maroon-main); }
+
+/* "Your tags": each kind of tag has its own colour */
+.tag-summary-chip.tag-summary-region     { background: #7a1418; }  /* region: maroon */
+.tag-summary-chip.tag-summary-country    { background: #7a1418; }  /* country: same maroon as region */
+.tag-summary-chip.tag-summary-ingredient { background: #56692a; }  /* ingredient: olive */
+.tag-summary-chip.tag-summary-method     { background: #34507a; }  /* cooking method: slate blue */
+
+/* Phones: the tag sub-tabs fit in one row of three equal pills (labels may wrap to 2 lines) */
+@media (max-width: 600px) {
+  .tag-subtabs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    width: 100%;
+    flex-wrap: nowrap;
+    border-radius: 999px;
+  }
+  .tag-subtabs .search-mode-btn {
+    padding: 8px 6px;
+    font-size: 0.66rem;
+    letter-spacing: 0.8px;
+    line-height: 1.25;
+    text-align: center;
+  }
+}
+
+/* Phones: calmer Search by Tag
+   - each row of quick picks shows its first 2 lines, with "View more" for the rest
+   - "Your tags" only shows once something is picked
+   - the "(type to search, press Enter to add)" hint is hidden */
+/* "View more" under a folded row of quick picks (phones, and Countries on computers) */
+.tag-quick-options.is-collapsed { overflow: hidden; }
+.tag-quick-row { flex-wrap: wrap; }
+@media (min-width: 601px) {
+  .tag-quick-row > .tag-quick-options { flex: 1 1 0; min-width: 0; }
+}
+.tag-quick-more {
+  flex-basis: 100%;
+  padding: 2px 0 0 102px;          /* lines up with the buttons, after the label */
+  border: 0;
+  background: none;
+  color: var(--maroon-main);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.tag-quick-more:hover { text-decoration: underline; }
+.tag-quick-more[hidden] { display: none; }
+@media (max-width: 600px) {
+  #tag-search-form .label-hint { display: none; }
+  #tag-search-form .tag-summary.is-empty { display: none; }
+
+  #tag-search-form .tag-quick-row { gap: 4px; margin-top: 12px; }
+  #tag-search-form .tag-quick-label { min-width: 0; padding-top: 0; font-size: 0.62rem; }
+  #tag-search-form .tag-quick { padding: 5px 11px; font-size: 0.74rem; }
+
+  #tag-search-form .tag-quick-more { padding-left: 0; margin-top: 2px; }
+}
+
+/* Phones: every dish popup (text, tag and image search) is one column of
+   landscape cards: photo on the left, details on the right */
+@media (max-width: 600px) {
+  .dish-grid.popup-dish-grid { flex-direction: column; flex-wrap: nowrap; gap: 10px; }
+  .popup-dish-grid > .popup-dish-card {
+    flex: none;
+    width: 100%;
+    flex-direction: row;
+    align-items: stretch;
+    min-height: 124px;
+    border-radius: 12px;
+  }
+  .popup-dish-card .dish-card-img {
+    flex: 0 0 38%;
+    max-width: 150px;
+    aspect-ratio: auto;
+  }
+  .popup-dish-card .dish-card-img img { position: absolute; inset: 0; }
+  .popup-dish-card .dish-card-country {
+    top: 6px;
+    left: 6px;
+    padding: 2px 7px;
+    font-size: 0.56rem;
+    letter-spacing: 0.6px;
+    max-width: calc(100% - 12px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .popup-dish-card .dish-card-score { top: auto; bottom: 6px; right: 6px; left: 6px; text-align: center; font-size: 0.6rem; padding: 2px 6px; }
+  .popup-dish-card .dish-card-body { padding: 10px 12px; gap: 4px; min-width: 0; }
+  .popup-dish-card .dish-card-body h3 { font-size: 0.98rem; }
+  .popup-dish-card .dish-card-alt { font-size: 0.74rem; margin-top: -2px; }
+  .popup-dish-card .dish-card-ings,
+  .popup-dish-card .dish-card-found { font-size: 0.72rem; -webkit-line-clamp: 1; }
+  .popup-dish-card .dish-card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 0; }
+  .popup-dish-card .dish-card-tags .tag-chip { margin: 0; font-size: 0.62rem; padding: 2px 7px; }
+  .popup-dish-card .popup-select { padding-top: 6px; font-size: 0.62rem; }
+}
+
+/* Phones: the dish popup's CLOSE pill sits on its own line above the title
+   (it used to float over "Found" before scrolling) */
+@media (max-width: 820px), (pointer: coarse) {
+  .dish-results-box .modal-close-btn {
+    float: none;
+    display: flex;
+    width: fit-content;
+    margin: -14px -6px 6px auto;
+  }
+  .dish-results-box .modal-title { clear: none; margin-top: 0; }
+}
+@media (max-width: 820px), (pointer: coarse) {
+  /* Sticky elements stay inside the box's padding, so the pill starts at the top padding */
+  .modal-box.dish-results-box { padding-top: 12px; }
+  .dish-results-box .modal-close-btn { margin: 0 -6px 8px auto; }
+}
+/* Keyboard focus ring on the CLOSE pill in the site's gold, not the browser's blue */
+.modal-overlay .modal-close-btn:focus { outline: none; }
+.modal-overlay .modal-close-btn:focus-visible { outline: 2px solid var(--gold-accent); outline-offset: 2px; }
+
+/* Phones: dish popups keep a clear space from the top and bottom of the screen.
+   dvh = the visible screen height (100vh is taller than the screen on phones). */
+@media (max-width: 820px) {
+  .modal-overlay { padding: 40px 14px; }
+  .modal-box.dish-results-box {
+    max-height: calc(100vh - 80px);
+    max-height: calc(100dvh - 80px);
+  }
+}
+
+/* Home page keeps its uppercase labels (the text rules above make them sentence case elsewhere) */
+#search-section .tag-quick-label,
+#search-section .tag-summary-chip .tag-summary-group,
+#search-section .dropzone-btn,
+#dish-results-overlay .dish-card-country { text-transform: uppercase; letter-spacing: 1px; }
+#search-section .search-mode-btn,
+#search-section .tag-summary-title,
+#dish-results-overlay .popup-select { letter-spacing: 1.2px; }
+
 /* ==========================================================================
    PROFILE PAGE: header with avatar + stats, search history list, account tucked away
    ========================================================================== */

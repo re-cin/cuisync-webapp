@@ -1504,21 +1504,30 @@ def api_find_dishes():
         # Dishes must have all the tags; with ingredients they are ranked by how many they use.
         tags = [t for t in q.split("|") if t]
         wanted = [w for w in split_names(request.args.get("ing", "")) if w]
-        # Countries of origin from the Region tab (a dish is from one country, so any of them)
+        # Countries of origin from the Region tab
         countries = {c.strip().lower() for c in request.args.get("country", "").split("|") if c.strip()}
+        # Region tab = places: regions and countries are "any of them" (OR), so
+        # South Korea + Southeast Asia -> every Korean dish and every Southeast Asian dish.
+        # The other tabs (cooking method, dish type) must all match (AND).
+        def region_of_recipe(r):
+            return r.get("country_region") or STORE.region_of(r.get("country"))
+        known_regions = {region_of_recipe(r) for r in RECIPES}
+        place_regions = {t for t in tags if t in known_regions}
+        other_tags = [t for t in tags if t not in place_regions]
         unknown, cuisines = [], []
         if wanted:
             results, unknown = INGREDIENT_SEARCH.search(RECIPES, wanted, "", limit=len(RECIPES))
-            if tags:
+            if other_tags:
                 results = [r for r in results
-                           if all(t in search_tools.recipe_tags(RECIPES[r[0]], STORE.region_of) for t in tags)]
-            cuisines = search_tools.possible_cuisines(RECIPES, results, STORE.label_of)
+                           if all(t in search_tools.recipe_tags(RECIPES[r[0]], STORE.region_of) for t in other_tags)]
         else:
-            results = search_tools.tag_search(RECIPES, tags, "", STORE.region_of)
-        if countries:
-            results = [r for r in results if RECIPES[r[0]]["country"].lower() in countries]
-            if wanted:
-                cuisines = search_tools.possible_cuisines(RECIPES, results, STORE.label_of)
+            results = search_tools.tag_search(RECIPES, other_tags, "", STORE.region_of)
+        if place_regions or countries:
+            results = [r for r in results
+                       if RECIPES[r[0]]["country"].lower() in countries
+                       or region_of_recipe(RECIPES[r[0]]) in place_regions]
+        if wanted:
+            cuisines = search_tools.possible_cuisines(RECIPES, results, STORE.label_of)
         saved = {"mode": "tags", "tag": tags}
         if wanted:
             saved["ing"] = ", ".join(wanted)
