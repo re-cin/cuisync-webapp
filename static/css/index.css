@@ -2051,3 +2051,58 @@ hr {
     margin-top: 25px !important;
   }
 }
+
+/* ==========================================================================
+   UNDER EACH SEARCH: short tips on the left, the Search button on the right
+   - Text / tags: things to avoid (the first-time guide already says what to do)
+   - Photo: what makes a good photo
+   Phones: button full width first, tips under it
+   ========================================================================== */
+.search-form .form-footer.tips-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 20px 0 36px;
+}
+.tips-footer > .btn,
+.tips-footer > .btn:last-child {
+  flex: none;
+  margin: 0 !important;
+  min-width: 200px;
+  min-height: 48px;
+  border-radius: 8px;
+}
+.search-tips {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  text-align: left;
+}
+.search-tips-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: var(--maroon-main);
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-style: normal;
+}
+.search-tips strong { display: block; color: var(--maroon-dark); font-weight: 600; }
+.search-tips em { font-style: normal; font-weight: 600; color: var(--text-dark); }
+.search-tips ul { margin: 2px 0 0; padding-left: 16px; }
+.search-tips li { margin: 0; }
+@media (max-width: 720px) {
+  .search-form .form-footer.tips-footer { flex-direction: column; align-items: stretch; gap: 16px; }
+  .tips-footer > .btn,
+  .tips-footer > .btn:last-child { width: 100%; order: 1; }
+  .search-tips { order: 2; }
+}

@@ -186,14 +186,16 @@
         </div>
         </div>
 
-        <hr>
-
-        <div class="form-footer">
-          <p class="form-note" data-guide-note="text" hidden>
-            <strong>Type a dish, then choose a country.</strong><br>
-            We'll show you that country's dish that is most similar to yours,<br>
-            based on the ingredients and cooking steps they share.
-          </p>
+        <div class="form-footer tips-footer">
+          <div class="search-tips" role="note">
+            <i class="search-tips-icon" aria-hidden="true">i</i>
+            <div>
+              <strong>Tips</strong>
+              <ul>
+                <li>Pick your dish from the dropdown options.</li>
+              </ul>
+            </div>
+          </div>
           <button type="submit" class="btn btn-red">SEARCH THE DISH</button>     
         </div>
       </form>
@@ -383,14 +385,17 @@
           </div>
         </div>
 
-        <hr>
-
-        <div class="form-footer">
-          <p class="form-note" data-guide-note="tag" hidden>
-            <strong>Pick tags, choose a dish, then choose a country.</strong><br>
-            We'll list every dish that matches your tags. Choose one, and we'll show you<br>
-            that country's dish that is most similar to it.
-          </p>
+        <div class="form-footer tips-footer">
+          <div class="search-tips" role="note">
+            <i class="search-tips-icon" aria-hidden="true">i</i>
+            <div>
+              <strong>Tips</strong>
+              <ul>
+                <li>Regions, ingredients and cooking methods can be combined.</li>
+                <li>Some tags contradict each other and may give no results.</li>
+              </ul>
+            </div>
+          </div>
           <button type="submit" class="btn btn-red">FIND DISHES</button>
         </div>
       </form>
@@ -524,14 +529,18 @@
           </div>
         </div>
 
-        <hr>
-
-        <div class="form-footer">
-          <p class="form-note" data-guide-note="image" hidden>
-            <strong>Upload a photo, pick a dish, then choose a country.</strong><br>
-            We'll show you that country's dish that is most similar to yours,<br>
-            based on the ingredients and cooking steps they share.
-          </p>
+        <div class="form-footer tips-footer">
+          <div class="search-tips" role="note">
+            <i class="search-tips-icon" aria-hidden="true">i</i>
+            <div>
+              <strong>Tips</strong>
+              <ul>
+                <li>Use a JPG or PNG, up to 16 MB.</li>
+                <li>Make sure the dish name is clear and in focus.</li>
+                <li>Dishes are found by their written name, not by a photo of the food.</li>
+              </ul>
+            </div>
+          </div>
           <button type="submit" class="btn btn-red">SEARCH THE DISH</button>
         </div>
       </form>
@@ -597,6 +606,7 @@
   </div>
 
   <script src="{{ url_for('static', filename='scripts/components.js') }}"></script>
+
   <script src="{{ url_for('static', filename='scripts/ocr.js') }}"></script>
   
   <script>
@@ -918,7 +928,6 @@
   /* How-it-works box, one per search tab (text, tag, image): shown at the top of that tab
      until the user presses its OK, and that tab's form stays locked until then.
      Pressing OK in one tab doesn't affect the others.
-     The same short message is always next to the Search button too.
      Once OK is pressed it stays hidden in this browser (guests too); a new device shows it again. */
   (function () {
     const userId = {{ (current_user.id if current_user else '') | tojson }};
@@ -947,8 +956,6 @@
       if (guide) guide.hidden = dismissed;
       lockForm(name, !dismissed);
     }
-    // The short message next to the Search button is always shown
-    document.querySelectorAll('[data-guide-note]').forEach((n) => { n.hidden = false; });
     // Coming from "Find similar dishes" on the Dishes page (/?dish=<id>): the dish is filled in
     // for them, so the Search by text box doesn't block it
     const fromDishes = /^\d+$/.test(new URLSearchParams(location.search).get('dish') || '');
