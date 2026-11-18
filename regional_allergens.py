@@ -185,10 +185,53 @@ for code, spec in COUNTRY_SPECS.items():
             _LOOKUP[normalize(name)].append((code, category, 'possible', label_status))
 
 
+LABEL_STATUS_PLAIN = {
+    'required': 'Must be on the label',
+    'mandatory': 'Must be on the label',
+    'recommended': 'Recommended on the label',
+    'conditional': 'Only if above the legal limit',
+}
+
+
+ALLERGEN_PLAIN = {
+    'Cereals containing gluten': 'Gluten (wheat, barley, rye)',
+    'Crustaceans': 'Crustaceans (shrimp, crab)',
+    'Molluscs': 'Molluscs (clams, squid)',
+    'Sulphites': 'Sulphites (preservative)',
+    'Tree nuts': 'Tree nuts (almond, cashew…)',
+    'Peanuts': 'Peanuts',
+}
+
+
+def _plain(names):
+    return [ALLERGEN_PLAIN.get(n, n) for n in names]
+
+
+def _plain_summary(country, spec):
+    """One short, jargon-free sentence about what this country asks labels to show."""
+    name = country.title()
+    cats = spec.get('categories', {})
+    if spec['coverage'] != 'specified' or not cats:
+        return (f"We don't have a verified list of required allergens for {name}, so we "
+                "can't check this dish against local rules. Please use the allergy warnings "
+                "above and read the package label.")
+    must = [c for c, st in cats.items() if st in ('required', 'mandatory')]
+    text = f"In {name}, packaged food labels must show these {len(must)} allergens:"
+    return text
+
+
+def _lists(spec):
+    cats = spec.get('categories', {})
+    pick = lambda *st: sorted(_plain([c for c, s in cats.items() if s in st]))
+    return dict(must_list=pick('required', 'mandatory'), recommended_list=pick('recommended'),
+                conditional_list=pick('conditional'))
+
+
 def regional_market_catalog():
     """Summary for all 13 countries. No source implies no guarantee of absence."""
     return [dict(country=country, jurisdiction=spec['authority'], source_url=spec['source_url'],
                  coverage=spec['coverage'], notes=spec['notes'],
+                 plain_summary=_plain_summary(country, spec), **_lists(spec),
                  category_count=len(spec.get('categories', {})))
             for country, spec in COUNTRY_SPECS.items()]
 
@@ -212,6 +255,7 @@ def regional_allergen_alerts(recipe, market=None):
             group = groups.setdefault(key, {
                 'country': code, 'name': name, 'classification': state,
                 'jurisdiction': spec['authority'], 'label_status': label_status,
+                'label_status_plain': LABEL_STATUS_PLAIN.get(label_status, ''),
                 'source_url': spec['source_url'], 'from': [],
                 'type': 'regional_labeling_reference',
             })

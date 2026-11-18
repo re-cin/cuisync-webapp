@@ -12,7 +12,7 @@ from cuisync_prompts import get_system_prompt
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "explanations_cache.db")
 
 
-PROMPT_VERSION = "v8"
+PROMPT_VERSION = "v9"
 MODEL_NAME = os.environ.get("OPENAI_MODEL", "gpt-4o")
 
 

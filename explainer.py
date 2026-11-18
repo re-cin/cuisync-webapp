@@ -237,7 +237,7 @@ def _call_gpt(evidence, avoid=None):
             model=MODEL_NAME,
             messages=messages,
             temperature=0.2,
-            max_tokens=250,
+            max_tokens=650,
         )
 
         print("[GPT RESPONSE]", resp.choices[0].message.content)

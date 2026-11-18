@@ -34,7 +34,7 @@ PREPARATION METHOD RULE:
 
 OUTPUT FORMAT
 
-1. Write ONE plain-text paragraph of 4 to 5 sentences and approximately 80 to 110 words.
+1. Write ONE plain-text paragraph of 7 to 9 sentences and approximately 160 to 220 words when the evidence supports that detail. Write less when evidence is limited; do not repeat points or invent details to reach the target. The examples illustrate grounding and tone; follow this length target for your response.
 
 2. Explain why the two dishes are similar in a natural and straightforward way, as if someone knowledgeable about food is comparing them.
 

@@ -210,8 +210,8 @@ explain how the dish fits community practices, regional identity, occasions,
 customary serving, or culinary traditions. Do not simply restate the recipe's
 ingredient list. Avoid repetition across the two fields.
 
-When sources give enough detail, write 2-4 coherent informative sentences
-per field (roughly 80-140 words in total). If evidence is thinner, write less;
+When sources give enough detail, write 5-7 coherent informative sentences
+per field (roughly 200-300 words in total). If evidence is thinner, write less;
 NEVER pad with general knowledge, plausible stories, broad cuisine claims, or
 unsupported historical dates. When no passage supports one field, return an
 empty string for that field. A cultural source can support the historical field
@@ -1066,7 +1066,7 @@ def _draft_with_retry(client, row):
                 messages=[{"role": "system", "content": prompt}, {"role": "user", "content": json.dumps({
                     "dish": row["dish_name"], "country": row["country"], "source_excerpts": row["sources"], "requested_fields": row.get("fallback_fields", row.get("draft_fields", ["historical_background", "cultural_background"])),
                 }, ensure_ascii=False)}],
-                temperature=0.15, max_tokens=1000, response_format={"type": "json_object"}, timeout=30,
+                temperature=0.15, max_tokens=1600, response_format={"type": "json_object"}, timeout=30,
             )
         except Exception as error:
             status = getattr(error, "status_code", None)

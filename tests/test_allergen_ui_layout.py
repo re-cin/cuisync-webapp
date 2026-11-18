@@ -21,16 +21,16 @@ class AllergenUILayoutTests(DishInformationTemplateTests):
         html = self.render()
         self.assertIn('rt-allergen-group--identified', html)
         self.assertIn('rt-allergen-group--possible', html)
-        self.assertIn('Ingredient: soy sauce', html)
+        self.assertIn('From: soy sauce', html)
         self.assertIn('On your avoid list.', html)
-        self.assertIn('Possible; check the product label', html)
+        self.assertIn('check the package label', html)
         self.assertNotIn('Health Considerations and Potential Allergens', html)
 
     def test_disclaimer_not_repeated_in_countries(self):
         html = self.render()
-        self.assertEqual(html.count('Ingredient names cannot establish that a dish is allergen-free.'), 2)
+        self.assertEqual(html.count("A recipe can't prove a dish is allergen-free."), 2)
         self.assertEqual(html.count('class="rt-market-select"'), 2)
-        self.assertEqual(html.count('Compare allergen labeling across 13 countries'), 2)
+        self.assertEqual(html.count('Check allergens for your country'), 2)
 
     def test_unavailable_allergens_do_not_leak_stale_findings(self):
         health = self.context['dish_information']['source']['health']
@@ -38,7 +38,7 @@ class AllergenUILayoutTests(DishInformationTemplateTests):
         health['potential_allergens'].append({'name': 'STALE_SECRET_ALLERGEN', 'classification': 'identified'})
         html = self.render()
         self.assertNotIn('STALE_SECRET_ALLERGEN', html)
-        self.assertIn('Ingredient-specific allergen information is unavailable right now.', html)
+        self.assertIn("Allergy information isn't available for this dish right now.", html)
 
 
 if __name__ == '__main__':

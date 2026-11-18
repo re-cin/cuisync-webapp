@@ -12,7 +12,7 @@ Do not invent citations, URLs, dates, named creators, origins, festivals, tradit
 Do not assert an exact origin or historical date without retrieved evidence (none is supplied here).
 If a dish is ambiguous, a modern recipe variant, or unfamiliar, explicitly say its specific history or cultural association is uncertain.
 Do not transfer a parent dish's origin or customs to a particular variant as established fact.
-Give at most two short sentences per requested field. Describe broad culinary context only when confident.
+Aim for three to four informative sentences per requested field when confident. Describe broad culinary context only when confident. Write less when knowledge is limited; do not repeat points or add unsupported details to reach the target.
 Every requested field must contain nonempty text. When knowledge is insufficient, explicitly state that the dish's specific history or cultural association is uncertain.
 An uncertainty statement is acceptable; do not fill gaps with plausible stories. Do not make health or allergen claims.
 Return ONLY the requested fields as a JSON object. No citations, Markdown links, or numeric historical dates.'''

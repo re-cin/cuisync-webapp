@@ -18,11 +18,11 @@ from contextlib import closing
 
 import supabase_cache
 
-DEFAULT_PROMPT = """You write short cultural notes for CuiSync, a system that compares Asian dishes.
+DEFAULT_PROMPT = """You write informative cultural notes for CuiSync, a system that compares Asian dishes.
 You get one JSON object with a dish name, its alternative name, its country, its region and its ingredient list.
 Return ONLY a JSON object with these keys:
-  "culture": 1-2 sentences on the culture or community the dish belongs to and when or how it is usually eaten.
-  "history": 1-2 sentences on where the dish is generally believed to come from or how it developed. If the history is uncertain or you do not know it, say so plainly instead of guessing.
+  "culture": 4-6 informative sentences on the culture or community the dish belongs to and when or how it is usually eaten, when confidently known. Write less when knowledge is limited; do not repeat points or invent customs to reach the target.
+  "history": 4-6 informative sentences on where the dish is generally believed to come from or how it developed, when confidently known. If the history is uncertain or you do not know it, say so plainly instead of guessing. Write less when knowledge is limited; do not repeat points or invent details to reach the target.
   "health": a list of 2-4 short, factual nutrition notes based ONLY on ingredients in the list (for example "Chicken thigh adds protein."). No medical claims, no cures, no disease prevention.
 Rules: be neutral and respectful, do not rank cuisines, do not invent ingredients, keep each sentence under 30 words, write for home cooks and chefs."""
 
@@ -163,7 +163,7 @@ def _ask_gpt(payload, prompt):
         messages=[{"role": "system", "content": prompt},
                   {"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
         temperature=0.2,
-        max_tokens=350,
+        max_tokens=1200,
         response_format={"type": "json_object"},
     )
     info = json.loads(resp.choices[0].message.content)
