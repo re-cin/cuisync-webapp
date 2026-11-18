@@ -82,7 +82,7 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
           </span>
           <p>
-            <strong>Type a dish, then select a country.</strong>
+            <strong>Type a dish, then choose a country.</strong>
             We'll show you that country's dish that is most similar to yours,
             based on the ingredients and cooking steps they share.
           </p>
@@ -93,7 +93,16 @@
         <input type="hidden" name="search_mode" value="dish">
 
         <div class="form-group full-width" id="dish-mode-group">
-          <label for="dish-name-input">DISH NAME</label>
+          <label for="dish-name-input">
+            DISH NAME
+            <span class="info-tooltip">
+                <button type="button" class="info-tooltip-trigger"
+                        aria-expanded="false" aria-label="Dish name information">i</button>
+                <span class="info-tooltip-content">
+                    Enter the name of the dish you want CuiSync to analyze.
+                </span>
+            </span>
+          </label>
           <div class="search-dropdown-wrapper">
             <input 
               type="text" 
@@ -128,7 +137,7 @@
         </button>
 
         <!-- Shows when the popup was closed without picking a dish (same as the image search) -->
-        <button type="button" id="text-select-prompt" class="select-dish-prompt" style="display: none;" aria-label="Select a dish">
+        <button type="button" id="text-select-prompt" class="select-dish-prompt" style="display: none;" aria-label="Choose a dish">
           <span class="select-dish-prompt-icon" aria-hidden="true">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="8" y1="6" x2="21" y2="6"></line>
@@ -141,7 +150,7 @@
           </span>
           <span class="select-dish-prompt-info">
             <span class="selected-dish-label">NO DISH SELECTED</span>
-            <strong>Select a dish</strong>
+            <strong>Choose a dish</strong>
             <span id="text-select-prompt-count" class="select-dish-prompt-count"></span>
           </span>
           <span class="select-dish-prompt-arrow" aria-hidden="true">&rsaquo;</span>
@@ -159,22 +168,34 @@
 
         <!-- Target country: shown as a card like the selected dish (country-picker.js builds it) -->
         <div class="text-target-group" id="text-target-group" hidden>
+          <div class="target-country-label">
+            TARGET COUNTRY
+            <span class="info-tooltip">
+                <button type="button" class="info-tooltip-trigger"
+                        aria-expanded="false" aria-label="Target country information">i</button>
+                <span class="info-tooltip-content">
+                    Choose the country where you want to find a similar dish. Select Any Country to search across all available countries for the best match.
+                </span>
+            </span>
+          </div>
           <select id="text-target" name="target_country" data-country-picker aria-label="Target country">
-            <option value="" disabled selected>Select target country...</option>
+            <option value="" disabled selected>Choose a target country...</option>
             <option value="any">Any country (best match)</option>
             {% for c in countries %}<option value="{{ c.value }}">{{ c.label }}</option>{% endfor %}
           </select>
         </div>
         </div>
 
-        <hr>
-
-        <div class="form-footer">
-          <p class="form-note" data-guide-note="text" hidden>
-            <strong>Type a dish, then select a country.</strong><br>
-            We'll show you that country's dish that is most similar to yours,<br>
-            based on the ingredients and cooking steps they share.
-          </p>
+        <div class="form-footer tips-footer">
+          <div class="search-tips" role="note">
+            <i class="search-tips-icon" aria-hidden="true">i</i>
+            <div>
+              <strong>Tips</strong>
+              <ul>
+                <li>Pick your dish from the dropdown options.</li>
+              </ul>
+            </div>
+          </div>
           <button type="submit" class="btn btn-red">SEARCH THE DISH</button>     
         </div>
       </form>
@@ -196,7 +217,7 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
           </span>
           <p>
-            <strong>Pick tags, choose a dish, then select a country.</strong>
+            <strong>Pick tags, choose a dish, then choose a country.</strong>
             We'll list every dish that matches your tags. Choose one, and we'll show you
             that country's dish that is most similar to it.
           </p>
@@ -214,7 +235,15 @@
         <div class="form-group full-width tag-panel" id="tag-panel-region" data-panel="region" role="tabpanel"
              data-options="{{ home_tag_groups().get('Region', []) | map('first') | list | tojson | forceescape }}"
              data-countries="{{ home_country_options() | tojson | forceescape }}">
-          <label for="tag-entry-region">REGION OR COUNTRY <span class="label-hint">(type to search, press Enter to add)</span></label>
+          <label for="tag-entry-region">REGION OR COUNTRY <span class="label-hint">(type to search, press Enter to add)</span>
+            <span class="info-tooltip">
+              <button type="button" class="info-tooltip-trigger"
+                      aria-expanded="false" aria-label="Region or country information">i</button>
+              <span class="info-tooltip-content">
+                  Select the country or region where the dish originated or is commonly associated with.
+              </span>
+          </span>
+          </label>
           <div class="search-dropdown-wrapper">
             <div class="ingredient-chip-input tag-chip-input">
               <div class="ingredient-chips" data-chips></div>
@@ -242,7 +271,15 @@
         </div>
         <div class="form-group full-width tag-panel" id="tag-panel-ingredient" data-panel="ingredient" role="tabpanel" hidden
              data-free="1">
-          <label for="tag-entry-ingredient">INGREDIENT <span class="label-hint">(any ingredient in our dataset; press Enter or comma after each one)</span></label>
+          <label for="tag-entry-ingredient">INGREDIENT <span class="label-hint">(any ingredient in our dataset; press Enter or comma after each one)</span>
+            <span class="info-tooltip">
+              <button type="button" class="info-tooltip-trigger"
+                      aria-expanded="false" aria-label="Ingredient information">i</button>
+              <span class="info-tooltip-content">
+                  Add the ingredients used in the dish. CuiSync compares ingredient similarities when recommending related dishes.
+              </span>
+            </span>
+          </label>
           <div class="search-dropdown-wrapper">
             <div class="ingredient-chip-input tag-chip-input">
               <div class="ingredient-chips" data-chips></div>
@@ -261,7 +298,15 @@
         </div>
         <div class="form-group full-width tag-panel" id="tag-panel-method" data-panel="method" role="tabpanel" hidden
              data-options="{{ home_tag_groups().get('Cooking method', []) | map('first') | list | tojson | forceescape }}">
-          <label for="tag-entry-method">COOKING METHOD <span class="label-hint">(type to search, press Enter to add)</span></label>
+          <label for="tag-entry-method">COOKING METHOD <span class="label-hint">(type to search, press Enter to add)</span>
+            <span class="info-tooltip">
+              <button type="button" class="info-tooltip-trigger"
+                      aria-expanded="false" aria-label="Cooking method information">i</button>
+                <span class="info-tooltip-content">
+                    Specify how the dish is prepared, such as fried, boiled, steamed, or grilled. CuiSync uses this information to compare cooking methods.
+                </span>
+            </span>
+          </label>
           <div class="search-dropdown-wrapper">
             <div class="ingredient-chip-input tag-chip-input">
               <div class="ingredient-chips" data-chips></div>
@@ -301,7 +346,7 @@
           </button>
 
           <!-- Shows when the popup was closed without picking a dish -->
-          <button type="button" id="tag-select-prompt" class="select-dish-prompt" style="display: none;" aria-label="Select a dish">
+          <button type="button" id="tag-select-prompt" class="select-dish-prompt" style="display: none;" aria-label="Choose a dish">
             <span class="select-dish-prompt-icon" aria-hidden="true">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="8" y1="6" x2="21" y2="6"></line>
@@ -314,7 +359,7 @@
             </span>
             <span class="select-dish-prompt-info">
               <span class="selected-dish-label">NO DISH SELECTED</span>
-              <strong>Select a dish</strong>
+              <strong>Choose a dish</strong>
               <span id="tag-select-prompt-count" class="select-dish-prompt-count"></span>
             </span>
             <span class="select-dish-prompt-arrow" aria-hidden="true">&rsaquo;</span>
@@ -322,22 +367,35 @@
 
           <!-- Target country: only shown once a dish is picked -->
           <div class="text-target-group" id="tag-target-group" hidden>
+            <div class="target-country-label">
+              TARGET COUNTRY
+              <span class="info-tooltip">
+                  <button type="button" class="info-tooltip-trigger"
+                          aria-expanded="false" aria-label="Target country information">i</button>
+                  <span class="info-tooltip-content">
+                      Choose the country where you want to find a similar dish. Select Any Country to search across all available countries for the best match.
+                  </span>
+              </span>
+            </div>
             <select id="tag-target" name="target_country" data-country-picker aria-label="Target country">
-              <option value="" disabled selected>Select target country...</option>
+              <option value="" disabled selected>Choose a target country...</option>
               <option value="any">Any country (best match)</option>
               {% for c in countries %}<option value="{{ c.value }}">{{ c.label }}</option>{% endfor %}
             </select>
           </div>
         </div>
 
-        <hr>
-
-        <div class="form-footer">
-          <p class="form-note" data-guide-note="tag" hidden>
-            <strong>Pick tags, choose a dish, then select a country.</strong><br>
-            We'll list every dish that matches your tags. Choose one, and we'll show you<br>
-            that country's dish that is most similar to it.
-          </p>
+        <div class="form-footer tips-footer">
+          <div class="search-tips" role="note">
+            <i class="search-tips-icon" aria-hidden="true">i</i>
+            <div>
+              <strong>Tips</strong>
+              <ul>
+                <li>Regions, ingredients and cooking methods can be combined.</li>
+                <li>Some tags contradict each other and may give no results.</li>
+              </ul>
+            </div>
+          </div>
           <button type="submit" class="btn btn-red">FIND DISHES</button>
         </div>
       </form>
@@ -353,7 +411,7 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
           </span>
           <p>
-            <strong>Upload a photo, pick a dish, then select a country.</strong>
+            <strong>Upload a photo, pick a dish, then choose a country.</strong>
             We'll show you that country's dish that is most similar to yours,
             based on the ingredients and cooking steps they share.
           </p>
@@ -432,7 +490,7 @@
           </button>
 
           <!-- Shows when the dish picker was closed without picking a dish -->
-          <button type="button" id="select-dish-prompt" class="select-dish-prompt" style="display: none;" aria-label="Select dish from the image">
+          <button type="button" id="select-dish-prompt" class="select-dish-prompt" style="display: none;" aria-label="Choose a dish from the image">
             <span class="select-dish-prompt-icon" aria-hidden="true">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="8" y1="6" x2="21" y2="6"></line>
@@ -445,7 +503,7 @@
             </span>
             <span class="select-dish-prompt-info">
               <span class="selected-dish-label">NO DISH SELECTED</span>
-              <strong>Select dish from the image</strong>
+              <strong>Choose a dish from the image</strong>
               <span id="select-dish-prompt-count" class="select-dish-prompt-count"></span>
             </span>
             <span class="select-dish-prompt-arrow" aria-hidden="true">&rsaquo;</span>
@@ -453,22 +511,36 @@
 
           <!-- Target country: only shown once a dish is found / picked -->
           <div class="text-target-group" id="img-target-group" hidden>
+            <div class="target-country-label">
+              TARGET COUNTRY
+              <span class="info-tooltip">
+                  <button type="button" class="info-tooltip-trigger"
+                          aria-expanded="false" aria-label="Target country information">i</button>
+                  <span class="info-tooltip-content">
+                      Choose the country where you want to find a similar dish. Select Any Country to search across all available countries for the best match.
+                  </span>
+              </span>
+            </div>
             <select id="img-target" name="target_country" data-country-picker aria-label="Target country">
-              <option value="" disabled selected>Select target country...</option>
+              <option value="" disabled selected>Choose a target country...</option>
               <option value="any">Any country (best match)</option>
               {% for c in countries %}<option value="{{ c.value }}">{{ c.label }}</option>{% endfor %}
             </select>
           </div>
         </div>
 
-        <hr>
-
-        <div class="form-footer">
-          <p class="form-note" data-guide-note="image" hidden>
-            <strong>Upload a photo, pick a dish, then select a country.</strong><br>
-            We'll show you that country's dish that is most similar to yours,<br>
-            based on the ingredients and cooking steps they share.
-          </p>
+        <div class="form-footer tips-footer">
+          <div class="search-tips" role="note">
+            <i class="search-tips-icon" aria-hidden="true">i</i>
+            <div>
+              <strong>Tips</strong>
+              <ul>
+                <li>Use a JPG or PNG, up to 16 MB.</li>
+                <li>Make sure the dish name is clear and in focus.</li>
+                <li>Dishes are found by their written name, not by a photo of the food.</li>
+              </ul>
+            </div>
+          </div>
           <button type="submit" class="btn btn-red">SEARCH THE DISH</button>
         </div>
       </form>
@@ -502,7 +574,7 @@
       aria-label="Close"
     >&times;</button>
     <h3 id="dish-picker-title" class="modal-title">Choose a Dish from the Menu</h3>
-    <p class="modal-desc">We found these dishes in the image. Select the one you want to compare.</p>
+    <p class="modal-desc">We found these dishes in the image. Choose the one you want to compare.</p>
     
     <!-- JS adds the dish buttons here -->
     <div id="dish-picker-list" class="dish-picker-list"></div>
@@ -534,6 +606,7 @@
   </div>
 
   <script src="{{ url_for('static', filename='scripts/components.js') }}"></script>
+
   <script src="{{ url_for('static', filename='scripts/ocr.js') }}"></script>
   
   <script>
@@ -754,7 +827,7 @@
       imageForm.addEventListener('submit', (event) => {
         if (fileInput.files[0] && !hiddenDishInput.value) {
           event.preventDefault();
-          showErrorModal('Choose a Dish', 'Select one of the detected menu dishes before starting the comparison.');
+          showErrorModal('Choose a Dish', 'Choose one of the detected menu dishes before starting the comparison.');
         }
       });
     }); */
@@ -855,12 +928,13 @@
   /* How-it-works box, one per search tab (text, tag, image): shown at the top of that tab
      until the user presses its OK, and that tab's form stays locked until then.
      Pressing OK in one tab doesn't affect the others.
-     The same short message is always next to the Search button too.
-     Guests see the boxes again on every visit; logged-in users only until they press OK. */
+     Once OK is pressed it stays hidden in this browser (guests too); a new device shows it again. */
   (function () {
     const userId = {{ (current_user.id if current_user else '') | tojson }};
     const FORMS = { text: 'text-search-form', tag: 'tag-search-form', image: 'image-search-form' };
-    const keyOf = (name) => (userId ? `cuisync-guide-ok-${userId}-${name}` : null);
+    // Saved in this browser only: after OK it stays hidden on refresh, but shows again on another
+    // device or browser. Guests and each logged-in account have their own key.
+    const keyOf = (name) => `cuisync-guide-ok-${userId || 'guest'}-${name}`;
     function seen(name) {
       const key = keyOf(name);
       if (!key) return false;
@@ -882,9 +956,10 @@
       if (guide) guide.hidden = dismissed;
       lockForm(name, !dismissed);
     }
-    // The short message next to the Search button is always shown
-    document.querySelectorAll('[data-guide-note]').forEach((n) => { n.hidden = false; });
-    Object.keys(FORMS).forEach((name) => show(name, seen(name)));
+    // Coming from "Find similar dishes" on the Dishes page (/?dish=<id>): the dish is filled in
+    // for them, so the Search by text box doesn't block it
+    const fromDishes = /^\d+$/.test(new URLSearchParams(location.search).get('dish') || '');
+    Object.keys(FORMS).forEach((name) => show(name, seen(name) || (fromDishes && name === 'text')));
     document.querySelectorAll('[data-guide-ok]').forEach((btn) => {
       const name = btn.closest('[data-guide]').dataset.guide;
       btn.addEventListener('click', () => {
@@ -1044,6 +1119,7 @@
         document.getElementById("simWarningRecipeId").value = data.dataset.recipeId || "";
         document.getElementById("simWarningIngredients").value = data.dataset.ingredients || "";
         document.getElementById("simWarningMode").value = data.dataset.ingredients ? "ingredients" : "dish";
+        if (window.CuiSyncBusy) window.CuiSyncBusy.start(yesBtn);
         document.getElementById("simWarningForm").submit();
       });
 

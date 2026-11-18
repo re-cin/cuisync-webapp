@@ -70,11 +70,42 @@
     document.querySelectorAll('.rt-background-summary').forEach((p) => p._updateReadMore && p._updateReadMore());
   }
 
+  // Country / market picker in "Compare allergen labeling" (the comparison page also has
+  // its own copy of this in results.html)
+  function setupMarkets(root) {
+    (root || document).querySelectorAll('.rt-market-comparison').forEach((panel) => {
+      const selector = panel.querySelector('.rt-market-select');
+      if (!selector || selector.dataset.marketReady) return;
+      selector.dataset.marketReady = '1';
+      const update = () => {
+        const code = selector.value;
+        panel.querySelectorAll('[data-market-code]').forEach((el) => { el.hidden = el.dataset.marketCode !== code; });
+        const visible = Array.from(panel.querySelectorAll('.rt-market-findings [data-market-code]')).some((el) => !el.hidden);
+        const empty = panel.querySelector('.rt-market-empty');
+        const profile = Array.from(panel.querySelectorAll('.rt-market-profile')).find((el) => !el.hidden);
+        if (empty) {
+          empty.textContent = profile?.dataset.coverage === 'specified'
+            ? "No matching named ingredients for this market's documented categories. This does not mean the dish is allergen-free."
+            : 'A detailed allergen list is not available for this country reference. See the potential allergens above.';
+          empty.hidden = visible;
+        }
+      };
+      selector.addEventListener('change', update);
+      update();
+    });
+  }
+
+  // Used by the Dish Dictionary popup after it loads this information
+  window.CuiSyncDishInfo = {
+    setup(root) { setupReadMore(); setupMarkets(root); refresh(); },
+    refresh,
+  };
+
   function init() {
     setupReadMore();
     setupSwitches();
     // Hidden tabs can't be measured: re-check when a tab opens or the screen size changes
-    document.querySelectorAll('.rt-tab').forEach((t) => t.addEventListener('click', () => requestAnimationFrame(refresh)));
+    document.querySelectorAll('.rt-tab, .dp-tab').forEach((t) => t.addEventListener('click', () => requestAnimationFrame(refresh)));
     phone.addEventListener('change', refresh);
     window.addEventListener('resize', refresh);
   }

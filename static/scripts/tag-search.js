@@ -391,6 +391,7 @@ document.addEventListener('DOMContentLoaded', () => {
     recipeId.value = d.recipe_id ?? '';
     origin.value = d.country_value;
     ingredientsField.value = picks.ingredient.join(', ');
+    window.CuiSyncBusy.start(submitButton);
     HTMLFormElement.prototype.submit.call(form);
   }
 
@@ -399,6 +400,7 @@ document.addEventListener('DOMContentLoaded', () => {
     pendingDish = d;
     window.CuiSyncPopup.close();
     renderAll();
+    target.dispatchEvent(new CustomEvent('picker:reveal'));
     if (!target.value) {
       target.classList.add('needs-attention');
       target.dispatchEvent(new CustomEvent('picker:open'));
@@ -416,14 +418,19 @@ document.addEventListener('DOMContentLoaded', () => {
       showErrorModal('Pick a Tag', 'Add at least one region, country, ingredient, cooking method or dish type.');
       return;
     }
-    submitButton.disabled = true;
-    submitButton.textContent = 'SEARCHING…';
+    window.CuiSyncBusy.start(submitButton);
     try {
       const url = `/api/find-dishes?mode=tags&q=${encodeURIComponent(tags.join('|'))}`
         + (picks.ingredient.length ? `&ing=${encodeURIComponent(picks.ingredient.join(', '))}` : '')
         + (picks.country.length ? `&country=${encodeURIComponent(picks.country.join('|'))}` : '');
-      const r = await fetch(url, { credentials: 'same-origin' });
-      const data = await r.json();
+      let data;
+      try {
+        const r = await fetch(url, { credentials: 'same-origin', signal: window.CuiSyncBusy.signal });
+        data = await r.json();
+      } catch (e) {
+        if (e.name === 'AbortError') return;   // cancelled with the x on the busy screen
+        throw e;
+      }
       if (!data.total) {
         showErrorModal('No Dishes Found', 'No dish matches all of these picks. Try removing one.');
         return;
@@ -433,7 +440,7 @@ document.addEventListener('DOMContentLoaded', () => {
       window.CuiSyncPopup.show(data, choose, renderPick);
       renderPick();
     } finally {
-      submitButton.disabled = false;
+      window.CuiSyncBusy.stop();
       renderAll();
     }
   }

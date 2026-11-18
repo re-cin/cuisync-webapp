@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Same as the image search: a "Selected dish" card after picking from the popup, and a
-  // "Select a dish" card when the popup was closed without picking one.
+  // "Choose a dish" card when the popup was closed without picking one.
   function updateInputActions() {
     const several = Boolean(lastResults && lastResults.dishes.length > 1);
     const popupOpen = !popup.classList.contains('hidden');
@@ -313,7 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const button = document.createElement('button');
     button.type = 'button';
     // Same card as the Dish Dictionary ("Dishes" page): photo, name, other name, then a
-    // footer with the region and "Select →"
+    // footer with the region and "Choose →"
     button.className = 'dish-card popup-dish-card pdc';
     const found = (d.found || []).length
       ? `<p class="dish-card-found">Uses: ${d.found.map(([want, have]) => `<span title="you typed ${esc(want)}">${esc(have)}</span>`).join(', ')}</p>`
@@ -340,10 +340,11 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
       <div class="pdc-foot">
         <span class="pdc-place">${place}</span>
-        <span class="pdc-select">Select <span class="pdc-arrow" aria-hidden="true">&rarr;</span></span>
+        <span class="pdc-select">Choose <span class="pdc-arrow" aria-hidden="true">&rarr;</span></span>
       </div>`;
     const img = button.querySelector('img');
     img.addEventListener('error', () => { img.onerror = null; img.src = NO_IMAGE; }, { once: true });
+    button.dataset.country = d.country_label || d.country || '';
     button.addEventListener('click', () => onPick(d));
     return button;
   }
@@ -355,7 +356,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const n = data.total;
     if (data.mode === 'image') {
       popupTitle.textContent = 'Choose a Dish from the Menu';
-      popupDesc.textContent = `We found ${n} dishes in the image. Select the one you want to compare.`;
+      popupDesc.textContent = `We found ${n} dishes in the image. Choose the one you want to compare.`;
     } else if (data.mode === 'tags') {
       const parts = [];
       if (data.tags && data.tags.length) parts.push(`tagged ${data.tags.join(' + ')}`);
@@ -366,7 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
         + (n > data.dishes.length ? ` (showing the first ${data.dishes.length})` : '')
         + '. '
         + (data.ingredients && data.ingredients.length ? 'Dishes that use more of your ingredients come first. ' : '')
-        + 'Select the one you want to compare.'
+        + 'Choose the one you want to compare.'
         + (data.unknown && data.unknown.length ? ` Not in our ingredient list: ${data.unknown.join(', ')}.` : '');
     } else if (data.mode === 'ingredients' && data.country) {
       popupTitle.textContent = `${n} ${data.country_label} Dish${n === 1 ? '' : 'es'} Use Your Ingredients`;
@@ -375,30 +376,43 @@ document.addEventListener('DOMContentLoaded', () => {
         + (data.unknown && data.unknown.length ? ` Not in our ingredient list: ${data.unknown.join(', ')}.` : '');
     } else if (data.mode === 'ingredients') {
       popupTitle.textContent = `${n} Dish${n === 1 ? '' : 'es'} Use Your Ingredients`;
-      popupDesc.textContent = 'Select the dish you want to compare. Dishes that use more of your ingredients come first.'
+      popupDesc.textContent = 'Choose the dish you want to compare. Dishes that use more of your ingredients come first.'
         + (data.unknown && data.unknown.length ? ` Not in our ingredient list: ${data.unknown.join(', ')}.` : '');
     } else {
       popupTitle.textContent = data.close_spelling ? 'Did You Mean One of These?' : `${n} Dishes Found`;
       popupDesc.textContent = data.close_spelling
         ? `No dish name contains "${dishInput.value.trim()}". These have a similar spelling.`
-        : `We found several dishes for "${dishInput.value.trim()}". Select the one you want to compare.`;
+        : `We found several dishes for "${dishInput.value.trim()}". Choose the one you want to compare.`;
     }
 
-    // Oab 6: cuisines you could cook from these ingredients
-    const cuisines = data.cuisines || [];
-    popupCuisines.hidden = !cuisines.length;
-    popupCuisines.innerHTML = cuisines.length ? `
-      <h4>Cuisines you could cook</h4>
-      <ol class="cuisine-list">${cuisines.map((c, i) => `
-        <li>
-          <div class="cuisine-rank">${i + 1}</div>
-          <div class="cuisine-info">
-            <strong>${esc(c.label)}</strong>
-            <span class="muted">${c.dish_count} matching dish${c.dish_count === 1 ? '' : 'es'} &middot; e.g. ${esc(c.examples.join(', '))}</span>
-          </div>
-          <div class="cuisine-score"><span style="--pct: ${c.score}"></span><em>${c.score}%</em></div>
-        </li>`).join('')}
-      </ol>` : '';
+    // Small country pills: how many of these dishes come from each country.
+    // Clicking one shows only that country's dishes; clicking it again shows them all.
+    const counts = new Map();
+    data.dishes.forEach((d) => {
+      const c = d.country_label || d.country;
+      if (c) counts.set(c, (counts.get(c) || 0) + 1);
+    });
+    const countries = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    popupCuisines.hidden = countries.length < 2;
+    popupCuisines.className = 'popup-countries';
+    popupCuisines.setAttribute('role', 'group');
+    popupCuisines.setAttribute('aria-label', 'Show dishes from one country');
+    popupCuisines.replaceChildren(...(countries.length < 2 ? [] : countries.map(([c, k]) => {
+      const pill = document.createElement('button');
+      pill.type = 'button';
+      pill.className = 'country-pill';
+      pill.setAttribute('aria-pressed', 'false');
+      pill.innerHTML = `<span>${esc(c)}</span><span class="country-pill-count">${k}</span>`;
+      pill.addEventListener('click', () => {
+        const on = pill.getAttribute('aria-pressed') !== 'true';
+        popupCuisines.querySelectorAll('.country-pill').forEach((x) => x.setAttribute('aria-pressed', 'false'));
+        pill.setAttribute('aria-pressed', String(on));
+        popupGrid.querySelectorAll('[data-country]').forEach((card) => {
+          card.hidden = on && card.dataset.country !== c;
+        });
+      });
+      return pill;
+    })));
 
     popupGrid.replaceChildren(...data.dishes.map((d) => dishButton(d, onPick)));
     popup.classList.remove('hidden');
@@ -413,6 +427,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Like the image search: the dish shows as a "Selected dish" card under the search bar
     pickDish(d, true);
     updateInputActions();
+    targetSelect.dispatchEvent(new CustomEvent('picker:reveal'));
     if (!targetSelect.value) {
       // Open the target country picker so the user can finish the search
       targetSelect.classList.add('needs-attention');
@@ -442,20 +457,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ---------------- search ----------------
   async function findDishes(searchMode, q) {
-    submitButton.disabled = true;
-    const label = submitButton.textContent;
-    submitButton.textContent = 'SEARCHING\u2026';
+    window.CuiSyncBusy.start(submitButton);
     try {
       const r = await fetch(`/api/find-dishes?mode=${searchMode}&q=${encodeURIComponent(q)}`,
-        { credentials: 'same-origin' });
+        { credentials: 'same-origin', signal: window.CuiSyncBusy.signal });
       return await r.json();
+    } catch (e) {
+      if (e.name === 'AbortError') return null;   // cancelled with the x on the busy screen
+      throw e;
     } finally {
-      submitButton.disabled = false;
-      submitButton.textContent = label;
+      window.CuiSyncBusy.stop();
     }
   }
 
   function sendForm() {
+    window.CuiSyncBusy.start(submitButton);   // the comparison page takes a moment
     HTMLFormElement.prototype.submit.call(form);
   }
 
@@ -467,6 +483,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     const data = await findDishes('dish', q);
+    if (!data) return;
     if (!data.total) {
       showErrorModal("We Can't Find Your Dish",
         `"${q}" isn't in our recipe database yet. Please check the spelling or try a more general dish name.`);
@@ -502,6 +519,37 @@ document.addEventListener('DOMContentLoaded', () => {
   if (params.get('mode') === 'dish' && params.get('q')) {
     dishInput.value = params.get('q');
     runSearch(false);
+  }
+
+  // ---------------- "Find similar dishes" on the Dishes page: /?dish=<index> ----------------
+  // Puts that exact dish in the search bar as the selected dish, then the user picks a country
+  const dishIdx = params.get('dish');
+  if (dishIdx && /^\d+$/.test(dishIdx)) {
+    if (typeof window.switchTab === 'function') window.switchTab('text');
+    // Go straight to the search section (the browser's own #search-section jump can be undone
+    // by the page still loading)
+    const goToSearch = () => document.getElementById('search-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    (async () => {
+      window.CuiSyncBusy.start(submitButton);
+      try {
+        const info = await fetch(`/api/dish/${dishIdx}`, { credentials: 'same-origin', signal: window.CuiSyncBusy.signal }).then((r) => r.json());
+        if (!info || !info.title) return;
+        dishInput.value = info.title;
+        updateClearBtn();
+        const data = await fetch(`/api/find-dishes?mode=dish&q=${encodeURIComponent(info.title)}`,
+          { credentials: 'same-origin', signal: window.CuiSyncBusy.signal }).then((r) => r.json());
+        const match = (data.dishes || []).find((d) => String(d.recipe_id) === String(info.recipe_id))
+          || ((data.dishes || []).length === 1 ? data.dishes[0] : null);
+        if (!match) { window.CuiSyncBusy.stop(); goToSearch(); runSearch(false); return; }
+        lastResults = data;
+        pickDish(match, true);
+        updateInputActions();
+        goToSearch();
+        // Clean the address so a refresh doesn't pick it again
+        history.replaceState(null, '', location.pathname + location.hash);
+      } catch (e) { /* leave the search bar as it is */ }
+      finally { window.CuiSyncBusy.stop(); }
+    })();
   }
   updateOriginDisplay();
   updateInputActions();

@@ -14,6 +14,7 @@ from functools import lru_cache, wraps
 import cv2
 import numpy as np
 from flask import (Flask, Response, abort, flash, g, jsonify, redirect, render_template,
+                   render_template_string,
                    request, session, url_for)
 from werkzeug.middleware.proxy_fix import ProxyFix
 import ocr
@@ -872,7 +873,7 @@ def clear_recent_searches():
 MAP_TARGET_PINS = 5     # with a target country: its 5 most similar dishes...
 MAP_OTHER_PINS = 15     # ...and the 15 most similar from every other country
 MAP_ANY_PINS = 20       # with "Any country": the 20 most similar from any country
-MAP_LIST_SIZE = 10      # the side panel lists the top 10 of the pins
+MAP_LIST_SIZE = 20      # the side panel lists all 20 dishes on the map
 
 
 def results_map(source_idx, current_idx, ordered_targets, total_scores, target_any, target_country,
@@ -1786,6 +1787,36 @@ def api_dish(idx):
     info.pop("prompt", None)
     info["connection"].pop("prompt", None)
     return jsonify(info)
+
+
+# Culture & history / Health info for the Dish Dictionary popup: the same GPT-generated
+# (Supabase-cached) information and the same layout as the comparison page.
+DISH_INFO_PANELS = (
+    '{% import "partials/dish_information.html" as ui with context %}'
+    '{% if part == "culture" %}{{ ui.culture_body(background, "dish") }}'
+    '{% else %}{{ ui.health_body(health, dish, "dish") }}{% endif %}'
+)
+
+
+@app.route("/api/dish/<int:idx>/information")
+def api_dish_information(idx):
+    if not 0 <= idx < len(RECIPES):
+        return jsonify({"error": "invalid recipe index"}), 404
+    recipe = RECIPES[idx]
+    user = current_user()
+    info = dish_information.public_information(recipe, (user or {}).get("avoid_allergens", []))
+    background = info.get("background") or {}
+    health = info.get("health") or {}
+    dish = {"title": (recipe.get("title") or "").strip(), "country": recipe["country"]}
+    panels = {part: render_template_string(DISH_INFO_PANELS, part=part, background=background,
+                                           health=health, dish=dish)
+              for part in ("culture", "health")}
+    return jsonify(
+        culture=panels["culture"], health=panels["health"],
+        # Still being written by GPT / looked up in the background: the page checks again
+        generating={"culture": background.get("status") == "unavailable",
+                    "health": health.get("status") != "verified"},
+    )
 
 
 # ---------------- admin (Oab 1, 2, 5; Galang 3) ----------------

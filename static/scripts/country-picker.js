@@ -99,6 +99,7 @@
       // Phones: the list is a popup on top of everything (moved to <body> so nothing
       // on the page can cover it), and the page behind it shouldn't scroll
       if (phone.matches) {
+        reveal();   // the card is in view when the popup closes
         document.body.appendChild(panel);
         document.documentElement.classList.add('country-picker-open');
       }
@@ -107,10 +108,30 @@
       render();
       const sel = list.querySelector('.is-selected');
       if (sel) sel.scrollIntoView({ block: 'nearest' });
-      if (!phone.matches) wrap.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      // Computers: scroll down just enough to show the whole list (keeping the card under the top bar)
+      if (!phone.matches) requestAnimationFrame(showWholeList);
     }
 
     const phone = window.matchMedia('(max-width: 600px)');
+    function showWholeList() {
+      if (panel.hidden) return;
+      const listBox = panel.getBoundingClientRect();
+      const cardBox = card.getBoundingClientRect();
+      const topBar = 90;                                          // room for the fixed top bar
+      const needed = listBox.bottom + 20 - window.innerHeight;   // how much of the list is cut off
+      const room = cardBox.top - topBar;                         // how far before the card goes under the bar
+      const by = Math.min(needed, room);
+      if (by > 0) {
+        const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        window.scrollBy({ top: by, behavior: reduce ? 'auto' : 'smooth' });
+      }
+    }
+    function reveal() {
+      if (!phone.matches) return;
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      // After the dish card has been drawn, so the position is right
+      requestAnimationFrame(() => wrap.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' }));
+    }
     function close() {
       document.documentElement.classList.remove('country-picker-open');
       panel.hidden = true;
@@ -157,6 +178,8 @@
     // Value set from code (e.g. the low-similarity popup) -> refresh the card
     select.addEventListener('change', updateCard);
     select.addEventListener('picker:open', (e) => open(e.detail));
+    // Phones: after a dish is picked, bring the country card into view (it's further down the page)
+    select.addEventListener('picker:reveal', reveal);
     // Mirror the "needs attention" highlight from the select onto the card
     new MutationObserver(() => {
       card.classList.toggle('needs-attention', select.classList.contains('needs-attention'));
