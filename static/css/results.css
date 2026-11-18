@@ -2979,3 +2979,15 @@ a.entity-chip:focus-visible { outline: 2px solid var(--gold-accent); outline-off
   .rt-tabs:not(.is-stuck) .rt-tab:nth-child(2) { border-top-right-radius: 10px; }
   .rt-tabs:not(.is-stuck) .rt-tab:last-child { border-top-right-radius: 0; }
 }
+
+/* "AI-Generated Information" label: red highlight, logo gold text */
+.rt-column .rt-ai-disclaimer strong {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--maroon-main);
+  color: var(--gold-accent);
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}

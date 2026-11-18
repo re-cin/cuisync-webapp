@@ -113,3 +113,15 @@
   color: #6b5a48;
   font-size: 0.8rem;
 }
+
+/* "AI-Generated Information" label: red highlight, logo gold text (same as the comparison page) */
+.dp-info .rt-ai-disclaimer strong {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--maroon-main);
+  color: var(--gold-accent);
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
