@@ -367,11 +367,10 @@
           const badge = info.source === 'ai'
             ? '<span class="badge-mini">AI-generated</span><span class="footer-note">By GPT. Verify before citing.</span>'
             : '<span class="badge-mini">Summary</span><span class="footer-note">Built from the dataset (GPT unavailable).</span>';
-          const adminNote = info.admin_fields.length ? `<span class="footer-note">${esc(info.admin_fields.join(' and '))} notes added by the CuiSync admin.</span>` : '';
           return `
             <h4>Culture</h4><p>${esc(info.culture)}</p>
             <h4>History</h4><p>${esc(info.history)}</p>
-            <div class="quote-footer">${badge}${adminNote}</div>`;
+            <div class="quote-footer">${badge}</div>`;
         }
 
         function healthHtml(info) {

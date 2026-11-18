@@ -27,7 +27,7 @@ import cultural_info
 import cuisync_prompts
 import explainer
 import search_tools
-from dataset_store import DatasetStore, DISH_FIELDS, REGION_CHOICES
+from dataset_store import DatasetStore, DISH_FIELDS
 
 
 app = Flask(__name__)
@@ -237,8 +237,6 @@ def admin_required(view):
     def wrapper(*args, **kwargs):
         user = current_user()
         if not user or not user["is_admin"]:  # admins have their own log in page
-            if user:
-                flash("That page is for admins. Sign in with an admin account.", "error")
             return redirect(url_for("admin_login", next=request.full_path))
         return view(*args, **kwargs)
     return wrapper
@@ -1234,7 +1232,10 @@ def analysis_overview():
             get_analysis_region_counts(),  # recipe count per region
 
         "total_recipes":  # total recipes in the dataset
-            len(RECIPES)
+            len(RECIPES),
+
+        "region_order":  # regions in the order the admin set on the Countries page
+            list(STORE.regions)
     })
 
 # Analysis page 7: top ingredients of the picked countries
@@ -1688,6 +1689,7 @@ def dictionary():
             "c": country,
             "l": STORE.label_of(r["country"]),
             "g": search_tools.recipe_tags(r, STORE.region_of),
+            "r": r.get("country_region") or STORE.region_of(r["country"]),
             "i": r.get("image_link") or "",
         })
 
@@ -1773,7 +1775,7 @@ def api_dish(idx):
 
 
 # ---------------- admin (Oab 1, 2, 5; Galang 3) ----------------
-ADMIN_TABS = ("overview", "users", "dishes", "countries", "prompts", "tags", "dataset")
+ADMIN_TABS = ("overview", "users", "dishes", "countries", "prompts", "dataset")
 
 
 @app.route("/admin")
@@ -1782,7 +1784,7 @@ def admin_page():
     tab = request.args.get("tab", "overview")
     if tab not in ADMIN_TABS:
         tab = "overview"
-    ctx = {"tab": tab, "store": STORE, "regions": REGION_CHOICES}
+    ctx = {"tab": tab, "store": STORE, "regions": STORE.regions}
     if tab == "overview":
         per_country = {}
         for r in RECIPES:
@@ -1819,7 +1821,7 @@ def admin_page():
         counts = {}
         for r in RECIPES:
             counts[r["country"]] = counts.get(r["country"], 0) + 1
-        ctx.update(counts=counts)
+        ctx.update(counts=counts, region_counts=STORE.region_counts())
     elif tab == "prompts":
         ctx.update(
             explanation_prompt=cuisync_prompts.get_system_prompt(),
@@ -1841,20 +1843,8 @@ def admin_page():
                  and (not role or u["role"] == role)]
         selected = next((dict(u) for u in all_users if u["id"] == request.args.get("user")), None)
         if selected:
-            selected["history"] = accounts.get_history(selected["id"], limit=5)
+            selected["history"] = accounts.get_history(selected["id"], limit=50)
         ctx.update(users=users, me=current_user(), q=q, role=role, selected=selected)
-    elif tab == "tags":
-        groups, _ = search_tools.all_tags(RECIPES, STORE.region_of)
-        custom = STORE.custom_tags()
-        q = request.args.get("q", "").strip().lower()
-        ctx.update(
-            q=q,
-            custom_tags=sorted(((t, n) for t, n in custom.items() if not q or q in t.lower()),
-                               key=lambda x: (-x[1], x[0])),
-            auto_groups={g: [(t, n) for t, n in ts if not q or q in t.lower()]
-                         for g, ts in groups.items() if g != "Custom"},
-            editing=request.args.get("edit", ""),
-        )
     return render_template("admin/admin.html", **ctx)
 
 
@@ -1891,33 +1881,11 @@ def admin_logout():
     return redirect(url_for("admin_login"))
 
 
-@app.route("/admin/tags/rename", methods=["POST"])
-@admin_required
-def admin_tag_rename():
-    try:
-        n = STORE.rename_tag(request.form.get("old"), request.form.get("new"))
-        flash(f'Tag renamed on {n} dish(es).', "success")
-    except ValueError as error:
-        flash(str(error), "error")
-    return redirect(url_for("admin_page", tab="tags"))
-
-
-@app.route("/admin/tags/delete", methods=["POST"])
-@admin_required
-def admin_tag_delete():
-    try:
-        n = STORE.delete_tag(request.form.get("name"))
-        flash(f'Tag removed from {n} dish(es).', "success")
-    except ValueError as error:
-        flash(str(error), "error")
-    return redirect(url_for("admin_page", tab="tags"))
-
-
 def _after_data_change(message):
     missing = reload_data()
     if missing:
         sample = ", ".join(item for _, item in missing[:6])
-        flash(f"{message} Note: {len(missing)} new item(s) had no close match in the vectors "
+        flash(f"{message} Note: {len(missing)} new item(s) are not in the vectors yet "
               f"({sample}{'...' if len(missing) > 6 else ''}), so they can't add to similarity until "
               "the vectorizer is run again.", "info")
     else:
@@ -1947,7 +1915,7 @@ def admin_dish_form(recipe_id=None):
             flash(str(error), "error")
             dish = dict(request.form.items())
     return render_template("admin/admin_dish.html", dish=dish, recipe_id=recipe_id, fields=DISH_FIELDS,
-                           all_countries=STORE.countries, store=STORE, regions=REGION_CHOICES,
+                           all_countries=STORE.countries, store=STORE, regions=STORE.regions,
                            ner_status=ner.status())
 
 
@@ -1987,6 +1955,12 @@ def admin_dish_delete(recipe_id):
     return redirect(request.referrer or url_for("admin_page", tab="dishes"))
 
 
+def _country_view():
+    """Country Management layout ("cards" or "list"), so a save goes back to the same layout."""
+    view = request.form.get("view") or request.args.get("view") or ""
+    return view if view == "list" else None
+
+
 @app.route("/admin/countries/add", methods=["POST"])
 @admin_required
 def admin_country_add():
@@ -1995,7 +1969,7 @@ def admin_country_add():
         flash(f"Added {request.form.get('label')}. It shows in the dropdowns once it has a dish.", "success")
     except ValueError as error:
         flash(str(error), "error")
-    return redirect(url_for("admin_page", tab="countries"))
+    return redirect(url_for("admin_page", tab="countries", view=_country_view()))
 
 
 @app.route("/admin/countries/<name>/update", methods=["POST"])
@@ -2008,7 +1982,7 @@ def admin_country_update(name):
         flash("Country saved.", "success")
     except ValueError as error:
         flash(str(error), "error")
-    return redirect(url_for("admin_page", tab="countries"))
+    return redirect(url_for("admin_page", tab="countries", view=_country_view()))
 
 
 @app.route("/admin/countries/<name>/delete", methods=["POST"])
@@ -2019,32 +1993,52 @@ def admin_country_delete(name):
         flash("Country removed.", "success")
     except ValueError as error:
         flash(str(error), "error")
-    return redirect(url_for("admin_page", tab="countries"))
+    return redirect(url_for("admin_page", tab="countries", view=_country_view()))
 
 
-@app.route("/admin/dataset/upload", methods=["POST"])
+@app.route("/admin/regions/add", methods=["POST"])
 @admin_required
-def admin_dataset_upload():
-    file = request.files.get("dataset")
-    mode = "replace" if request.form.get("mode") == "replace" else "append"
-    if not file or not file.filename:
-        flash("Choose a .json or .csv file first.", "error")
-        return redirect(url_for("admin_page", tab="dataset"))
+def admin_region_add():
     try:
-        raw = file.read().decode("utf-8-sig")
-        if file.filename.lower().endswith(".csv"):
-            records = list(csv.DictReader(io.StringIO(raw)))
-        else:
-            records = json.loads(raw)
-            if isinstance(records, dict):
-                records = records.get("recipes") or [records]
-        if not isinstance(records, list):
-            raise ValueError("The file must contain a list of dishes.")
-        count = STORE.import_dataset(records, mode)
-        _after_data_change(f"{'Replaced the dataset with' if mode == 'replace' else 'Added'} {count} dishes.")
-    except (ValueError, UnicodeDecodeError, csv.Error) as error:
-        flash(f"Upload failed: {error}", "error")
-    return redirect(url_for("admin_page", tab="dataset"))
+        name = STORE.add_region(request.form.get("name"))
+        flash(f"Added the region {name}. Pick it on a country to use it.", "success")
+    except ValueError as error:
+        flash(str(error), "error")
+    return redirect(url_for("admin_page", tab="countries", view=_country_view()))
+
+
+@app.route("/admin/regions/rename", methods=["POST"])
+@admin_required
+def admin_region_rename():
+    try:
+        moved = STORE.rename_region(request.form.get("region"), request.form.get("name"))
+        if moved:
+            reload_data()
+        flash("Region saved.", "success")
+    except ValueError as error:
+        flash(str(error), "error")
+    return redirect(url_for("admin_page", tab="countries", view=_country_view()))
+
+
+@app.route("/admin/regions/move", methods=["POST"])
+@admin_required
+def admin_region_move():
+    try:
+        STORE.move_region(request.form.get("region"), -1 if request.form.get("direction") == "up" else 1)
+    except ValueError as error:
+        flash(str(error), "error")
+    return redirect(url_for("admin_page", tab="countries", view=_country_view()))
+
+
+@app.route("/admin/regions/delete", methods=["POST"])
+@admin_required
+def admin_region_delete():
+    try:
+        STORE.delete_region(request.form.get("region"))
+        flash("Region deleted.", "success")
+    except ValueError as error:
+        flash(str(error), "error")
+    return redirect(url_for("admin_page", tab="countries", view=_country_view()))
 
 
 @app.route("/admin/dataset/download")
@@ -2061,21 +2055,6 @@ def admin_dataset_download():
                         headers={"Content-Disposition": "attachment; filename=cuisync_dataset.csv"})
     return Response(json.dumps(RECIPES, ensure_ascii=False, indent=1), mimetype="application/json",
                     headers={"Content-Disposition": "attachment; filename=cuisync_dataset.json"})
-
-
-@app.route("/admin/dataset/reset", methods=["POST"])
-@admin_required
-def admin_dataset_reset():
-    try:
-        STORE.reset_to_original()
-    except ValueError as error:
-        flash(str(error), "error")
-        return redirect(url_for("admin_page", tab="dataset"))
-    reload_data()
-    flash("The dataset is back to the original recipes.json." if STORE.db else
-          "The dataset is back to the original recipes.json (your edited copy was kept as a .bak file).",
-          "success")
-    return redirect(url_for("admin_page", tab="dataset"))
 
 
 @app.route("/admin/prompts", methods=["POST"])
@@ -2103,11 +2082,8 @@ def admin_prompts():
 @app.route("/admin/users/<user_id>/role", methods=["POST"])
 @admin_required
 def admin_user_role(user_id):
-    try:
-        accounts.set_role(user_id, request.form.get("role"))
-        flash("Role updated.", "success")
-    except ValueError as error:
-        flash(str(error), "error")
+    # Roles are fixed: users sign up as "user", the admin comes from .env. Not changeable here.
+    flash("Roles can't be changed.", "error")
     return redirect(url_for("admin_page", tab="users", user=user_id))
 
 

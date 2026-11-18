@@ -26,19 +26,16 @@
     </div>
 
     <nav class="admin-nav" id="admin-nav" aria-label="Admin">
-      <p class="nav-group">Overview</p>
       {% set links = [
         ('overview', 'Dashboard', 'dashboard'),
         ('users', 'User Profiles', 'users'),
         ('dishes', 'Dishes', 'dish'),
         ('countries', 'Countries', 'globe'),
         ('prompts', 'Prompts', 'prompt'),
-        ('tags', 'Tags', 'tag'),
         ('dataset', 'Dataset', 'dataset'),
       ] %}
       {% set nav_active = active if active is defined else tab %}
       {% for key, label, ic in links %}
-        {% if key == 'users' %}<p class="nav-group">Manage</p>{% endif %}
         <a href="{{ url_for('admin_page', tab=key) }}" class="nav-item{% if nav_active == key %} active{% endif %}"{% if nav_active == key %} aria-current="page"{% endif %}>
           {{ icon(ic) }}<span>{{ label }}</span>
         </a>
@@ -49,7 +46,7 @@
           <span class="avatar avatar-gold">{{ (current_user.name or 'A')[:2] | upper }}</span>
           <span>
             <span class="admin-me-name">{{ current_user.name }}</span>
-            <span class="admin-me-role">@{{ current_user.username }} · Admin</span>
+            <span class="admin-me-role">@{{ current_user.username }}</span>
           </span>
         </a>
         <form method="post" action="{{ url_for('admin_logout') }}">
@@ -62,9 +59,8 @@
   <main class="admin-main">
     <header class="page-header">
       <div>
-        <p class="eyebrow"><span class="diamond"></span>{% block eyebrow %}Manage{% endblock %}</p>
+        {% set eyebrow_text %}{% block eyebrow %}{% endblock %}{% endset %}{% if eyebrow_text | trim %}<p class="eyebrow">{{ eyebrow_text | trim }}</p>{% endif %}
         <h1 class="page-title">{% block heading %}{% endblock %}</h1>
-        <p class="page-sub">{% block lead %}{% endblock %}</p>
       </div>
       <div class="page-actions">{% block actions %}{% endblock %}</div>
     </header>

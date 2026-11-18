@@ -283,7 +283,8 @@
       const countriesByRegion =
         analysisOverview.countries_by_region || {};
 
-      const preferredOrder = [
+      // Region order set by the admin (Countries page), else the default order
+      const preferredOrder = analysisOverview.region_order || [
         "Southeast Asia",
         "East Asia",
         "South Asia",

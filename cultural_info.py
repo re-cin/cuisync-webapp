@@ -188,14 +188,6 @@ def dish_info(recipe, region_label, country_label):
             info = None
     if not info or not info.get("culture"):
         info, source = _template_notes(recipe, region_label, country_label), "template"
-    # Notes typed by the admin always win
-    admin_fields = []
-    if (recipe.get("culture_notes") or "").strip():
-        info["culture"] = recipe["culture_notes"].strip()
-        admin_fields.append("culture")
-    if (recipe.get("history_notes") or "").strip():
-        info["history"] = recipe["history_notes"].strip()
-        admin_fields.append("history")
     return {
         "title": payload["dish"],
         "country": country_label,
@@ -207,7 +199,6 @@ def dish_info(recipe, region_label, country_label):
         "allergen_groups": list(ALLERGENS),   # every group, so the page can show all of them
         "nutrition": nutrition_template(recipe),
         "source": source,
-        "admin_fields": admin_fields,
     }
 
 

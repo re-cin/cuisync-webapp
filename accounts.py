@@ -108,6 +108,8 @@ def _error_from(response):
         data = response.json()
     except ValueError:
         data = {}
+    if not isinstance(data, dict):  # Supabase sometimes answers with a list or plain text
+        data = {"message": str(data)}
     text = " ".join(str(data.get(k, "")) for k in ("msg", "message", "error_description", "error", "code", "details"))
     lowered = text.lower()
     if "already" in lowered and ("registered" in lowered or "exists" in lowered):
@@ -120,7 +122,13 @@ def _error_from(response):
         return SupabaseError("Please enter a valid email address.")
     if response.status_code in (401, 403) and ("api key" in lowered or "jwt" in lowered or "apikey" in lowered):
         return SupabaseError("The Supabase keys in .env are not valid.")
-    print(f"[CuiSync] Supabase error {response.status_code}: {text.strip() or response.text[:300]}")
+    detail = f"[CuiSync] Supabase error {response.status_code} on {response.request.method} {response.url}: {text.strip() or response.text[:300]}"
+    print(detail)
+    try:  # also keep it in a file, so it can be read without copying from the terminal
+        with open(os.path.join(os.path.dirname(ENV_PATH), "supabase_errors.log"), "a", encoding="utf-8") as log:
+            log.write(detail + "\n")
+    except OSError:
+        pass
     return SupabaseError("Something went wrong with the account server. Please try again.")
 
 
@@ -133,7 +141,7 @@ def _rpc(name, **args):
 
 
 def _count(table, params=None):
-    response = _rest("GET", table, params=dict(params or {}, select="id", limit="1"), prefer="count=exact")
+    response = _rest("GET", table, params=dict(params or {}, select="id", limit="1"), prefer="count=exact", ok=(200, 206))
     total = response.headers.get("Content-Range", "*/0").split("/")[-1]
     return int(total) if total.isdigit() else 0
 

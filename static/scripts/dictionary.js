@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   DISHES.forEach(d => {
     d._name = norm(`${d.t} ${d.a}`);
-    d._region = d.g.find(t => t.endsWith('Asia')) || '~';
+    d._region = d.r || d.g.find(t => t.endsWith('Asia')) || '~';  // r = region (any name the admin gave it)
   });
   const countryLabel = new Map(DISHES.map(d => [d.c, d.l]));
 
@@ -203,12 +203,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function cultureHtml(info) {
     const c = info.connection || { paragraphs: [] };
-    const admin = info.admin_fields && info.admin_fields.length
-      ? `<p class="dp-admin">${esc(info.admin_fields.join(' and '))} notes added by the CuiSync admin.</p>` : '';
     return `
       <h4>Culture</h4><p>${esc(info.culture)}</p>
       <h4>History</h4><p>${esc(info.history)}</p>
-      ${admin}
       <div class="dp-heritage">
         <span class="dp-eyebrow">${esc(c.title || info.label)} &middot; ${esc(c.subtitle || 'Culinary origin & heritage')}</span>
         ${(c.paragraphs || []).map(p => `<p>${esc(p)}</p>`).join('')}
