@@ -2995,3 +2995,4 @@ a.entity-chip:focus-visible { outline: 2px solid var(--gold-accent); outline-off
 .rt-column .rt-ai-disclaimer strong { font-weight: 400; }
 .rt-column .rt-ai-disclaimer strong { color: var(--gold-accent); font-size: inherit; letter-spacing: normal; }
 .rt-column .rt-ai-disclaimer { font-size: 0.7rem; }
+.rt-column .rt-ai-disclaimer strong { font-weight: 600; }
