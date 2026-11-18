@@ -1049,6 +1049,7 @@
         document.getElementById("simWarningRecipeId").value = data.dataset.recipeId || "";
         document.getElementById("simWarningIngredients").value = data.dataset.ingredients || "";
         document.getElementById("simWarningMode").value = data.dataset.ingredients ? "ingredients" : "dish";
+        if (window.CuiSyncBusy) window.CuiSyncBusy.start(yesBtn);
         document.getElementById("simWarningForm").submit();
       });
 

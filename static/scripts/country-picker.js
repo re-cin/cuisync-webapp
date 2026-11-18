@@ -99,6 +99,7 @@
       // Phones: the list is a popup on top of everything (moved to <body> so nothing
       // on the page can cover it), and the page behind it shouldn't scroll
       if (phone.matches) {
+        reveal();   // the card is in view when the popup closes
         document.body.appendChild(panel);
         document.documentElement.classList.add('country-picker-open');
       }
@@ -111,6 +112,12 @@
     }
 
     const phone = window.matchMedia('(max-width: 600px)');
+    function reveal() {
+      if (!phone.matches) return;
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      // After the dish card has been drawn, so the position is right
+      requestAnimationFrame(() => wrap.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' }));
+    }
     function close() {
       document.documentElement.classList.remove('country-picker-open');
       panel.hidden = true;
@@ -157,6 +164,8 @@
     // Value set from code (e.g. the low-similarity popup) -> refresh the card
     select.addEventListener('change', updateCard);
     select.addEventListener('picker:open', (e) => open(e.detail));
+    // Phones: after a dish is picked, bring the country card into view (it's further down the page)
+    select.addEventListener('picker:reveal', reveal);
     // Mirror the "needs attention" highlight from the select onto the card
     new MutationObserver(() => {
       card.classList.toggle('needs-attention', select.classList.contains('needs-attention'));

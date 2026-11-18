@@ -1506,3 +1506,37 @@ span.tag-chip:not(.removable) { border-radius: 4px; }
   .pdc .pdc-tags { gap: 4px; margin-top: 6px; }
   .pdc .pdc-tags .tag-chip { font-size: 0.62rem; padding: 2px 7px; }
 }
+
+/* Dish popup: country pills (country + number of dishes), no background.
+   Clickable -> rounded; red when hovered or selected. */
+.popup-countries {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 8px;
+  margin: 0 0 16px;
+}
+.popup-countries[hidden] { display: none; }
+.country-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border: 1px solid var(--gold-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-dark);
+  font: 500 0.8rem/1.2 'Poppins', sans-serif;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+.country-pill-count { color: var(--text-muted); font-weight: 600; transition: color 0.15s ease; }
+.country-pill:hover,
+.country-pill[aria-pressed="true"] { color: var(--maroon-main); border-color: var(--maroon-main); }
+.country-pill:hover .country-pill-count,
+.country-pill[aria-pressed="true"] .country-pill-count { color: var(--maroon-main); }
+.country-pill[aria-pressed="true"],
+.country-pill[aria-pressed="true"] .country-pill-count { background: var(--maroon-main); color: #ffffff; }
+.country-pill[aria-pressed="true"] .country-pill-count { background: transparent; opacity: 0.85; }
+.country-pill:focus-visible { outline: 2px solid var(--maroon-main); outline-offset: 2px; }
+.popup-dish-grid > [hidden] { display: none !important; }

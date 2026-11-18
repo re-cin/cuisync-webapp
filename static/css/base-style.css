@@ -579,3 +579,43 @@ a {
   html,
   body { overflow-x: clip; }
 }
+
+/* ---------- Busy screen (CuiSyncBusy in components.js) ---------- */
+.busy-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100001;              /* above the nav (99999) and the full-screen map */
+  display: grid;
+  place-items: center;
+  background: rgba(30, 6, 6, 0.45);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s;
+  cursor: progress;
+}
+.busy-overlay.is-on { opacity: 1; visibility: visible; }
+.busy-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 22px;
+  border-radius: 8px;
+  background: var(--cream-bg);
+  color: var(--maroon-main);
+  font-family: 'Poppins', sans-serif;
+  font-weight: 600;
+  font-size: 0.95rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+.busy-spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(128, 13, 18, 0.2);
+  border-top-color: var(--maroon-main);
+  border-radius: 50%;
+  animation: busy-spin 0.8s linear infinite;
+}
+@keyframes busy-spin { to { transform: rotate(360deg); } }
+html.is-busy, html.is-busy body { cursor: progress; }
+button.is-busy { cursor: progress; }
+@media (prefers-reduced-motion: reduce) { .busy-spinner { animation-duration: 2s; } }

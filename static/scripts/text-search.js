@@ -344,6 +344,7 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>`;
     const img = button.querySelector('img');
     img.addEventListener('error', () => { img.onerror = null; img.src = NO_IMAGE; }, { once: true });
+    button.dataset.country = d.country_label || d.country || '';
     button.addEventListener('click', () => onPick(d));
     return button;
   }
@@ -384,21 +385,34 @@ document.addEventListener('DOMContentLoaded', () => {
         : `We found several dishes for "${dishInput.value.trim()}". Choose the one you want to compare.`;
     }
 
-    // Oab 6: cuisines you could cook from these ingredients
-    const cuisines = data.cuisines || [];
-    popupCuisines.hidden = !cuisines.length;
-    popupCuisines.innerHTML = cuisines.length ? `
-      <h4>Cuisines you could cook</h4>
-      <ol class="cuisine-list">${cuisines.map((c, i) => `
-        <li>
-          <div class="cuisine-rank">${i + 1}</div>
-          <div class="cuisine-info">
-            <strong>${esc(c.label)}</strong>
-            <span class="muted">${c.dish_count} matching dish${c.dish_count === 1 ? '' : 'es'} &middot; e.g. ${esc(c.examples.join(', '))}</span>
-          </div>
-          <div class="cuisine-score"><span style="--pct: ${c.score}"></span><em>${c.score}%</em></div>
-        </li>`).join('')}
-      </ol>` : '';
+    // Small country pills: how many of these dishes come from each country.
+    // Clicking one shows only that country's dishes; clicking it again shows them all.
+    const counts = new Map();
+    data.dishes.forEach((d) => {
+      const c = d.country_label || d.country;
+      if (c) counts.set(c, (counts.get(c) || 0) + 1);
+    });
+    const countries = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    popupCuisines.hidden = countries.length < 2;
+    popupCuisines.className = 'popup-countries';
+    popupCuisines.setAttribute('role', 'group');
+    popupCuisines.setAttribute('aria-label', 'Show dishes from one country');
+    popupCuisines.replaceChildren(...(countries.length < 2 ? [] : countries.map(([c, k]) => {
+      const pill = document.createElement('button');
+      pill.type = 'button';
+      pill.className = 'country-pill';
+      pill.setAttribute('aria-pressed', 'false');
+      pill.innerHTML = `<span>${esc(c)}</span><span class="country-pill-count">${k}</span>`;
+      pill.addEventListener('click', () => {
+        const on = pill.getAttribute('aria-pressed') !== 'true';
+        popupCuisines.querySelectorAll('.country-pill').forEach((x) => x.setAttribute('aria-pressed', 'false'));
+        pill.setAttribute('aria-pressed', String(on));
+        popupGrid.querySelectorAll('[data-country]').forEach((card) => {
+          card.hidden = on && card.dataset.country !== c;
+        });
+      });
+      return pill;
+    })));
 
     popupGrid.replaceChildren(...data.dishes.map((d) => dishButton(d, onPick)));
     popup.classList.remove('hidden');
@@ -413,6 +427,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Like the image search: the dish shows as a "Selected dish" card under the search bar
     pickDish(d, true);
     updateInputActions();
+    targetSelect.dispatchEvent(new CustomEvent('picker:reveal'));
     if (!targetSelect.value) {
       // Open the target country picker so the user can finish the search
       targetSelect.classList.add('needs-attention');
@@ -442,20 +457,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ---------------- search ----------------
   async function findDishes(searchMode, q) {
-    submitButton.disabled = true;
-    const label = submitButton.textContent;
-    submitButton.textContent = 'SEARCHING\u2026';
+    window.CuiSyncBusy.start(submitButton);
     try {
       const r = await fetch(`/api/find-dishes?mode=${searchMode}&q=${encodeURIComponent(q)}`,
         { credentials: 'same-origin' });
       return await r.json();
     } finally {
-      submitButton.disabled = false;
-      submitButton.textContent = label;
+      window.CuiSyncBusy.stop();
     }
   }
 
   function sendForm() {
+    window.CuiSyncBusy.start(submitButton);   // the comparison page takes a moment
     HTMLFormElement.prototype.submit.call(form);
   }
 

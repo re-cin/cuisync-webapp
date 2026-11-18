@@ -213,3 +213,56 @@ class AppFooter extends HTMLElement {
 
 customElements.define('app-nav', AppNav);
 customElements.define('app-footer', AppFooter);
+
+/* ------------------------------------------------------------------
+   Busy screen: while a search runs (or the page is loading the results),
+   the button reads "Searching..." and a translucent tint covers the page
+   so nothing can be clicked twice.
+     CuiSyncBusy.start(button, label?)   CuiSyncBusy.stop()
+   ------------------------------------------------------------------ */
+window.CuiSyncBusy = (() => {
+  let overlay = null;
+  let busyButtons = [];
+  function ensureOverlay() {
+    if (overlay) return overlay;
+    overlay = document.createElement('div');
+    overlay.className = 'busy-overlay';
+    overlay.setAttribute('role', 'status');
+    overlay.setAttribute('aria-live', 'polite');
+    overlay.innerHTML = '<div class="busy-box"><span class="busy-spinner" aria-hidden="true"></span><span class="busy-text">Searching...</span></div>';
+    // Swallow clicks and keys while busy
+    overlay.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); });
+    document.body.appendChild(overlay);
+    return overlay;
+  }
+  function start(button, label = 'Searching...') {
+    const o = ensureOverlay();
+    o.querySelector('.busy-text').textContent = label;
+    if (button && !button.dataset.busyLabel) {
+      button.dataset.busyLabel = button.innerHTML;
+      button.textContent = label;
+      button.disabled = true;
+      button.classList.add('is-busy');
+      busyButtons.push(button);
+    }
+    document.documentElement.classList.add('is-busy');
+    o.classList.add('is-on');
+  }
+  function stop() {
+    busyButtons.forEach((b) => {
+      if (b.dataset.busyLabel !== undefined) b.innerHTML = b.dataset.busyLabel;
+      delete b.dataset.busyLabel;
+      b.disabled = false;
+      b.classList.remove('is-busy');
+    });
+    busyButtons = [];
+    document.documentElement.classList.remove('is-busy');
+    if (overlay) overlay.classList.remove('is-on');
+  }
+  // Coming back with the browser's Back button (page restored from cache): not busy any more
+  window.addEventListener('pageshow', stop);
+  document.addEventListener('keydown', (e) => {
+    if (document.documentElement.classList.contains('is-busy') && e.key !== 'Tab') e.preventDefault();
+  }, true);
+  return { start, stop };
+})();

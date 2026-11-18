@@ -873,7 +873,7 @@ def clear_recent_searches():
 MAP_TARGET_PINS = 5     # with a target country: its 5 most similar dishes...
 MAP_OTHER_PINS = 15     # ...and the 15 most similar from every other country
 MAP_ANY_PINS = 20       # with "Any country": the 20 most similar from any country
-MAP_LIST_SIZE = 10      # the side panel lists the top 10 of the pins
+MAP_LIST_SIZE = 20      # the side panel lists all 20 dishes on the map
 
 
 def results_map(source_idx, current_idx, ordered_targets, total_scores, target_any, target_country,
