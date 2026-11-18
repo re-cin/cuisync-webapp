@@ -1,28 +1,11 @@
-"""
-CuiSync - Similarity Explanation Module (GPT-4o)
-System prompt + few-shot examples + grounding check.
-
-The explanation is ONE paragraph, based on INGREDIENTS and COOKING PROCESS (actions),
-matching the "AI EXPLANATION" card on the results page.
-
-NOTE: dish data in the examples is ILLUSTRATIVE. Replace/validate it with real outputs
-from your pipeline and have your culinary expert approve the example paragraphs.
-Calibrate the score bands to your real score distribution, and bump PROMPT_VERSION in
-cuisync_cache.py whenever you edit anything in this file.
-"""
-
 import json
 import re
 
-# Score bands (percent), calibrated on the soft-matching scores of 600 random queries:
-# best matches have median ~28, top quarter >= ~36, bottom quarter < ~20.
-# Re-measure and update these if you change softmatch.py settings or the feature weights.
-HIGH_MIN = 35.0       # at or above -> "high"
-MODERATE_MIN = 20.0   # at or above (and below HIGH_MIN) -> "moderate"; below -> "low"
 
-# ---------------------------------------------------------------------------
-# SYSTEM PROMPT
-# ---------------------------------------------------------------------------
+HIGH_MIN = 35.0
+MODERATE_MIN = 20.0
+
+
 SYSTEM_PROMPT = """You are the explanation module of CuiSync, a system that identifies similarities between Asian cuisines. Your job is to explain, in clear and neutral language, WHY two dishes were found to be similar, based on their ingredients and cooking process, using only the evidence provided.
 
 INPUT
@@ -75,11 +58,9 @@ SYSTEM_PROMPT = (SYSTEM_PROMPT
                  .replace("__HIGH__", f"{HIGH_MIN:g}")
                  .replace("__MOD__", f"{MODERATE_MIN:g}"))
 
-# ---------------------------------------------------------------------------
-# FEW-SHOT EXAMPLES  (evidence -> ideal explanation)
-# ---------------------------------------------------------------------------
+
 FEW_SHOT_EXAMPLES = [
-    # --- Example 1: HIGH similarity ---------------------------------------
+
     {
         "evidence": {
             "input_dish": "Chicken Adobo",
@@ -107,7 +88,7 @@ FEW_SHOT_EXAMPLES = [
             "and is braised, Chicken Teriyaki relies on mirin and ginger and is finished with a glaze."
         ),
     },
-    # --- Example 2: MODERATE similarity -----------------------------------
+
     {
         "evidence": {
             "input_dish": "Sinigang na Baboy",
@@ -136,7 +117,7 @@ FEW_SHOT_EXAMPLES = [
             "galangal, and kaffir lime leaves, with a mortar used to pound its aromatics."
         ),
     },
-    # --- Example 3: LOW similarity (no utensil evidence, so none is mentioned) ----
+
     {
         "evidence": {
             "input_dish": "Kare-Kare",
@@ -165,12 +146,23 @@ FEW_SHOT_EXAMPLES = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# MESSAGE BUILDER
-# ---------------------------------------------------------------------------
+# The admin page can replace the system prompt (panel revision: update the GPT prompt).
+DEFAULT_SYSTEM_PROMPT = SYSTEM_PROMPT
+_prompt_override = None
+
+
+def set_system_prompt(text):
+    """Use this prompt instead of the default one. Empty text = back to the default."""
+    global _prompt_override
+    _prompt_override = (text or "").strip() or None
+
+
+def get_system_prompt():
+    return _prompt_override or DEFAULT_SYSTEM_PROMPT
+
+
 def build_messages(evidence: dict) -> list:
-    """Assemble system prompt + few-shot pairs + the real query."""
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages = [{"role": "system", "content": get_system_prompt()}]
     for ex in FEW_SHOT_EXAMPLES:
         messages.append({"role": "user", "content": json.dumps(ex["evidence"], ensure_ascii=False)})
         messages.append({"role": "assistant", "content": ex["explanation"]})
@@ -178,14 +170,10 @@ def build_messages(evidence: dict) -> list:
     return messages
 
 
-# ---------------------------------------------------------------------------
-# GROUNDING CHECK
-# ---------------------------------------------------------------------------
 _NAME_FIELDS = ("input_dish", "matched_dish", "input_cuisine", "matched_cuisine")
 
 
 def _variants(term: str) -> set:
-    """Simple singular/plural variants so 'egg' and 'eggs' count as the same item."""
     v = {term, term + "s", term + "es"}
     if term.endswith("ies"):
         v.add(term[:-3] + "y")
@@ -199,16 +187,6 @@ def _variants(term: str) -> set:
 
 
 def ungrounded_terms(explanation: str, evidence: dict, vocabulary: set) -> list:
-    """
-    Return known culinary terms (from your own entity vocabulary) that appear in the
-    explanation but are NOT supported by the evidence packet.
-
-    - Uses whole-word matching, so "oil" does not match inside "boil".
-    - A term counts as supported if it (or its singular/plural form) appears as a whole
-      word inside any evidence item or dish/cuisine name (so "sugar" is fine when the
-      evidence has "brown sugar", and "chicken" is fine when the dish is "Chicken Adobo").
-    A non-empty result means the model likely introduced something it should not have.
-    """
     allowed_parts = []
     for key, val in evidence.items():
         if isinstance(val, list):

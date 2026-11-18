@@ -1,14 +1,14 @@
 """
-CuiSync - share the app on the internet with a Cloudflare Tunnel.
+CuiSync - put the app online with a Cloudflare Tunnel.
 
-Starts app.py on http://127.0.0.1:8000 and opens a Cloudflare Tunnel to it, then prints a
-public https link you can send to teammates, panelists, or open on your phone.
+Starts app.py on http://127.0.0.1:8000, opens a tunnel to it and prints a public link
+(plus a QR code) you can send to others or open on your phone.
 
-    python run_public.py                 # quick tunnel: free, no account, random *.trycloudflare.com link
-    python run_public.py --tunnel NAME   # named tunnel you set up in Cloudflare (fixed link, see README)
+    python run_public.py                 # quick tunnel, random *.trycloudflare.com link
+    python run_public.py --tunnel NAME   # your own named tunnel (fixed link, see README)
 
-Needs the `cloudflared` program (see README, "Share the app online").
-Press Ctrl+C to stop both the app and the tunnel.
+Needs cloudflared (see README). The QR code needs: pip install "qrcode[pil]"
+Ctrl+C stops both the app and the tunnel.
 """
 import argparse
 import os
@@ -37,11 +37,11 @@ cloudflared is not installed (or not on your PATH). Install it, then run this ag
 
 
 def wait_for_app(app_proc, timeout=180):
-    """Wait until the Flask app answers (loading the data files can take a while)."""
+    """Wait until the Flask app is up (loading the data can take a while)."""
     start = time.time()
     while time.time() - start < timeout:
         if app_proc.poll() is not None:
-            return False                      # app.py crashed: its error is already printed
+            return False  # app.py crashed, its error is already printed
         try:
             urllib.request.urlopen(LOCAL_URL + "/", timeout=2)
             return True
@@ -50,11 +50,41 @@ def wait_for_app(app_proc, timeout=180):
     return False
 
 
+QR_FILE = os.path.join(HERE, "cuisync_qr.png")
+
+
+def show_qr(url):
+    """Print a QR code of the link and save it as a PNG."""
+    try:
+        import qrcode
+    except ImportError:
+        print('  (Install "qrcode[pil]" to also get a QR code: pip install "qrcode[pil]")\n', flush=True)
+        return
+
+    qr = qrcode.QRCode(border=2)
+    qr.add_data(url)
+    qr.make(fit=True)
+    print("  Scan with a phone camera:\n")
+    qr.print_ascii(invert=True)  # light squares for a dark terminal
+
+    try:
+        qr.make_image().save(QR_FILE)
+        print(f"\n  QR code also saved as {QR_FILE}")
+        if sys.platform == "darwin":
+            subprocess.Popen(["open", QR_FILE])  # Mac: open in Preview
+        elif sys.platform.startswith("win"):
+            os.startfile(QR_FILE)  # Windows: open in Photos
+    except Exception as error:  # no Pillow or no image viewer
+        print(f"  (Could not save the QR image: {error})")
+    print(flush=True)
+
+
 def banner(url):
     line = "=" * (len(url) + 8)
     print(f"\n{line}\n    {url}\n{line}")
     print("  CuiSync is online. Anyone with this link can use the app while this window stays open.")
     print("  Press Ctrl+C to stop.\n", flush=True)
+    show_qr(url)
 
 
 def main():
@@ -121,7 +151,7 @@ def main():
 
     threading.Thread(target=read_tunnel_log, daemon=True).start()
 
-    # Keep running until one of the two stops (or Ctrl+C).
+    # Keep running until the app or the tunnel stops (or Ctrl+C)
     while True:
         if app_proc.poll() is not None:
             print("app.py stopped, closing the tunnel.")

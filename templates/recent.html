@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  {% include "partials/pwa_head.html" %}
+  <meta name="referrer" content="no-referrer">
+  <title>CUISYNC - Recent Searches</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base-style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/panel.css') }}">
+  <!-- Same page layout as the Dish dictionary -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dictionary.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/recent.css') }}">
+</head>
+<body class="dictionary-page recent-page">
+
+  <app-nav></app-nav>
+  {% include "partials/flash.html" %}
+  {% from "partials/recent_card.html" import recent_card with context %}
+
+  <main class="dict-container">
+
+    <nav class="dict-breadcrumb" aria-label="Breadcrumb">
+      <a href="{{ url_for('home') }}">Home</a>
+      <span aria-hidden="true">/</span>
+      <span class="current">Recent searches</span>
+    </nav>
+
+    <header class="dict-header recent-header">
+      <div>
+        <h1 class="dict-title">All recent searches</h1>
+        <p class="dict-lead">
+          The dish comparisons you opened. Pick one to see the full comparison again.
+          {% if not current_user %}<a href="{{ url_for('login') }}">Log in</a> to keep them across devices.{% endif %}
+        </p>
+      </div>
+      <div class="recent-meta">
+        <span class="recent-total">{{ cards | length }} comparison{{ '' if cards | length == 1 else 's' }}</span>
+        <span class="recent-keep">Searches are kept for {{ keep_days }} days</span>
+      </div>
+    </header>
+
+    {% if cards %}
+    <!-- Search + filters (same look as the Dish dictionary) -->
+    <div class="dict-toolbar recent-toolbar">
+      <label class="dict-search">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <span class="sr-only">Search your recent searches by dish name</span>
+        <input type="search" id="recent-q" placeholder="Search by dish name" autocomplete="off">
+      </label>
+      <label class="dict-sort">
+        <span class="dict-dd-label">Origin:</span>
+        <select id="recent-origin">
+          <option value="">All</option>
+          {% for value, label in origins %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="dict-sort">
+        <span class="dict-dd-label">Sort:</span>
+        <select id="recent-sort">
+          <option value="recent">Most recent</option>
+          <option value="oldest">Oldest</option>
+          <option value="high">Highest match</option>
+          <option value="low">Lowest match</option>
+          <option value="az">Name (A–Z)</option>
+        </select>
+      </label>
+      <form method="POST" action="{{ url_for('clear_recent_searches') }}" class="recent-clear-form"
+            onsubmit="return confirm('Clear all of your recent searches?')">
+        <button type="submit" class="recent-clear">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+          Clear history
+        </button>
+      </form>
+    </div>
+
+    <div class="dict-status">
+      <p class="dict-count" aria-live="polite"><strong id="recent-count">{{ cards | length }}</strong> shown</p>
+    </div>
+
+    <div class="recent-grid" id="recent-grid">
+      {% for c in cards %}{{ recent_card(c, full=True) }}{% endfor %}
+    </div>
+    <p class="dict-empty" id="recent-empty" hidden>No recent searches match. Try another name or origin.</p>
+    {% else %}
+    <div class="recent-none">
+      <p>No recent searches yet. Comparisons you open will show up here.</p>
+      <a class="rc-view" href="{{ url_for('home') }}#search-section">Search a dish <span aria-hidden="true">&rarr;</span></a>
+    </div>
+    {% endif %}
+  </main>
+
+  <app-footer></app-footer>
+
+  <script src="{{ url_for('static', filename='scripts/components.js') }}"></script>
+  <script src="{{ url_for('static', filename='scripts/recent.js') }}"></script>
+</body>
+</html>

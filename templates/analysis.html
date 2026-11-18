@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  {% include "partials/pwa_head.html" %}
   <title>CUISYNC - Asian Cuisine Analysis</title>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -64,7 +65,7 @@
             <div class="map-legend">
               <span>0</span>
               <div class="legend-bar"></div>
-              <span>300</span>
+              <span>900</span>
             </div>
             <div id="country-map-pins"></div>
           </div>
@@ -231,7 +232,7 @@
       renderAnalysisMap();
       renderAnalysisCountryPills();
 
-      // No country selected by default: show the overall dataset.
+      // No country picked at first, so show the whole dataset
       selectedAnalysisCountries = [];
       currentAnalysisCountry = "";
 
@@ -326,8 +327,7 @@
         .querySelectorAll('input[name="ingredient_countries"]')
         .forEach(input => {
           input.addEventListener("change", async function() {
-            // Every checked country remains active.
-            // Zero checked countries = overall dataset.
+            // Checked countries stay on. None checked = whole dataset.
             selectedAnalysisCountries = Array.from(
               document.querySelectorAll(
                 'input[name="ingredient_countries"]:checked'
@@ -352,7 +352,7 @@
         });
     }
 
-    // Returns the selected countries by the user and returns them as an array.
+    // Get the countries the user checked, as an array
     function getSelectedAnalysisCountries() {
       return Array.from(
         document.querySelectorAll(
@@ -420,7 +420,7 @@
       });
     }
 
-    // World shapes are fetched once, then reused.
+    // Load the world shapes once and reuse them
     const WORLD_TOPOLOGY_URL =
       "https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json"; //Geographic data from Natural Earth.
     let worldTopologyPromise = null;
@@ -428,14 +428,14 @@
     function loadWorldTopology() {
       if (!worldTopologyPromise) {
         worldTopologyPromise = d3.json(WORLD_TOPOLOGY_URL).catch(error => {
-          worldTopologyPromise = null; // allow a retry next time
+          worldTopologyPromise = null; // try again next time
           throw error;
         });
       }
       return worldTopologyPromise;
     }
 
-    // Lets dataset names (e.g. "TURKIYE") match the map's names ("Turkey").
+    // Match dataset names (like "TURKIYE") to the map's names ("Turkey")
     function normalizeMapCountryName(name) {
       const key = String(name || "")
         .normalize("NFD")
@@ -458,7 +458,7 @@
       return aliases[key] || key;
     }
 
-    // Create the heatmap of countries, with color intensity based on recipe counts.
+    // Heatmap of countries, darker = more recipes
     async function renderAnalysisMap() {
       const svgEl = document.getElementById("country-heatmap");
       const tipHost = document.getElementById("country-map-pins");
@@ -468,7 +468,7 @@
 
       const placeholder = svgEl.closest(".map-placeholder");
 
-      // 1. Recipe counts come straight from the API (built from recipes.json).
+      // 1. Recipe counts from the API (from recipes.json)
       const countsByMapName = new Map();
 
       Object.entries(analysisOverview.country_counts || {}).forEach(
@@ -488,9 +488,11 @@
         ...Array.from(countsByMapName.values()).map(entry => entry.count)
       );
 
-      if (legendMax) legendMax.textContent = formatAnalysisNumber(maxCount);
+      // Colors use a fixed 0-900 range so they match the numbers on the legend
+      const LEGEND_MAX = 900;
+      if (legendMax) legendMax.textContent = formatAnalysisNumber(LEGEND_MAX);
 
-      // 2. Load the world shapes.
+      // 2. Load the world shapes
       let topology;
 
       try {
@@ -505,11 +507,11 @@
         topology.objects.countries
       ).features;
 
-      // 3. Frame the map on Asia (same area the old image covered).
+      // 3. Zoom the map to Asia (same area as the old image)
       const width = 1000;
       const height = 500;
 
-      // Fit the map to a rectangle that covers the approximate area of Asia.
+      // Fit the map to a box around Asia
       const projection = d3.geoMercator().fitSize([width, height], {
         type: "MultiPoint",
         coordinates: [[22, -12], [150, 56]]
@@ -517,13 +519,13 @@
 
       const path = d3.geoPath(projection);
 
-      // Same three colours as the legend bar: light -> mid -> dark. (From 0 to maxCount which is 192.)
+      // Same 3 colors as the legend: light -> mid -> dark (0 to 900)
       const colorScale = d3.scaleLinear()
-        .domain([0, maxCount / 2, maxCount])
+        .domain([0, LEGEND_MAX / 2, LEGEND_MAX])
         .range(["#ecd3bf", "#a32e32", "#800d12"])
         .clamp(true);
 
-      // Hover label re-uses the page's existing .hover-badge look.
+      // Hover label uses the existing .hover-badge style
       tipHost.innerHTML = "";
       const tip = document.createElement("div");
       tip.className = "hover-badge";
@@ -594,7 +596,7 @@
           tip.style.visibility = "hidden";
         });
 
-      // Helps spot a dataset country the map can't match by name.
+      // Shows dataset countries the map couldn't match by name
       countsByMapName.forEach((entry, key) => {
         if (!matched.has(key)) {
           console.warn(`No map shape found for country: ${entry.label}`);
@@ -623,7 +625,7 @@
 
         const data = await response.json();
 
-        // Ignore an older request if the user clicked again quickly.
+        // Ignore old requests if the user clicked again fast
         if (requestId !== ingredientRequestId) return;
 
         renderAnalysisIngredients(data);
@@ -632,8 +634,7 @@
 
         console.error(error);
 
-        // Keep the currently displayed results instead of flashing
-        // a loading message while the next request is running.
+        // Keep showing the current results instead of a loading message
       }
     }
 
@@ -712,7 +713,7 @@
 
         const data = await response.json();
 
-        // Ignore an older request if the user clicked again quickly.
+        // Ignore old requests if the user clicked again fast
         if (requestId !== instructionRequestId) return;
 
         renderAnalysisInstructions(data);
@@ -721,8 +722,7 @@
 
         console.error(error);
 
-        // Keep the currently displayed results instead of flashing
-        // a loading message while the next request is running.
+        // Keep showing the current results instead of a loading message
       }
     }
 
@@ -839,6 +839,52 @@
           `;
         }
       }
+    });
+  </script>
+
+  <script>
+    // Sub-nav: highlight the section on screen (or the one clicked)
+    document.addEventListener("DOMContentLoaded", () => {
+      const subnav = document.querySelector(".subnav-bar");
+      const links = document.querySelectorAll(".subnav-item");
+      const sections = [...links]
+        .map((link) => document.querySelector(link.getAttribute("href")))
+        .filter(Boolean);
+      let clickLockUntil = 0;
+
+      function setActive(id) {
+        links.forEach((link) => {
+          link.classList.toggle("active", link.getAttribute("href") === `#${id}`);
+        });
+      }
+
+      function updateActive() {
+        if (Date.now() < clickLockUntil || !sections.length) return;
+
+        // A section counts once its top goes under the sticky bars
+        const line = (subnav ? subnav.getBoundingClientRect().bottom : 0) + 40;
+        let current = sections[0].id;
+        sections.forEach((section) => {
+          if (section.getBoundingClientRect().top <= line) current = section.id;
+        });
+
+        // At the bottom, the last section might be too short to reach the line
+        const atBottom =
+          window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+        if (atBottom) current = sections[sections.length - 1].id;
+
+        setActive(current);
+      }
+
+      links.forEach((link) => {
+        link.addEventListener("click", () => {
+          setActive(link.getAttribute("href").slice(1));
+          clickLockUntil = Date.now() + 1000;
+        });
+      });
+
+      window.addEventListener("scroll", updateActive, { passive: true });
+      updateActive();
     });
   </script>
 

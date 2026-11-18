@@ -1,25 +1,3 @@
-"""
-CuiSync - Similarity explanation module (GPT-4o)
-
-Everything about generating the "AI EXPLANATION" paragraph lives here,
-so app.py only handles routes and similarity computation.
-
-Flow:  recipes -> cleaned evidence -> cache -> GPT-4o -> grounding check -> text
-       (any failure -> template fallback; failed answers are never cached)
-
-The evidence is CLEANED before it reaches GPT (the chips on the results page are not
-affected). The cleaning fixes problems in the extracted entities that make explanations
-weak:
-  - typos            "fisf sauce" -> "fish sauce", "bayleaf" -> "bay leaf"
-  - generic steps    "add", "cook", "heat", "mix" (in 30%+ of all recipes) say nothing
-  - false differences  "chicken drumsticks" vs "chicken meat" are both just chicken;
-                       "oil" vs "olive oil", "chili peppers" vs "red chili pepper"
-
-Needs the OPENAI_API_KEY environment variable (or a .env file next to app.py).
-Without it, the app still works and shows a template explanation instead.
-The terminal prints at startup whether GPT is ENABLED or DISABLED, and why.
-"""
-
 import difflib
 import logging
 import os
@@ -27,7 +5,7 @@ import re
 from collections import Counter
 from functools import lru_cache
 
-try:                                   # optional: read OPENAI_API_KEY from a .env file
+try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
@@ -38,7 +16,7 @@ from cuisync_prompts import build_messages, ungrounded_terms, HIGH_MIN, MODERATE
 
 try:
     from openai import OpenAI
-except ImportError:                    # package not installed -> template fallback only
+except ImportError:
     OpenAI = None
 
 log = logging.getLogger(__name__)
@@ -57,34 +35,30 @@ else:
           "Using template explanations.")
 
 
-# ---------------------------------------------------------------------------
-# Dataset statistics (built once at startup by init())
-# ---------------------------------------------------------------------------
-GENERIC_ACTION_SHARE = 0.30     # actions in >= 30% of recipes are treated as generic
+GENERIC_ACTION_SHARE = 0.30
 MAX_SHARED = 8
 MAX_UNIQUE = 6
 MAX_ACTIONS = 4
 
-# Basic items that carry no information about a dish's identity.
+
 GENERIC_INGREDIENTS = {"water", "salt", "ice"}
 
-# Generic words that appear as "entities" in the dataset but are also ordinary prose.
-# They are excluded from the grounding vocabulary so valid explanations are not rejected.
+
 GENERIC_WORDS = {
     "sauce", "sweet", "food", "deep", "red", "green", "white", "black", "hot", "cold",
     "fresh", "meat", "dish", "small", "large", "the", "and", "are", "use", "mix",
     "heat", "cooking", "flavor", "well", "then", "more", "base", "ice", "rock",
     "bird", "acid", "bath", "coal", "water",
-    # cuisine adjectives GPT uses naturally ("the Thai dish")
+
     "thai", "chinese", "japanese", "korean", "indian", "filipino", "vietnamese",
     "indonesian", "malaysian", "burmese", "cambodian", "khmer", "turkish", "saudi",
     "arab", "arabic", "asian", "western",
-    # cooking verbs that also appear as noisy "items" in the dataset
+
     "add", "baking", "brush", "grate", "ground", "julienne", "mixing", "roasting",
     "saute", "scoop", "seasoning", "steam", "steep", "whisk", "cup",
 }
 
-# Words that describe an item without changing what it is.
+
 _MODIFIERS = {
     "fresh", "frozen", "cooked", "raw", "ground", "chopped", "sliced", "diced", "minced",
     "dried", "red", "green", "white", "black", "yellow", "small", "large", "whole", "fine",
@@ -92,14 +66,14 @@ _MODIFIERS = {
 }
 _SUBSET_EXTRAS = _MODIFIERS | {"olive", "vegetable", "canola", "cooking"}
 
-# Main proteins: "chicken drumsticks" and "chicken meat" are both just chicken.
+
 _PROTEINS = {"chicken", "pork", "beef", "shrimp", "prawn", "fish", "egg", "tofu", "lamb",
              "mutton", "duck", "squid", "crab", "goat", "turkey"}
-# ...unless the item is really a product made from it ("fish sauce", "egg noodle").
+
 _NOT_PROTEIN = {"sauce", "paste", "oil", "stock", "broth", "powder", "cube", "flake", "ball",
                 "cake", "noodle", "wrapper", "roll", "vinegar", "juice", "mayonnaise"}
 
-# Real cooking methods are more telling than prep verbs ("cut", "rinse"), so they rank first.
+
 _METHODS = {"boil", "simmer", "fry", "stir-fry", "deep-fry", "pan-fry", "saute", "sauté", "grill",
             "roast", "bake", "steam", "braise", "stew", "marinate", "ferment", "smoke", "poach",
             "blanch", "toast", "sear", "broil", "barbecue", "pickle", "caramelize", "pressure cook"}
@@ -113,11 +87,6 @@ _VOCAB = set()
 
 
 def build_vocabulary(recipes, fields, parse_fn):
-    """
-    Terms from the given recipe fields (lowercase), used by the grounding check to spot
-    physical items (ingredients, cookware, utensils) that GPT mentions but that are not
-    in the evidence. Do NOT pass the action field: it contains noisy words ("and", "use").
-    """
     vocab = set()
     for recipe in recipes:
         for field in fields:
@@ -129,7 +98,6 @@ def build_vocabulary(recipes, fields, parse_fn):
 
 
 def init(recipes, parse_fn):
-    """Call once at startup: learns item frequencies, generic steps, and the vocabulary."""
     global _PARSE, _ITEM_COUNTS, _ACTION_SHARE, _GENERIC_ACTIONS, _FREQUENT_ITEMS, _VOCAB
     _PARSE = parse_fn
     items, actions = Counter(), Counter()
@@ -145,12 +113,8 @@ def init(recipes, parse_fn):
     _fix_typo.cache_clear()
 
 
-# ---------------------------------------------------------------------------
-# Evidence cleaning
-# ---------------------------------------------------------------------------
 @lru_cache(maxsize=4096)
 def _fix_typo(item):
-    """Map a rare item to a frequent, very similar one ('fisf sauce' -> 'fish sauce')."""
     if len(item) < 5 or _ITEM_COUNTS.get(item, 0) > 2:
         return item
     match = difflib.get_close_matches(item, _FREQUENT_ITEMS, n=1, cutoff=0.88)
@@ -172,12 +136,6 @@ def _tokens(item):
 
 
 def _related(a, b):
-    """
-    If two different items are really the same thing, return the common concept, else None.
-      'oil' / 'olive oil'                   -> 'oil'
-      'chili peppers' / 'red chili pepper'  -> 'chili peppers'
-      'chicken drumsticks' / 'chicken meat' -> 'chicken'
-    """
     ta, tb = set(_tokens(a)), set(_tokens(b))
     if not ta or not tb:
         return None
@@ -192,7 +150,6 @@ def _related(a, b):
 
 
 def _compare_ingredients(src_items, tgt_items):
-    """Returns (shared, only_in_source, only_in_target) after cleaning."""
     def prep(items):
         return sorted({_fix_typo(i.lower()) for i in items} - GENERIC_INGREDIENTS)
 
@@ -214,20 +171,19 @@ def _compare_ingredients(src_items, tgt_items):
 
     only_src, only_tgt = split(src, tgt), split(tgt, src)
 
-    for concept in concepts:                        # add the common concept (e.g. "chicken")
-        ctoks = set(_tokens(concept))               # unless a shared item already covers it
+    for concept in concepts:
+        ctoks = set(_tokens(concept))
         if not any(ctoks <= set(_tokens(s)) for s in shared):
             shared.add(concept)
 
-    rare_first = lambda x: (_ITEM_COUNTS.get(x, 0), x)      # distinctive items first
-    common_first = lambda x: (-_ITEM_COUNTS.get(x, 0), x)   # recognisable items first
+    rare_first = lambda x: (_ITEM_COUNTS.get(x, 0), x)
+    common_first = lambda x: (-_ITEM_COUNTS.get(x, 0), x)
     return (sorted(shared, key=rare_first)[:MAX_SHARED],
             sorted(only_src, key=common_first)[:MAX_UNIQUE],
             sorted(only_tgt, key=common_first)[:MAX_UNIQUE])
 
 
 def _compare_actions(src_items, tgt_items):
-    """Same idea for cooking actions; generic steps (add, cook, heat, ...) are dropped."""
     def prep(items):
         return {a.lower().strip() for a in items} - _GENERIC_ACTIONS
 
@@ -239,10 +195,6 @@ def _compare_actions(src_items, tgt_items):
 
 
 def build_evidence(source_dish, recommended_dish, similarity_pct, influence):
-    """
-    Evidence packet sent to GPT-4o: the overall score, the Shapley influence of each entity
-    type, and the CLEANED ingredient and cooking-action comparison.
-    """
     parse = _PARSE or (lambda t: [x.strip() for x in (t or "").split(",") if x.strip()])
     s_ing, only_s, only_t = _compare_ingredients(
         parse(source_dish.get("ingredient_text", "")), parse(recommended_dish.get("ingredient_text", "")))
@@ -272,12 +224,7 @@ def build_evidence(source_dish, recommended_dish, similarity_pct, influence):
     return evidence
 
 
-# ---------------------------------------------------------------------------
-# GPT call, fallback, orchestration
-# ---------------------------------------------------------------------------
 def _call_gpt(evidence, avoid=None):
-    """Raises on API errors, so failures are never cached.
-    avoid: items the previous draft mentioned that are not in the evidence (retry only)."""
     try:
         messages = build_messages(evidence)
         if avoid:
@@ -303,7 +250,6 @@ def _call_gpt(evidence, avoid=None):
 
 
 def fallback_explanation(ev):
-    """Template paragraph used when the API is unavailable or fails the grounding check."""
     score = ev["overall_similarity"]
     a, b = ev["input_dish"], ev["matched_dish"]
 
@@ -368,7 +314,6 @@ def get_explanation(evidence):
 
         print("[CuiSync] GPT REJECTED -> retrying once without:", bad)
 
-        # One retry: tell GPT which items it must leave out. A passing answer is cached.
         retry = _call_gpt(evidence, avoid=bad)
         if not ungrounded_terms(retry, evidence, _VOCAB):
             save_cached(evidence, retry)

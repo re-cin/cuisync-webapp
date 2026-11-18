@@ -1,0 +1,71 @@
+{# Admin log in page (/admin/login). Separate from the user log in page:
+   only accounts with role 'admin' in Supabase can sign in here. #}
+{% from "admin/admin_icons.html" import icon %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex">
+  <title>Admin Login · CUISYNC</title>
+  {% include "partials/pwa_head.html" %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base-style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+<body class="admin-page">
+{% include "partials/flash.html" %}
+<div class="login-shell">
+
+  <section class="login-brand no-pills">
+    <span class="admin-logo">CUISYNC</span>
+    <div class="login-brand-copy">
+      <p class="eyebrow eyebrow-gold"><span class="diamond"></span>Admin Console</p>
+      <h1>Curate the flavours of Asia.</h1>
+      <p>Manage dishes, countries, tags and the AI prompts behind CuiSync's cuisine similarity search, all in one place.</p>
+    </div>
+  </section>
+
+  <section class="login-form-wrap">
+    <form class="login-form" method="POST" action="{{ url_for('admin_login') }}">
+      <input type="hidden" name="next" value="{{ next }}">
+
+      <div class="login-heading">
+        <h2>Admin Login</h2>
+        <p>Sign in with your administrator account</p>
+      </div>
+
+      <div class="field">
+        <label for="username">Email or username</label>
+        <div class="input-icon">
+          <input id="username" name="username" type="text" required autocomplete="username" autofocus
+                 placeholder="admin" value="{{ login_value or '' }}">
+          <span>{{ icon('user') }}</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="password">Password</label>
+        <div class="input-icon">
+          <input id="password" name="password" type="password" required autocomplete="current-password" placeholder="Enter your password">
+          <button type="button" class="icon-btn-plain" data-toggle-password="password" aria-label="Show password">{{ icon('eye') }}</button>
+        </div>
+      </div>
+
+      <label class="check">
+        <input type="checkbox" name="remember" value="1"> Keep me signed in on this device
+      </label>
+
+      <button type="submit" class="btn btn-maroon btn-block">Sign in</button>
+
+      <p class="login-note">{{ icon('shield', 16) }} Admin accounts only</p>
+
+    </form>
+  </section>
+</div>
+<script src="{{ url_for('static', filename='scripts/admin.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+{# One recent search card: the two dishes side by side (half and half), each with its
+   country, and the similarity score in a circle in the middle.
+   full=False: home page row, the whole card opens the comparison.
+   full=True:  "All recent searches" page, with a View comparison button and a bookmark button. #}
+{% macro recent_card(c, full=False) %}
+{% set no_image = url_for('static', filename='assets/no-image.svg') %}
+{% set media %}
+  <span class="rc-media">
+    <span class="rc-half">
+      <img src="{{ c.source.image or no_image }}" alt="" loading="lazy" referrerpolicy="no-referrer"
+           onerror="this.onerror=null;this.src='{{ no_image }}'">
+      <span class="rc-country rc-country--left">{{ c.source.country_label }}</span>
+    </span>
+    <span class="rc-half">
+      <img src="{{ c.target.image or no_image }}" alt="" loading="lazy" referrerpolicy="no-referrer"
+           onerror="this.onerror=null;this.src='{{ no_image }}'">
+      <span class="rc-country rc-country--right">{{ c.target.country_label }}</span>
+    </span>
+    <span class="rc-score" aria-label="{{ c.score }} percent match">{{ c.score }}%<small>MATCH</small></span>
+  </span>
+{% endset %}
+{% if full %}
+<article class="rc-card rc-card--full"
+         data-names="{{ (c.source.title ~ ' ' ~ c.target.title) | lower }}"
+         data-title="{{ c.source.title }} &amp; {{ c.target.title }}"
+         data-origin="{{ c.source.country }}" data-score="{{ c.score }}" data-ts="{{ c.ts }}">
+  {{ media }}
+  <div class="rc-body">
+    <h2 class="rc-title">{{ c.source.title }} &amp; {{ c.target.title }}</h2>
+    <div class="rc-actions">
+      <a class="rc-view" href="{{ c.url }}">View comparison <span aria-hidden="true">&rarr;</span></a>
+      {# Placeholder until bookmarks are added #}
+      <button type="button" class="rc-bookmark" aria-disabled="true" title="Bookmarks are coming soon" aria-label="Bookmark (coming soon)">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
+      </button>
+    </div>
+  </div>
+</article>
+{% else %}
+<a class="rc-card" href="{{ c.url }}" title="Open the comparison of {{ c.source.title }} and {{ c.target.title }}">
+  {{ media }}
+  <span class="rc-body">
+    <span class="rc-title">{{ c.source.title }} &amp; {{ c.target.title }}</span>
+  </span>
+</a>
+{% endif %}
+{% endmacro %}

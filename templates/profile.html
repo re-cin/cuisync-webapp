@@ -1,0 +1,126 @@
+{% extends "panel_base.html" %}
+{% block title %}Profile{% endblock %}
+{% block eyebrow %}YOUR PROFILE{% endblock %}
+{% block heading %}{{ user.name }}{% endblock %}
+{% block lead %}@{{ user.username }}{% if user.cooking_role %} &middot; {{ user.cooking_role }}{% endif %}{% if user.home_country %} &middot; {{ user.home_country }}{% endif %}{% endblock %}
+{% block content %}
+<nav class="panel-tabs">
+  <a href="#history">SEARCH HISTORY</a>
+  <a href="#profile">PROFILE</a>
+  <a href="#account">ACCOUNT</a>
+</nav>
+
+<!-- SEARCH HISTORY (Oab 3, Galang 5) -->
+<section class="panel-card" id="history">
+  <div class="card-head">
+    <h2>Search history</h2>
+    {% if history %}
+    <form method="POST" action="{{ url_for('clear_history') }}" onsubmit="return confirm('Clear all of your search history?')">
+      <button class="btn-panel btn-panel-ghost" type="submit">CLEAR ALL</button>
+    </form>
+    {% endif %}
+  </div>
+  {% if history %}
+  <div class="table-wrap">
+    <table class="panel-table">
+      <thead><tr><th>When</th><th>Type</th><th>Search</th><th>Result</th><th></th></tr></thead>
+      <tbody>
+      {% for h in history %}
+        <tr>
+          <td><time class="local-time" data-utc="{{ h.created_at }}">{{ h.created_at }}</time></td>
+          <td><span class="type-pill type-{{ h.search_type }}">{{ {'text': 'Text', 'image': 'Image', 'keyword': 'Keyword', 'ingredients': 'Ingredients', 'tags': 'Tags'}[h.search_type] or h.search_type }}</span></td>
+          <td>
+            {% if h.search_type in ('text', 'image') %}
+              <strong>{{ h.dish_name }}</strong> <span class="muted">({{ country_label(h.origin_country) }})</span>
+              &rarr; {{ 'Any country' if h.target_country == 'any' else country_label(h.target_country) }}
+            {% else %}
+              {% set p = h.query | fromjson %}
+              {% if p.q %}<strong>{{ p.q }}</strong>{% endif %}
+              {% if p.tag %}{% for t in p.tag %}<span class="tag-chip small">{{ t }}</span>{% endfor %}{% endif %}
+              {% if p.country %}<span class="muted">in {{ country_label(p.country) }}</span>{% endif %}
+            {% endif %}
+          </td>
+          <td>
+            {% if h.search_type in ('text', 'image') %}
+              {{ h.result_title }} <span class="muted">({{ country_label(h.result_country) }}{% if h.score is not none %}, {{ h.score | round | int }}%{% endif %})</span>
+            {% else %}{{ h.result_title }}{% endif %}
+          </td>
+          <td class="row-actions">
+            <a class="btn-panel btn-panel-small" href="{{ url_for('open_history', entry_id=h.id) }}">OPEN AGAIN</a>
+            <form method="POST" action="{{ url_for('delete_history', entry_id=h.id) }}">
+              <button class="icon-btn" type="submit" aria-label="Remove from history" title="Remove">&times;</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty-state">No searches yet. Every search you make while logged in shows up here so you can open it again. <a href="{{ url_for('home') }}#search-section">Start searching</a></p>
+  {% endif %}
+</section>
+
+<!-- PROFILE (Galang 6) -->
+<section class="panel-card" id="profile">
+  <h2>Profile</h2>
+  <form method="POST" action="{{ url_for('profile') }}" class="panel-form two-col">
+    <label>Display name
+      <input type="text" name="display_name" value="{{ user.display_name }}" maxlength="60">
+    </label>
+    <label>I am a...
+      <select name="cooking_role">
+        <option value="">Choose one</option>
+        {% for r in cooking_roles %}<option {{ 'selected' if user.cooking_role == r }}>{{ r }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Where I'm from
+      <input type="text" name="home_country" value="{{ user.home_country }}" maxlength="60" placeholder="e.g. Philippines">
+    </label>
+    <label class="span-2">About me <span class="muted">(optional)</span>
+      <textarea name="bio" rows="2" maxlength="500">{{ user.bio }}</textarea>
+    </label>
+    <fieldset class="span-2">
+      <legend>Favorite cuisines</legend>
+      <div class="check-grid">
+        {% for c in all_countries %}
+        <label class="check"><input type="checkbox" name="favorite_cuisines" value="{{ c.name }}" {{ 'checked' if c.name in user.favorite_cuisines }}> {{ c.label }}</label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    <fieldset class="span-2">
+      <legend>Allergens to watch for <span class="muted">(highlighted on result pages)</span></legend>
+      <div class="check-grid">
+        {% for a in allergen_choices %}
+        <label class="check"><input type="checkbox" name="avoid_allergens" value="{{ a }}" {{ 'checked' if a in user.avoid_allergens }}> {{ a }}</label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    <div class="span-2"><button class="btn-panel btn-panel-red" type="submit">SAVE PROFILE</button></div>
+  </form>
+</section>
+
+<!-- ACCOUNT -->
+<section class="panel-card" id="account">
+  <h2>Account</h2>
+  <p class="muted">Member since <time class="local-time" data-utc="{{ user.created_at }}" data-date-only>{{ user.created_at }}</time> &middot; Role: {{ user.role }}</p>
+  <form method="POST" action="{{ url_for('change_password') }}" class="panel-form two-col">
+    <label>Current password <input type="password" name="old" required autocomplete="current-password"></label>
+    <label>New password <input type="password" name="new" required minlength="6" autocomplete="new-password"></label>
+    <div class="span-2"><button class="btn-panel" type="submit">CHANGE PASSWORD</button>
+      <a class="btn-panel btn-panel-ghost" href="{{ url_for('logout') }}">LOG OUT</a></div>
+  </form>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  // SQLite saves times in UTC. Show them in the visitor's own time zone.
+  document.querySelectorAll('.local-time').forEach(el => {
+    const d = new Date(el.dataset.utc.replace(' ', 'T') + 'Z');
+    if (isNaN(d)) return;
+    el.textContent = el.hasAttribute('data-date-only')
+      ? d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+      : d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+  });
+</script>
+{% endblock %}

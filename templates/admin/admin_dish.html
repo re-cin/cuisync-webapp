@@ -1,0 +1,154 @@
+{% extends "admin/admin_base.html" %}
+{% from "admin/admin_icons.html" import icon %}
+{% set active = 'dishes' %}
+{% block title %}{{ 'Edit dish' if recipe_id else 'Add dish' }}{% endblock %}
+{% block eyebrow %}Dishes{% endblock %}
+{% block heading %}{{ dish.title if recipe_id else 'Add a dish' }}{% endblock %}
+{% block lead %}{{ 'Recipe ID ' ~ recipe_id ~ ' · ' ~ country_label(dish.country) if recipe_id else 'New dishes can be searched and compared as soon as you save.' }}{% endblock %}
+{% block actions %}
+<a href="{{ url_for('admin_page', tab='dishes') }}" class="btn btn-outline">Back to dishes</a>
+{% endblock %}
+
+{% block content %}
+<form method="post" class="row align-start" id="dish-form">
+
+  <div class="grow-3 stack">
+    <section class="card">
+      <div class="card-head"><h2>Dish details</h2></div>
+      <div class="form-grid">
+        <div class="field"><label for="title">Dish name *</label>
+          <input id="title" type="text" name="title" value="{{ dish.title or '' }}" required placeholder="Example: Pho, Adobo, Ramen"></div>
+        <div class="field"><label for="alternative_title">Alternative / native name</label>
+          <input id="alternative_title" type="text" name="alternative_title" value="{{ dish.alternative_title or '' }}"></div>
+        <div class="field"><label for="country">Country of origin *</label>
+          <select id="country" name="country" required>
+            <option value="">Select country of origin…</option>
+            {% for c in all_countries | sort(attribute='label') %}<option value="{{ c.name }}" {{ 'selected' if (dish.country or '') | upper == c.name }}>{{ c.label }}</option>{% endfor %}
+          </select>
+          <p class="hint">Not listed? <a href="{{ url_for('admin_page', tab='countries') }}" class="small-link">Add it on the Countries page</a> first.</p></div>
+        <div class="field"><label for="region">Region within the country</label>
+          <input id="region" type="text" name="region" value="{{ dish.region or '' }}" placeholder="e.g. Kyushu, Visayas (optional)"></div>
+        <div class="field"><label for="recipe_link">Recipe link</label>
+          <input id="recipe_link" type="url" name="recipe_link" value="{{ dish.recipe_link or '' }}" placeholder="https://"></div>
+        <div class="field"><label for="image_link">Image link</label>
+          <input id="image_link" type="url" name="image_link" value="{{ dish.image_link or '' }}" placeholder="https://"></div>
+      </div>
+    </section>
+
+    <section class="card ner-card">
+      <div class="card-head">
+        <h2>Extract ingredients</h2>
+        <span class="pill {{ 'pill-active' if ner_status.mode and ner_status.ready else ('pill-pending' if ner_status.mode else 'pill-hidden') }}" title="{{ ner_status.text }}">
+          {{ 'BERT NER · ' ~ ('local' if ner_status.mode == 'local' else 'Space') if ner_status.mode else 'NER not set up' }}
+        </span>
+      </div>
+      <p class="hint card-hint">Paste the recipe (ingredient list or instructions). The NER model finds the ingredients and checks them against the dataset. Review them, then add them to the Ingredients field below.</p>
+      <div class="field">
+        <label for="recipe-text">Recipe text</label>
+        <textarea id="recipe-text" rows="5" placeholder="2 cups coconut milk&#10;1 stalk lemongrass, chopped&#10;500 g chicken thighs"></textarea>
+      </div>
+      <div class="inline-actions">
+        <button type="button" class="btn btn-outline" id="extract-btn" {{ 'disabled' if not ner_status.mode }}>{{ icon('sparkle', 18) }} Extract ingredients</button>
+        <p id="extract-status" class="hint" role="status">{{ '' if ner_status.mode else ner_status.text }}</p>
+      </div>
+      <div id="ner-results" hidden>
+        <div class="legend">
+          <span class="chip chip-existing">In dataset</span>
+          <span class="chip chip-suggested">Did you mean…?</span>
+          <span class="chip chip-new">New (borrows the closest vector)</span>
+        </div>
+        <div id="ner-chips" class="chip-list" aria-live="polite"></div>
+        <div class="inline-actions">
+          <button type="button" class="btn btn-maroon btn-sm" id="ner-add">{{ icon('plus', 16) }} Add to ingredients</button>
+          <button type="button" class="btn btn-outline btn-sm" id="ner-replace">Replace ingredients</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card ner-card">
+      <div class="card-head">
+        <h2>Extract cooking process</h2>
+        {% set dstat = ner_status.directions %}
+        <span class="pill {{ 'pill-active' if dstat.ready else 'pill-pending' }}" title="{{ dstat.text }}">
+          {{ 'BERT NER · local' if dstat.mode else 'From dataset vocabulary' }}
+        </span>
+      </div>
+      <p class="hint card-hint">Paste the directions. {{ 'The directions model tags the cooking actions, cookware and utensils, and each one is checked against the dataset' if dstat.mode else 'Cooking actions, cookware and utensils that the dataset already knows are picked out' }} ("simmered" → simmer, "frying pan" → fry pan). Review them, then add them to the fields below.</p>
+      {% if not dstat.ready and dstat.mode %}<p class="hint">{{ dstat.text }}</p>{% endif %}
+      <div class="field">
+        <label for="directions-text">Directions</label>
+        <textarea id="directions-text" rows="5" placeholder="Heat oil in a wok. Add the garlic and stir-fry for 1 minute.&#10;Pour in the sauce, cover and simmer for 20 minutes."></textarea>
+      </div>
+      <div class="inline-actions">
+        <button type="button" class="btn btn-outline" id="directions-btn">{{ icon('sparkle', 18) }} Extract from directions</button>
+        <p id="directions-status" class="hint" role="status"></p>
+      </div>
+      <div id="directions-results" hidden>
+        <div class="legend">
+          <span class="chip chip-existing">In dataset</span>
+          <span class="chip chip-suggested">Did you mean…?</span>
+          <span class="chip chip-new">New (borrows the closest vector)</span>
+        </div>
+        <div class="dir-groups">
+          <div><p class="tag-cat">Cooking actions</p><div class="chip-list" data-dir-group="actions" data-field="action_text"></div></div>
+          <div><p class="tag-cat">Cookware</p><div class="chip-list" data-dir-group="cookware" data-field="cookware_text"></div></div>
+          <div><p class="tag-cat">Utensils</p><div class="chip-list" data-dir-group="utensils" data-field="utensil_text"></div></div>
+        </div>
+        <div class="inline-actions">
+          <button type="button" class="btn btn-maroon btn-sm" id="directions-add">{{ icon('plus', 16) }} Add to fields</button>
+          <button type="button" class="btn btn-outline btn-sm" id="directions-replace">Replace fields</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Ingredients &amp; cooking process</h2><span class="muted small">Used for similarity · comma-separated</span></div>
+      <div class="form-grid">
+        <div class="field span-2"><label for="ingredient_text">Ingredients *</label>
+          <textarea id="ingredient_text" name="ingredient_text" rows="4" required placeholder="chicken thigh, garlic, soy sauce, vinegar">{{ dish.ingredient_text or '' }}</textarea>
+          <div class="chip-row chip-preview" data-preview-for="ingredient_text" aria-hidden="true"></div></div>
+        <div class="field span-2"><label for="action_text">Cooking actions</label>
+          <textarea id="action_text" name="action_text" rows="2" placeholder="marinate, simmer, fry">{{ dish.action_text or '' }}</textarea>
+          <div class="chip-row chip-preview" data-preview-for="action_text" aria-hidden="true"></div></div>
+        <div class="field"><label for="cookware_text">Cookware</label>
+          <input id="cookware_text" type="text" name="cookware_text" value="{{ dish.cookware_text or '' }}" placeholder="pot, wok"></div>
+        <div class="field"><label for="utensil_text">Utensils</label>
+          <input id="utensil_text" type="text" name="utensil_text" value="{{ dish.utensil_text or '' }}" placeholder="knife, bowl"></div>
+      </div>
+      <p class="hint">Items already in the dataset reuse their vectors. New items borrow the closest known vector, and the Dashboard lists any with no match.</p>
+    </section>
+  </div>
+
+  <div class="grow-1 stack side-card">
+    <section class="card">
+      <div class="card-head"><h2>Tags</h2><a href="{{ url_for('admin_page', tab='tags') }}" class="small-link">Manage</a></div>
+      <div class="field"><label for="tags">Custom tags</label>
+        <input id="tags" type="text" name="tags" value="{{ dish.tags or '' }}" placeholder="street food, festive, breakfast">
+        <p class="hint">Added to the automatic tags (region, cooking method, protein…). Comma-separated.</p></div>
+      <div class="chip-row chip-preview" data-preview-for="tags" aria-hidden="true"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Cultural notes</h2></div>
+      <p class="hint card-hint">Leave empty to let GPT write them. When filled in, these are shown instead of the GPT text.</p>
+      <div class="stack-sm">
+        <div class="field"><label for="culture_notes">Culture</label>
+          <textarea id="culture_notes" name="culture_notes" rows="3">{{ dish.culture_notes or '' }}</textarea></div>
+        <div class="field"><label for="history_notes">History</label>
+          <textarea id="history_notes" name="history_notes" rows="3">{{ dish.history_notes or '' }}</textarea></div>
+      </div>
+    </section>
+
+    <button class="btn btn-maroon btn-block" type="submit">{{ 'Save changes' if recipe_id else 'Add dish' }}</button>
+    <a class="btn btn-outline btn-block" href="{{ url_for('admin_page', tab='dishes') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.CUISYNC_EXTRACT_URL = "{{ url_for('admin_extract_ingredients') }}";
+  window.CUISYNC_DIRECTIONS_URL = "{{ url_for('admin_extract_directions') }}";
+</script>
+<script src="{{ url_for('static', filename='scripts/admin-ner.js') }}"></script>
+{% endblock %}

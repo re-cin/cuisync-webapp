@@ -423,16 +423,26 @@
   padding: 6px 16px;
   border-radius: 20px;
   font-size: 0.72rem;
+  font-weight: 500; /* same weight so the pill width doesn't change */
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background-color 0.3s ease, color 0.3s ease, text-shadow 0.3s ease;
 }
 
+/* text-shadow instead of bold so the pills don't change size */
 .pill:has(input:checked),
-.pill:hover,
 .pill.active {
   background-color: var(--gold-accent);
   color: var(--maroon-dark);
-  font-weight: 600;
+  text-shadow: 0 0 0.6px currentColor;
+}
+
+/* Hover effect only on devices with a mouse */
+@media (hover: hover) {
+  .pill:hover {
+    background-color: var(--gold-accent);
+    color: var(--maroon-dark);
+    text-shadow: 0 0 0.6px currentColor;
+  }
 }
 
 .tab-toggle-small {
