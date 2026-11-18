@@ -17,11 +17,6 @@
 {%- endmacro %}
 
 {% macro culture_body(background, side) -%}
-  {# One notice only: "Reviewed" when checked, otherwise the AI disclaimer below (the old
-     status pill, per-section "unverified" line and "Sources not established" line said the same). #}
-  {% if background.get('status') == 'verified' %}
-  <p class="rt-info-status is-verified">Reviewed information</p>
-  {% endif %}
   <section class="rt-info-section" aria-labelledby="background-{{ side }}">
     <h4 id="background-{{ side }}">History &amp; Culture</h4>
     {% if background.get('status') in ['verified', 'pending', 'unverified'] and (background.get('historical_background') or background.get('cultural_background')) %}
