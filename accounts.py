@@ -457,6 +457,62 @@ def change_password(user_id, old, new):
     _call("PUT", f"/auth/v1/admin/users/{user_id}", json={"password": new})
 
 
+# ---------------------------------------------------------------------------
+# Forgot password
+#   1. send_password_reset() - Supabase emails a reset link (and a code if the template has one)
+#   2. the link / code proves it's their inbox: reset_user_from_code() / reset_user_from_token_hash()
+#      / user_from_access_token() return the user id
+#   3. set_new_password() saves the new password
+# ---------------------------------------------------------------------------
+
+def send_password_reset(email, redirect_to=""):
+    """Always looks the same to the user, whether or not the email has an account
+    (so the form can't be used to find out who has one)."""
+    email = (email or "").strip().lower()
+    if not EMAIL_RE.match(email):
+        raise SupabaseError("Please enter a valid email address.")
+    params = {"redirect_to": redirect_to} if redirect_to else None
+    response = _call("POST", "/auth/v1/recover", key=ANON_KEY, params=params, json={"email": email},
+                     ok=(200, 400, 404, 422, 429, 500))
+    if response.status_code == 200:
+        return
+    error = _signup_error(response)
+    if "Too many" in str(error) or "couldn't send" in str(error):
+        raise error
+    # Anything else (e.g. no such user) is not shown, for the reason above
+
+
+def reset_user_from_code(email, code):
+    code = re.sub(r"\s", "", code or "")
+    if not re.fullmatch(r"\d{6,10}", code):
+        return None
+    response = _call("POST", "/auth/v1/verify", key=ANON_KEY, ok=(200, 400, 401, 403, 404, 422),
+                     json={"type": "recovery", "email": (email or "").strip().lower(), "token": code})
+    return _verified_user_id(response)
+
+
+def reset_user_from_token_hash(token_hash):
+    response = _call("POST", "/auth/v1/verify", key=ANON_KEY, ok=(200, 400, 401, 403, 404, 422),
+                     json={"type": "recovery", "token_hash": token_hash})
+    return _verified_user_id(response)
+
+
+def recovery_user_from_access_token(access_token):
+    """Like user_from_access_token, for the reset link (the email counts as confirmed by it)."""
+    if not access_token:
+        return None
+    response = _call("GET", "/auth/v1/user", key=ANON_KEY, ok=(200, 401, 403), extra_auth=access_token)
+    return response.json().get("id") if response.status_code == 200 else None
+
+
+def set_new_password(user_id, password):
+    if len(password or "") < 6:
+        raise SupabaseError("The new password must be at least 6 characters.")
+    if not _valid_id(user_id):
+        raise SupabaseError("Account not found.")
+    _call("PUT", f"/auth/v1/admin/users/{user_id}", json={"password": password})
+
+
 def set_role(user_id, role):
     if role not in ROLES:
         raise SupabaseError("Unknown role.")

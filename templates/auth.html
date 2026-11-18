@@ -99,9 +99,12 @@
         </div>
       </div>
       {% else %}
-      <label class="check">
-        <input type="checkbox" name="remember" value="1" checked> Keep me signed in on this device
-      </label>
+      <div class="login-options">
+        <label class="check">
+          <input type="checkbox" name="remember" value="1" checked> Keep me signed in on this device
+        </label>
+        <a class="small-link" href="{{ url_for('forgot_password') }}">Forgot password?</a>
+      </div>
       {% endif %}
 
       <button type="submit" class="btn btn-maroon btn-block">{{ 'Create account' if registering else 'Log in' }}</button>

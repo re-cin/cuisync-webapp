@@ -80,3 +80,6 @@
 .confirm-status.is-error { background: #f2d3cf; color: var(--maroon-main); }
 .confirm-resend { font-size: 0.85rem; color: var(--admin-muted, #7a6e62); }
 .confirm-resend-btn { padding: 0; border: 0; background: none; cursor: pointer; font-size: inherit; }
+
+/* Log in: "Keep me signed in" and "Forgot password?" on one row */
+.login-options { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; }

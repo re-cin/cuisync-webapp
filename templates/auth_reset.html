@@ -1,0 +1,148 @@
+{# Forgot password.
+   mode "request": type your email
+   mode "sent":    check your email (click the link, or type the code)
+   mode "new":     choose a new password (after the link / code checked out)
+   mode "invalid": the link expired or was used; also where Supabase's default link lands
+                   (#access_token=... in the address, which the script below sends to the server) #}
+{% from "admin/admin_icons.html" import icon %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>CUISYNC - {{ 'New password' if mode == 'new' else 'Forgot password' }}</title>
+  {% include "partials/head_icons.html" %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base-style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+</head>
+<body class="admin-page auth-page">
+{% include "partials/flash.html" %}
+<div class="login-shell">
+
+  <section class="login-brand user-brand">
+    <a href="{{ url_for('home') }}" class="admin-logo">CUISYNC</a>
+    <div class="login-brand-copy">
+      <p class="eyebrow eyebrow-gold"><span class="diamond"></span>Discover Asian cuisines</p>
+      <h1>{{ 'Almost back in.' if mode == 'new' else 'Forgot your password?' }}</h1>
+      <p>{{ 'Choose a new password for your CuiSync account.' if mode == 'new'
+            else 'It happens. We’ll email you a link to choose a new one.' }}</p>
+    </div>
+  </section>
+
+  <section class="login-form-wrap">
+
+    {% if mode == 'request' %}
+    <form class="login-form confirm-card" method="POST" action="{{ url_for('forgot_password') }}">
+      <input type="hidden" name="action" value="send">
+      <span class="confirm-icon" aria-hidden="true">{{ icon('shield', 30) }}</span>
+      <div class="login-heading">
+        <h2>Forgot password</h2>
+        <p>Type the email address of your account and we’ll send you a link to reset your password.</p>
+      </div>
+      <div class="field">
+        <label for="email">Email address</label>
+        <div class="input-icon">
+          <input id="email" name="email" type="email" required autocomplete="email" placeholder="you@example.com" value="{{ email or '' }}" autofocus>
+          <span>{{ icon('mail') }}</span>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-maroon btn-block">Send reset link</button>
+      <p class="auth-switch">Remembered it? <a href="{{ url_for('login') }}">Log in</a></p>
+    </form>
+
+    {% elif mode == 'sent' %}
+    <div class="login-form confirm-card">
+      <span class="confirm-icon" aria-hidden="true">{{ icon('mail', 30) }}</span>
+      <div class="login-heading">
+        <h2>Check your email</h2>
+        <p>If <strong class="confirm-email">{{ email }}</strong> has a CuiSync account, we sent it a link to reset your password. Open it and click the link, or type the code from it below.</p>
+      </div>
+      <form method="POST" action="{{ url_for('forgot_password') }}" class="confirm-code-form">
+        <input type="hidden" name="action" value="code">
+        <input type="hidden" name="email" value="{{ email }}">
+        <div class="field">
+          <label for="code">Reset code</label>
+          <input id="code" name="code" class="confirm-code" type="text" inputmode="numeric" autocomplete="one-time-code"
+                 pattern="[0-9 ]{6,12}" maxlength="12" required placeholder="123456">
+        </div>
+        <button type="submit" class="btn btn-maroon btn-block">Continue</button>
+      </form>
+      <form method="POST" action="{{ url_for('forgot_password') }}" class="confirm-resend">
+        <input type="hidden" name="action" value="send">
+        <input type="hidden" name="email" value="{{ email }}">
+        <span>Didn’t get it? Check your spam folder, or</span>
+        <button type="submit" class="small-link confirm-resend-btn">send it again</button>
+      </form>
+      <p class="auth-switch"><a href="{{ url_for('forgot_password') }}">Use a different email</a> &middot; <a href="{{ url_for('login') }}">Log in</a></p>
+    </div>
+
+    {% elif mode == 'new' %}
+    <form class="login-form" method="POST" action="{{ url_for('reset_password') }}">
+      <div class="login-heading">
+        <h2>New password</h2>
+        <p>Choose a new password for your account.</p>
+      </div>
+      <div class="field">
+        <label for="password">New password</label>
+        <div class="input-icon">
+          <input id="password" name="password" type="password" required minlength="6" autocomplete="new-password" placeholder="At least 6 characters" autofocus>
+          <button type="button" class="icon-btn-plain" data-toggle-password="password" aria-label="Show password">{{ icon('eye') }}</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="confirm">Confirm new password</label>
+        <div class="input-icon">
+          <input id="confirm" name="confirm" type="password" required minlength="6" autocomplete="new-password" placeholder="Type it again">
+          <button type="button" class="icon-btn-plain" data-toggle-password="confirm" aria-label="Show password">{{ icon('eye') }}</button>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-maroon btn-block">Save new password</button>
+    </form>
+
+    {% else %}
+    <div class="login-form confirm-card">
+      <p class="confirm-status" id="reset-status" hidden></p>
+      <div id="reset-invalid">
+        <span class="confirm-icon" aria-hidden="true">{{ icon('shield', 30) }}</span>
+        <div class="login-heading">
+          <h2>Link expired</h2>
+          <p>This password reset link has expired or was already used. Request a new one and use the newest email.</p>
+        </div>
+        <a class="btn btn-maroon btn-block" href="{{ url_for('forgot_password') }}">Request a new link</a>
+        <p class="auth-switch"><a href="{{ url_for('login') }}">Back to log in</a></p>
+      </div>
+    </div>
+    <script>
+      /* Supabase's default reset link comes back with the session in the address
+         (#access_token=...&type=recovery). Send it to the server once and remove it from the address. */
+      (function () {
+        const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
+        const token = hash.get('access_token');
+        if (!token) return;
+        history.replaceState(null, '', location.pathname);
+        const status = document.getElementById('reset-status');
+        const invalid = document.getElementById('reset-invalid');
+        invalid.hidden = true;
+        status.hidden = false;
+        status.textContent = 'Checking your link…';
+        fetch('{{ url_for("reset_password_link") }}', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+          body: JSON.stringify({ access_token: token }),
+        }).then((r) => r.json()).then((data) => {
+          if (data.ok) { location.replace(data.redirect); return; }
+          status.hidden = true; invalid.hidden = false;
+        }).catch(() => { status.hidden = true; invalid.hidden = false; });
+      })();
+    </script>
+    {% endif %}
+
+  </section>
+</div>
+<script src="{{ url_for('static', filename='scripts/admin.js') }}"></script>
+</body>
+</html>

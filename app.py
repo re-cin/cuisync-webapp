@@ -1449,6 +1449,90 @@ def register_confirmed():
     return render_template("auth_confirm.html", mode="confirmed", user=current_user() or {})
 
 
+# ---------------- forgot password ----------------
+RESET_MINUTES = 15   # how long the "choose a new password" step stays open after the link / code
+
+
+def _allow_reset(user_id):
+    """The email link / code checked out: let this browser set a new password for a while."""
+    session["password_reset"] = {"user_id": user_id, "until": time.time() + RESET_MINUTES * 60}
+
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    """Step 1: type your email. Supabase emails a reset link (and a code, if the template has one)."""
+    pending = session.get("pending_reset") or {}
+    if request.method == "POST":
+        email = (request.form.get("email") or "").strip().lower()
+        action = request.form.get("action", "send")
+        try:
+            if action == "code":
+                uid = accounts.reset_user_from_code(pending.get("email", email), request.form.get("code"))
+                if uid:
+                    _allow_reset(uid)
+                    return redirect(url_for("reset_password"))
+                flash("That code is wrong or has expired. Check the latest email, or request a new one.", "error")
+                return render_template("auth_reset.html", mode="sent", email=pending.get("email", email))
+            wait = RESEND_WAIT - (time.time() - pending.get("sent_at", 0))
+            if pending.get("email") == email and wait > 0:
+                flash(f"Please wait {int(wait) + 1} seconds before asking for another email.", "error")
+            else:
+                accounts.send_password_reset(email, redirect_to=url_for("reset_password", _external=True))
+                session["pending_reset"] = {"email": email, "sent_at": time.time()}
+            return render_template("auth_reset.html", mode="sent", email=email)
+        except ValueError as error:
+            flash(str(error), "error")
+            return render_template("auth_reset.html", mode="request", email=email)
+    return render_template("auth_reset.html", mode="request", email=request.args.get("email", ""))
+
+
+@app.route("/reset-password", methods=["GET", "POST"])
+def reset_password():
+    """Step 2: the link from the email lands here (?token_hash=... or, with Supabase's default
+    email, #access_token=... that the page posts to /reset-password/link). Then: new password."""
+    allowed = session.get("password_reset") or {}
+    if allowed.get("until", 0) < time.time():
+        allowed = {}
+    try:
+        if request.method == "GET" and request.args.get("token_hash"):
+            uid = accounts.reset_user_from_token_hash(request.args["token_hash"])
+            if uid:
+                _allow_reset(uid)
+                return redirect(url_for("reset_password"))
+            flash("That reset link has expired or was already used. Request a new one.", "error")
+            return render_template("auth_reset.html", mode="invalid")
+        if request.method == "POST":
+            if not allowed:
+                flash("This reset has expired. Request a new email.", "error")
+                return redirect(url_for("forgot_password"))
+            if request.form.get("password") != request.form.get("confirm"):
+                flash("The two passwords don't match.", "error")
+            else:
+                accounts.set_new_password(allowed["user_id"], request.form.get("password"))
+                session.pop("password_reset", None)
+                session.pop("pending_reset", None)
+                session.pop("user_id", None)   # log in again with the new password
+                flash("Your password was changed. Log in with your new password.", "success")
+                return redirect(url_for("login"))
+    except ValueError as error:
+        flash(str(error), "error")
+    # No session yet: the page may still have #access_token=... in the address (its script checks)
+    return render_template("auth_reset.html", mode="new" if allowed else "invalid")
+
+
+@app.route("/reset-password/link", methods=["POST"])
+def reset_password_link():
+    data = request.get_json(silent=True) or {}
+    try:
+        uid = accounts.recovery_user_from_access_token(str(data.get("access_token") or ""))
+    except ValueError:
+        uid = None
+    if not uid:
+        return jsonify({"ok": False}), 400
+    _allow_reset(uid)
+    return jsonify({"ok": True, "redirect": url_for("reset_password")})
+
+
 @app.route("/logout")
 def logout():
     session.clear()
