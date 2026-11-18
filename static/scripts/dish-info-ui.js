@@ -70,7 +70,7 @@
     document.querySelectorAll('.rt-background-summary').forEach((p) => p._updateReadMore && p._updateReadMore());
   }
 
-  // Country / market picker in "Compare allergen labeling" (the comparison page also has
+  // Country / market picker in "Check allergens for your country" (the comparison page also has
   // its own copy of this in results.html)
   function setupMarkets(root) {
     (root || document).querySelectorAll('.rt-market-comparison').forEach((panel) => {
@@ -84,9 +84,10 @@
         const empty = panel.querySelector('.rt-market-empty');
         const profile = Array.from(panel.querySelectorAll('.rt-market-profile')).find((el) => !el.hidden);
         if (empty) {
+          const place = selector.selectedOptions[0]?.textContent.trim() || 'this country';
           empty.textContent = profile?.dataset.coverage === 'specified'
-            ? "No matching named ingredients for this market's documented categories. This does not mean the dish is allergen-free."
-            : 'A detailed allergen list is not available for this country reference. See the potential allergens above.';
+            ? `Good news: none of this dish's listed ingredients match ${place}'s required allergens. This is not a guarantee the dish is allergen-free, so still check the label.`
+            : `We can't check ${place} yet because we don't have a verified allergen list for it. Please see the allergy warnings above.`;
           empty.hidden = visible;
         }
       };

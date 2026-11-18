@@ -46,30 +46,61 @@
   {% set health_available = health.get('status') == 'verified' %}
   {# An explicitly empty key_benefits list must not revert to trivial, unranked notes. #}
   {% set display_benefits = health.get('key_benefits', health.get('potential_benefits', [])) or [] %}
+  {# Plain-language name + purpose for each nutrient, so people know why it matters. #}
+  {% set nutrient_info = {
+    'protein': ('Protein', 'Builds and repairs muscles and body tissue.'),
+    'vitamin a': ('Vitamin A', 'Supports healthy eyesight.'),
+    'vitamin c': ('Vitamin C', 'Supports your immune system and skin.'),
+    'calcium': ('Calcium', 'Keeps bones and teeth strong.'),
+    'dietary fiber': ('Fiber', 'Helps digestion and keeps you feeling full.'),
+    'potassium': ('Potassium', 'Helps your muscles and nerves work.'),
+    'carbohydrates': ('Carbohydrates', 'Your body\'s main source of energy.'),
+    'iron': ('Iron', 'Helps carry oxygen around your blood.')
+  } %}
+  {% set allergen_hint = {
+    'Cereals containing gluten': 'Gluten: wheat, barley, rye',
+    'Wheat': 'Found in bread, noodles, flour',
+    'Crustaceans': 'Shrimp, crab, lobster',
+    'Molluscs': 'Clams, mussels, squid',
+    'Tree nuts': 'Almond, cashew, walnut…',
+    'Peanuts': 'A legume, not a true nut',
+    'Soy': 'Soy sauce, tofu, soy milk',
+    'Milk': 'Dairy: milk, cheese, butter',
+    'Egg': 'Whole egg, yolk or white',
+    'Fish': 'Fish and fish sauce',
+    'Sesame': 'Seeds, oil, paste',
+    'Sulphites': 'A preservative, often in dried fruit or wine',
+    'Celery': 'Includes celery seed and salt',
+    'Mustard': 'Seeds, powder, paste',
+    'Lupin': 'A bean related to peanuts'
+  } %}
   <section class="rt-info-section rt-nutrition-section" aria-labelledby="benefits-{{ side }}">
     <div class="rt-health-heading">
       <span class="rt-health-heading-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22V12"/><path d="M12 12c-5 0-8-3-8-8 5 0 8 3 8 8Z"/><path d="M12 16c0-5 3-8 8-8 0 5-3 8-8 8Z"/></svg>
       </span>
       <div>
-        <h4 id="benefits-{{ side }}">Potential Nutritional Benefits</h4>
-        <p class="rt-health-subtitle">What the listed ingredients may contribute.</p>
+        <h4 id="benefits-{{ side }}">What's good in this dish</h4>
+        <p class="rt-health-subtitle">Nutrients the main ingredients can give you, and what each one does for your body.</p>
       </div>
     </div>
     {% if health_available and display_benefits %}
     <ul class="rt-benefit-list">
       {% for benefit in display_benefits[:3] %}
-      <li>
+      {% set info = nutrient_info.get((benefit.nutrient or '') | lower) %}
+      <li class="rt-benefit">
+        {% if info %}<span class="rt-benefit-nutrient">{{ info[0] }}</span>{% endif %}
         {% if benefit.ingredient %}<strong>{{ benefit.ingredient }}</strong>{% endif %}
         <p>{{ benefit.text }}</p>
       </li>
       {% endfor %}
     </ul>
+    <p class="rt-nutrition-limitation">These are general benefits of the ingredients. The actual amount depends on how much is used and how it's cooked.</p>
     {% endif %}
     {% if not health_available or not display_benefits %}
-    <p class="rt-info-empty">No sufficiently supported key nutritional benefits are available for these ingredients yet.</p>
+    <p class="rt-info-empty">We don't have enough reliable nutrition information for this dish's ingredients yet.</p>
     {% elif health.get('nutrition_status') != 'verified' %}
-    <p class="rt-nutrition-limitation">Some listed ingredients lack verified nutrient data. These are general ingredient-based insights.</p>
+    <p class="rt-nutrition-limitation">For some ingredients we don't have exact nutrition data, so these are general estimates.</p>
     {% endif %}
   </section>
   <section class="rt-info-section rt-allergen-section" aria-labelledby="allergens-{{ side }}">
@@ -78,18 +109,18 @@
         <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M12 8v5"/><path d="M12 17h.01"/></svg>
       </span>
       <div>
-        <h4 id="allergens-{{ side }}">Potential Allergens</h4>
-        <p class="rt-health-subtitle">Based on the ingredients listed in this recipe.</p>
+        <h4 id="allergens-{{ side }}">Allergy warnings</h4>
+        <p class="rt-health-subtitle">Common foods that cause allergic reactions, spotted from this recipe's ingredients. Useful if you or someone you cook for has a food allergy.</p>
       </div>
     </div>
     {% if not health_available %}
-    <p class="rt-info-empty">Ingredient-specific allergen information is unavailable right now.</p>
+    <p class="rt-info-empty">Allergy information isn't available for this dish right now.</p>
     {% else %}
     {# Only display explicit findings; an unassessed ingredient is not a negative finding. #}
     {% set allergen_findings = (health.get('potential_allergens') or []) | selectattr('classification', 'in', ['identified', 'possible']) | list %}
     {% if allergen_findings %}
     <div class="rt-allergen-groups">
-      {% for status, group_title, group_explanation in [('identified', 'Identified', 'Identified in listed ingredients'), ('possible', 'Possible', 'Possible; check the product label')] %}
+      {% for status, group_title, group_explanation in [('identified', 'Contains', 'Found in an ingredient in the recipe'), ('possible', 'May contain', 'Depends on the brand or recipe version, so check the package label')] %}
       {% set group_findings = allergen_findings | selectattr('classification', 'equalto', status) | list %}
       {% if group_findings %}
       <div class="rt-allergen-group rt-allergen-group--{{ status }}">
@@ -102,8 +133,9 @@
           {% for allergen in group_findings %}
           <li class="rt-allergen-finding {{ 'is-avoid' if allergen.avoid }}">
             <span class="rt-allergen-name">{{ allergen.name }}</span>
-            {% if allergen.from %}<p class="rt-allergen-from">Ingredient: {{ allergen.from | join(', ') }}</p>{% endif %}
-            {% if allergen.avoid %}<p class="rt-avoid-note">On your avoid list.</p>{% endif %}
+            {% if allergen_hint.get(allergen.name) %}<span class="rt-allergen-hint">{{ allergen_hint[allergen.name] }}</span>{% endif %}
+            {% if allergen.from %}<p class="rt-allergen-from">From: {{ allergen.from | join(', ') }}</p>{% endif %}
+            {% if allergen.avoid %}<p class="rt-avoid-note">⚠ On your avoid list.</p>{% endif %}
           </li>
           {% endfor %}
         </ul>
@@ -112,51 +144,63 @@
       {% endfor %}
     </div>
     {% else %}
-    <p class="rt-info-empty">No major allergens identified in the ingredients assessed. This does not mean the dish is allergen-free.</p>
+    <p class="rt-info-empty">No common allergens found in the ingredients we checked. That doesn't guarantee the dish is allergen-free.</p>
     {% endif %}
-    {# Jurisdiction-specific label references stay separate from the baseline findings. #}
+    {# Country-specific label rules stay separate from the baseline findings. #}
     {% set regional_markets = health.get('regional_markets') or [] %}
     {% set regional_findings = health.get('regional_allergens') or [] %}
     {% if regional_markets %}
     <details class="rt-market-comparison">
-      <summary class="rt-regional-label-heading">Compare allergen labeling across 13 countries</summary>
+      <summary class="rt-regional-label-heading">Check allergens for your country</summary>
       <div class="rt-market-content">
-        <p class="rt-market-intro">Select the <strong>country where the food is sold</strong> to see its available labeling references.</p>
-        <label class="rt-market-label" for="rt-market-{{ side }}">Country / market</label>
-        <select class="rt-market-select" id="rt-market-{{ side }}" aria-label="Asian labeling market for {{ dish.title }}">
+        <p class="rt-market-intro">Each country decides which allergens must be shown on food labels. <strong>Choose the country you're from or are buying this food in</strong>, and we'll check this dish against that country's list.</p>
+        <label class="rt-market-label" for="rt-market-{{ side }}">Which country are you in?</label>
+        <select class="rt-market-select" id="rt-market-{{ side }}" aria-label="Country to check allergens for {{ dish.title }}">
           {% for m in regional_markets %}
           <option value="{{ m.country }}" {{ 'selected' if m.country == dish.country else '' }}>{{ country_label(m.country) }}</option>
           {% endfor %}
         </select>
         <div class="rt-market-profiles">
           {% for m in regional_markets %}
-          <p class="rt-market-profile" data-market-code="{{ m.country }}" data-coverage="{{ m.coverage }}" hidden>
-            <strong>{{ m.jurisdiction }}</strong> —
-            {% if m.coverage == 'specified' %}Documented allergen categories checked against listed ingredients.{% else %}No complete, current national allergen category list independently verified for this reference.{% endif %}
-            {{ m.notes }}
-          </p>
+          <div class="rt-market-profile" data-market-code="{{ m.country }}" data-coverage="{{ m.coverage }}" hidden>
+            <p class="rt-market-summary">{{ m.plain_summary or ('Allergen rules for ' ~ country_label(m.country) ~ '.' ) }}</p>
+            {% if m.must_list %}
+            <ul class="rt-market-chips" aria-label="Allergens that must be shown on labels in {{ country_label(m.country) }}">
+              {% for item in m.must_list %}<li>{{ item }}</li>{% endfor %}
+            </ul>
+            {% endif %}
+            {% if m.recommended_list %}
+            <p class="rt-market-sub">Also recommended (not required):</p>
+            <ul class="rt-market-chips rt-market-chips--soft">
+              {% for item in m.recommended_list %}<li>{{ item }}</li>{% endfor %}
+            </ul>
+            {% endif %}
+            {% if m.conditional_list %}
+            <p class="rt-market-sub">Only if above the legal limit: {{ m.conditional_list | join(', ') }}. We can't tell the amount from a recipe.</p>
+            {% endif %}
+          </div>
           {% endfor %}
         </div>
-        <ul class="rt-allergen-findings rt-market-findings" aria-label="Regional allergen labeling references for {{ dish.title }}">
+        <ul class="rt-allergen-findings rt-market-findings" aria-label="Allergen matches for {{ dish.title }} by country">
           {% for allergen in regional_findings %}
           <li class="rt-allergen-finding" data-market-code="{{ allergen.country }}" hidden>
             <span class="rt-allergen-name">{{ allergen.name }}</span>
-            <span class="rt-allergen-certainty">{{ allergen.label_status | capitalize }} reference · {{ 'Named ingredient' if allergen.classification == 'identified' else 'Possible; product formulation or threshold unknown' }}</span>
-            {% if allergen.from %}<p class="rt-allergen-from">Ingredient: {{ allergen.from | join(', ') }}</p>{% endif %}
+            <span class="rt-allergen-certainty">{{ 'Contained in this dish' if allergen.classification == 'identified' else 'Might be in this dish, so check the package label' }}{% if allergen.label_status_plain %} · {{ allergen.label_status_plain }}{% endif %}</span>
+            {% if allergen.from %}<p class="rt-allergen-from">From: {{ allergen.from | join(', ') }}</p>{% endif %}
           </li>
           {% endfor %}
         </ul>
-        <p class="rt-market-empty" hidden>No matching named ingredients for this market's documented categories. This does not mean the dish is allergen-free.</p>
+        <p class="rt-market-empty" hidden></p>
       </div>
     </details>
     {% endif %}
     {% if health.get('allergen_assessment') and health.allergen_assessment.get('unknown_ingredients') %}
-    <p class="rt-unassessed-note">Some ingredients remain unassessed; other allergens may be missing.</p>
+    <p class="rt-unassessed-note">We couldn't check every ingredient, so other allergens may be missing.</p>
     {% endif %}
     {% endif %}
     {# Only under actual findings: the "none found" message already says it isn't allergen-free #}
     {% if health_available and allergen_findings %}
-    <p class="rt-allergen-disclaimer">Ingredient names cannot establish that a dish is allergen-free. Check product labels, the complete recipe and cross-contact risks.</p>
+    <p class="rt-allergen-disclaimer">A recipe can't prove a dish is allergen-free. Always check the package label, the full recipe, and the risk of cross-contact in the kitchen.</p>
     {% endif %}
   </section>
 {%- endmacro %}

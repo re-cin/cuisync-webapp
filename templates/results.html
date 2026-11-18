@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="{{ url_for('static', filename='css/base-style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/results.css') }}?v=allergen-ui-v4">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/results.css') }}?v=allergen-ui-v6">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/panel.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/results-map.css') }}">
 
@@ -332,9 +332,10 @@
             const profile = Array.from(panel.querySelectorAll('.rt-market-profile'))
               .find(el => !el.hidden);
             if (empty) {
+              const place = selector.selectedOptions[0]?.textContent.trim() || 'this country';
               empty.textContent = profile?.dataset.coverage === 'specified'
-                ? "No matching named ingredients for this market's documented categories. This does not mean the dish is allergen-free."
-                : 'A detailed allergen list is not available for this country reference. See the potential allergens above.';
+                ? `Good news: none of this dish's listed ingredients match ${place}'s required allergens. This is not a guarantee the dish is allergen-free, so still check the label.`
+                : `We can't check ${place} yet because we don't have a verified allergen list for it. Please see the allergy warnings above.`;
               empty.hidden = visible;
             }
           };

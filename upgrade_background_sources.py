@@ -14,7 +14,7 @@ from dish_info_common import country_key, normalize
 from dish_information_store import get_store, DishStoreError
 
 
-def run(store, recipes, client=None, apply=False, limit=5, recipe_id=None, offset=0, delay=1.0, improve_existing=False, diagnose=False):
+def run(store, recipes, client=None, apply=False, limit=5, recipe_id=None, offset=0, delay=1.0, improve_existing=False, diagnose=False, progress=None):
     from dish_backgrounds import enrich_background
     rows, seen = [], set()
     for recipe in recipes:
@@ -29,23 +29,34 @@ def run(store, recipes, client=None, apply=False, limit=5, recipe_id=None, offse
             break
     rows = rows[offset:offset + limit] if limit is not None else rows[offset:]
     counts = Counter()
+    total = offset + len(rows)
+    def checkpoint(position):
+        if progress is not None:
+            progress(position, total, dict(counts))
     for i, recipe in enumerate(rows, offset + 1):
         identity = {'normalized_name': normalize(recipe.get('title')),
                     'country': country_key(recipe.get('country'))}
         original = store.get('dish_backgrounds', identity)
         if not original:
             counts['missing_records_preserved'] += 1
+            checkpoint(i)
             continue
         if original.get('verification_status') == 'verified':
             counts['approved_preserved'] += 1
+            checkpoint(i)
             continue
         if not apply:
             counts['preview_only'] += 1
-            print(f'{i}/{len(rows)} PREVIEW: {recipe.get("title")} | {recipe.get("country")}')
+            checkpoint(i)
+            print(f'{i}/{total} PREVIEW: {recipe.get("title")} | {recipe.get("country")}')
             continue
         details = {} if diagnose else None
         options = {'diagnostics': details} if diagnose else {}
         updated = enrich_background(recipe, store, client=client, upgrade_sources=True, improve_existing=improve_existing, **options)
+        changed = updated.get('updated_at') != original.get('updated_at')
+        counts['updated' if changed else 'unchanged_no_supported_draft'] += 1
+        # Save progress before logging: a console error must not lose a completed write.
+        checkpoint(i)
         if diagnose and details is not None:
             print('  EVIDENCE:', details.get('evidence_count', 'not retrieved'),
                   'providers=', details.get('evidence_providers', []))
@@ -56,16 +67,14 @@ def run(store, recipes, client=None, apply=False, limit=5, recipe_id=None, offse
                 print('  SOURCE:', title)
         if delay:
             time.sleep(delay)
-        if updated.get('updated_at') != original.get('updated_at'):
-            counts['updated'] += 1
+        if changed:
             generation_fields = updated.get("generation_fields") or {}
             history = generation_fields.get("historical_background", "unspecified")
             culture = generation_fields.get("cultural_background", "unspecified")
-            print(f'{i}/{len(rows)} UPDATED: {recipe.get("title")} '
+            print(f'{i}/{total} UPDATED: {recipe.get("title")} '
                   f'(overall={updated.get("generation_method")}; history={history}; culture={culture})')
         else:
-            counts['unchanged_no_supported_draft'] += 1
-            print(f'{i}/{len(rows)} KEPT: {recipe.get("title")} (no better supported text)')
+            print(f'{i}/{total} KEPT: {recipe.get("title")} (no better supported text)')
     print('Summary:', dict(counts))
     return counts
 
