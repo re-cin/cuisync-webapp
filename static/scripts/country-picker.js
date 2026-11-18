@@ -108,10 +108,24 @@
       render();
       const sel = list.querySelector('.is-selected');
       if (sel) sel.scrollIntoView({ block: 'nearest' });
-      if (!phone.matches) wrap.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      // Computers: scroll down just enough to show the whole list (keeping the card under the top bar)
+      if (!phone.matches) requestAnimationFrame(showWholeList);
     }
 
     const phone = window.matchMedia('(max-width: 600px)');
+    function showWholeList() {
+      if (panel.hidden) return;
+      const listBox = panel.getBoundingClientRect();
+      const cardBox = card.getBoundingClientRect();
+      const topBar = 90;                                          // room for the fixed top bar
+      const needed = listBox.bottom + 20 - window.innerHeight;   // how much of the list is cut off
+      const room = cardBox.top - topBar;                         // how far before the card goes under the bar
+      const by = Math.min(needed, room);
+      if (by > 0) {
+        const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        window.scrollBy({ top: by, behavior: reduce ? 'auto' : 'smooth' });
+      }
+    }
     function reveal() {
       if (!phone.matches) return;
       const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
