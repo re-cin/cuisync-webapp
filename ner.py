@@ -6,7 +6,7 @@ each one with the ingredients that already have a vector:
 
     existing   -> already in ingredients_items.json (has a vector, ready to use)
     suggested  -> close to an existing item ("Did you mean ...?")
-    new        -> not in the dataset yet (borrows the closest vector until the vectorizer runs again)
+    new        -> not in the dataset yet (gets its own vector when the dish is saved, see item_vectors.py)
 
 The model can run in one of two places. The first one that is set up is used:
 
@@ -57,6 +57,7 @@ _load_error = None
 _loaded = threading.Event()
 _load_lock = threading.Lock()
 
+_checked_dir = None  # the ner_model folder init() looked in (shown when it is missing)
 _existing = {}   # normalized name -> name as written in ingredients_items.json
 _keys = []
 
@@ -68,11 +69,12 @@ _keys = []
 def init(root, item_names, feature_items=None, recipes=None):
     """Call at startup and again after the dataset changes.
     item_names = MATCHER.items['ingredients']; feature_items = MATCHER.items (for directions)."""
-    global _model_dir, _existing, _keys
+    global _model_dir, _existing, _keys, _checked_dir
     if feature_items is not None:
         _init_directions(feature_items, recipes)
     folder = os.environ.get("NER_MODEL_DIR", "").strip() or os.path.join(root, "ner_model")
     _model_dir = folder if os.path.isfile(os.path.join(folder, "config.json")) else None
+    _checked_dir = folder
     _existing = {}
     for item in item_names:
         _existing.setdefault(normalize(item), item)
@@ -109,7 +111,8 @@ def _ingredient_status():
     if m == "remote":
         return {"mode": m, "ready": True, "text": "Hugging Face Space (NER_API_URL)"}
     return {"mode": None, "ready": False,
-            "text": "Not set up. Put the model in ner_model/ or set NER_API_URL in .env."}
+            "text": f"Not set up. No config.json in {_checked_dir or 'ner_model/'}: put the model "
+                    "there, or set NER_API_URL in .env. (The folder is only checked when the app starts.)"}
 
 
 # ---------------------------------------------------------------------------
@@ -145,6 +148,10 @@ def _load_local():
             from transformers import AutoModelForTokenClassification, AutoTokenizer
         except ImportError:
             _load_error = "the packages are missing (run: pip install transformers torch)"
+            print("[CuiSync] NER:", _load_error)
+            return
+        except Exception as error:  # e.g. Windows "DLL load failed" from torch
+            _load_error = f"torch/transformers could not start: {str(error).splitlines()[0][:200]}"
             print("[CuiSync] NER:", _load_error)
             return
         try:

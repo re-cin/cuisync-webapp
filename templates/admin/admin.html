@@ -1,13 +1,12 @@
 {% extends "admin/admin_base.html" %}
 {% from "admin/admin_icons.html" import icon %}
 {% set meta = {
-  'overview':  ('Overview', 'Dashboard', 'A snapshot of CuiSync content and search activity.'),
-  'users':     ('Manage', 'User Profile Management', 'User accounts, their profiles and search activity. Change roles or remove accounts.'),
-  'dishes':    ('Manage', 'Dish Management', 'Add, edit and remove dishes. Changes are used for search and similarity right away.'),
-  'countries': ('Manage', 'Country Management', 'Choose which countries show in the "Country of origin" and "Target country" dropdowns.'),
-  'prompts':   ('Manage', 'Prompt Management', 'Edit the GPT prompts for the similarity explanation and the cultural information.'),
-  'tags':      ('Manage', 'Tag Management', 'Tags used in "Search by tag". Rename, merge or remove the custom tags added to dishes.'),
-  'dataset':   ('Manage', 'Dataset', 'Upload, download or reset the recipe dataset.'),
+  'overview':  ('', 'Dashboard', 'A snapshot of CuiSync content and search activity.'),
+  'users':     ('', 'User Profile Management', 'User accounts, their profiles and search activity. Disable or remove accounts.'),
+  'dishes':    ('', 'Dish Management', 'Add, edit and remove dishes. Changes are used for search and similarity right away.'),
+  'countries': ('', 'Country Management', 'Choose which countries show in the "Country of origin" and "Target country" dropdowns.'),
+  'prompts':   ('', 'Prompt Management', 'Edit the GPT prompts for the similarity explanation and the cultural information.'),
+  'dataset':   ('', 'Dataset', 'Download a copy of the recipe dataset as a backup.'),
 }[tab] %}
 {% block title %}{{ meta[1] }}{% endblock %}
 {% block eyebrow %}{{ meta[0] }}{% endblock %}
@@ -25,250 +24,248 @@
    DASHBOARD
    ====================================================================== #}
 {% if tab == 'overview' %}
-<div class="kpi-grid">
-  <div class="kpi">
-    <div class="kpi-top"><p class="kpi-label">Total dishes</p><span class="kpi-icon">{{ icon('dish') }}</span></div>
-    <p class="kpi-value">{{ "{:,}".format(total) }}</p>
-    <p class="kpi-note">{{ ('Edited dataset' ~ (' (Supabase)' if store.db else ' (admin_data)')) if store.uses_admin_data else 'Original recipes.json' }}</p>
-  </div>
-  <div class="kpi">
-    <div class="kpi-top"><p class="kpi-label">Countries</p><span class="kpi-icon">{{ icon('globe') }}</span></div>
-    <p class="kpi-value">{{ per_country | length }}</p>
-    <p class="kpi-note">{{ visible_countries }} shown in the dropdowns</p>
-  </div>
-  <div class="kpi">
-    <div class="kpi-top"><p class="kpi-label">User accounts</p><span class="kpi-icon">{{ icon('users') }}</span></div>
-    <p class="kpi-value">{{ "{:,}".format(stats.users) }}</p>
-    <p class="kpi-note">users and admins</p>
-  </div>
-  <div class="kpi">
-    <div class="kpi-top"><p class="kpi-label">Saved searches</p><span class="kpi-icon">{{ icon('search') }}</span></div>
-    <p class="kpi-value">{{ "{:,}".format(stats.total_searches) }}</p>
-    <p class="kpi-note">{{ per_day | sum(attribute='value') }} in the last 7 days</p>
-  </div>
-</div>
-
-<div class="row">
-  <section class="card grow-2">
-    <div class="card-head"><h2>Searches per day</h2><span class="muted small">Last 7 days · logged-in users</span></div>
-    <div class="bar-chart" role="img" aria-label="Searches per day for the last 7 days">
-      {% for d in per_day %}
-        <div class="bar-col">
-          <span class="bar-value">{{ d.value }}</span>
-          <div class="bar-track"><div class="bar{% if loop.last %} bar-today{% endif %}" style="height: {{ [d.height, 2] | max }}%"></div></div>
-          <span class="bar-label">{{ 'Today' if loop.last else d.label }}</span>
-        </div>
-      {% endfor %}
+<div class="dash">
+  {# ---------- Left: numbers and charts ---------- #}
+  <div class="dash-main">
+    <div class="dash-kpis">
+      <div class="kpi"><p class="kpi-label">Total dishes</p><p class="kpi-value">{{ "{:,}".format(total) }}</p></div>
+      <div class="kpi"><p class="kpi-label">Countries</p><p class="kpi-value">{{ per_country | length }}</p></div>
+      <div class="kpi"><p class="kpi-label">User accounts</p><p class="kpi-value">{{ "{:,}".format(stats.users) }}</p></div>
+      <div class="kpi"><p class="kpi-label">Saved searches</p><p class="kpi-value">{{ "{:,}".format(stats.total_searches) }}</p></div>
     </div>
-  </section>
 
-  <section class="card grow-1">
-    <div class="card-head"><h2>Most searched dishes</h2></div>
-    {% if stats.top_dishes %}
-      <ol class="rank-list">
-        {% for d in stats.top_dishes %}
-          <li>
-            <span class="rank">{{ loop.index }}</span>
-            <div class="grow"><p class="strong">{{ d.dish_name }}</p><p class="muted small">{{ country_label(d.origin_country) if d.origin_country else '—' }}</p></div>
-            <span class="strong">{{ d.n }}</span>
-          </li>
-        {% endfor %}
-      </ol>
-    {% else %}
-      <p class="empty">No searches yet. Searches by logged-in users show up here.</p>
-    {% endif %}
-  </section>
-</div>
-
-<div class="row">
-  <section class="card grow-2">
-    <div class="card-head"><h2>Dishes per country</h2><a href="{{ url_for('admin_page', tab='countries') }}" class="small-link">Manage countries</a></div>
-    <div class="country-bars">
-      {% set most = per_country.values() | max %}
-      {% for c, n in per_country | dictsort(by='value', reverse=true) %}
-      <a class="cbar" href="{{ url_for('admin_page', tab='dishes', country=c) }}">
-        <span class="cbar-name">{{ country_label(c) }}</span>
-        <span class="cbar-track"><i style="width: {{ (n * 100 / most) | round }}%"></i></span>
-        <span class="cbar-n">{{ n }}</span>
-      </a>
-      {% endfor %}
-    </div>
-  </section>
-
-  <section class="card grow-1">
-    <div class="card-head"><h2>Quick actions</h2></div>
-    <div class="quick-grid">
-      <a href="{{ url_for('admin_page', tab='countries') }}" class="quick">{{ icon('globe') }}Add country</a>
-      <a href="{{ url_for('admin_page', tab='prompts') }}" class="quick">{{ icon('prompt') }}Edit prompts</a>
-      <a href="{{ url_for('admin_page', tab='tags') }}" class="quick">{{ icon('tag') }}Manage tags</a>
-    </div>
-    <div class="health">
-      <p class="health-title">{{ icon('sparkle', 16) }} System status</p>
-      <ul>
-        <li><strong>GPT:</strong> {{ 'On, explanations and cultural notes use GPT.' if gpt_on else 'Off, template text is used. Set OPENAI_API_KEY in .env to turn it on.' }}</li>
-        <li><strong>Ingredient NER:</strong> {{ ner_status.text }}</li>
-        <li><strong>Explanation prompt:</strong> {{ 'Custom (edited here)' if store.prompts.get('explanation') else 'Default' }}</li>
-        {% if missing %}
-        <li><strong>{{ missing | length }} new item(s) have no vector</strong> and don't count in similarity until the vectorizer is run again: {{ missing[:8] | map('last') | join(', ') }}{{ '…' if missing | length > 8 }}</li>
-        {% else %}
-        <li><strong>Vectors:</strong> every ingredient, action, cookware and utensil has one.</li>
-        {% endif %}
-      </ul>
-    </div>
-  </section>
-</div>
-
-<section class="card">
-  <div class="card-head"><h2>Recent searches</h2><a href="{{ url_for('admin_page', tab='users') }}" class="small-link">View users</a></div>
-  {% if recent %}
-    <ul class="activity-list">
-      {% for h in recent %}
-        <li>
-          <span class="activity-icon">{{ icon('search', 18) }}</span>
-          <div>
-            <p class="strong-500">
-              {% if h.dish_name %}{{ h.dish_name }}{% if h.origin_country %} ({{ country_label(h.origin_country) }}){% endif %}{% if h.target_country %} → {{ country_label(h.target_country) }}{% endif %}
-              {% else %}{{ h.search_type | capitalize }} search{% endif %}
-              {% if h.result_title %}<span class="muted"> · matched {{ h.result_title }}</span>{% endif %}
-            </p>
-            <p class="muted small">
-              <a href="{{ url_for('admin_page', tab='users', user=h.user_id) }}" class="small-link">{{ h.user_name }}</a>
-              · {{ h.search_type }} · {{ h.created_at }}
-            </p>
+    <section class="card">
+      <div class="card-head"><h2>Searches per day</h2><span class="muted small">Last 7 days</span></div>
+      <div class="bar-chart dash-chart" role="img" aria-label="Searches per day for the last 7 days">
+        {% for d in per_day %}
+          <div class="bar-col">
+            <span class="bar-value">{{ d.value }}</span>
+            <div class="bar-track"><div class="bar{% if loop.last %} bar-today{% endif %}" style="height: {{ [d.height, 2] | max }}%"></div></div>
+            <span class="bar-label">{{ 'Today' if loop.last else d.label }}</span>
           </div>
-        </li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p class="empty">No searches yet.</p>
-  {% endif %}
-</section>
+        {% endfor %}
+      </div>
+    </section>
+
+    <div class="dash-pair">
+      <section class="card">
+        <div class="card-head"><h2>Most searched dishes</h2></div>
+        {% if stats.top_dishes %}
+          <ol class="rank-list">
+            {% for d in stats.top_dishes %}
+              <li>
+                <span class="rank">{{ loop.index }}</span>
+                <div class="grow"><p class="strong">{{ d.dish_name }}</p><p class="muted small">{{ country_label(d.origin_country) if d.origin_country else '—' }}</p></div>
+                <span class="strong">{{ d.n }}</span>
+              </li>
+            {% endfor %}
+          </ol>
+        {% else %}
+          <p class="empty">No searches yet.</p>
+        {% endif %}
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>Dishes per country</h2><a href="{{ url_for('admin_page', tab='countries') }}" class="small-link">View countries</a></div>
+        <div class="country-bars">
+          {% set most = per_country.values() | max %}
+          {% for c, n in per_country | dictsort(by='value', reverse=true) %}
+          <a class="cbar" href="{{ url_for('admin_page', tab='dishes', country=c) }}">
+            <span class="cbar-name">{{ country_label(c) }}</span>
+            <span class="cbar-track"><i style="width: {{ (n * 100 / most) | round }}%"></i></span>
+            <span class="cbar-n">{{ n }}</span>
+          </a>
+          {% endfor %}
+        </div>
+      </section>
+    </div>
+  </div>
+
+  {# ---------- Right: actions, status, activity ---------- #}
+  <aside class="dash-side">
+    <section class="card">
+      <div class="card-head"><h2>Quick actions</h2></div>
+      <div class="dash-actions">
+        <a href="{{ url_for('admin_dish_form') }}" class="btn btn-maroon btn-block">Add dish</a>
+        <a href="{{ url_for('admin_page', tab='countries') }}" class="btn btn-outline btn-block">Add country</a>
+        <a href="{{ url_for('admin_page', tab='prompts') }}" class="btn btn-outline btn-block">Edit prompts</a>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>System status</h2></div>
+      <dl class="dash-status">
+        <div><dt>GPT</dt><dd class="{{ 'ok' if gpt_on else 'off' }}">{{ 'On' if gpt_on else 'Off' }}</dd></div>
+        {% set ner_short = 'Not set up' if not ner_status.mode else ('Ready' if ner_status.ready else ('Loading…' if ner_status.text.endswith('loading…') else 'Error')) %}
+        <div><dt>Ingredient NER</dt><dd class="{{ 'ok' if ner_status.ready else 'off' }}">{{ ner_short }}</dd></div>
+        <div><dt>Explanation prompt</dt><dd>{{ 'Custom' if store.prompts.get('explanation') else 'Default' }}</dd></div>
+        <div><dt>Vectors</dt><dd class="{{ 'off' if missing else 'ok' }}">{{ (missing | length ~ ' item(s) missing') if missing else 'Complete' }}</dd></div>
+      </dl>
+      {% if missing %}<p class="muted small mt">Could not be vectorized yet (tried again on the next save or restart): {{ missing[:8] | map('last') | join(', ') }}{{ '…' if missing | length > 8 }}</p>{% endif %}
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Recent searches</h2><a href="{{ url_for('admin_page', tab='users') }}" class="small-link">View users</a></div>
+      {% if recent %}
+        <ul class="dash-recent">
+          {% for h in recent %}
+            <li>
+              <p class="strong-500">
+                {% if h.dish_name %}{{ h.dish_name }}{% if h.target_country %} → {{ country_label(h.target_country) }}{% endif %}
+                {% else %}{{ h.search_type | capitalize }} search{% endif %}
+              </p>
+              <p class="muted small">
+                <a href="{{ url_for('admin_page', tab='users', user=h.user_id) }}" class="small-link">{{ h.user_name }}</a>
+                · {{ (h.created_at or '')[:10] }}
+              </p>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty">No searches yet.</p>
+      {% endif %}
+    </section>
+  </aside>
+</div>
 
 {# ======================================================================
    USER PROFILE MANAGEMENT
    ====================================================================== #}
 {% elif tab == 'users' %}
-<div class="row align-start">
-  <section class="card grow-3">
-    <form class="toolbar" method="get">
-      <input type="hidden" name="tab" value="users">
-      <label class="search-field">
-        <span class="sr-only">Search users</span>
-        {{ icon('search') }}
-        <input type="search" name="q" value="{{ q }}" placeholder="Search by name, username or email">
-      </label>
-      <label class="sr-only" for="f-role">Role</label>
-      <select id="f-role" name="role" data-autosubmit>
-        <option value="">All roles</option>
-        <option value="admin" {{ 'selected' if role == 'admin' }}>Admin</option>
-        <option value="user" {{ 'selected' if role == 'user' }}>User</option>
-      </select>
-      <button type="submit" class="btn btn-outline">Search</button>
-    </form>
+{% if selected %}
+{# ---------- One user's profile, full page ---------- #}
+{% set is_me = selected.id == me.id %}
+<a class="back-link" href="{{ url_for('admin_page', tab='users', q=q, role=role) }}">&larr; Back to users</a>
 
-    <div class="table-wrap">
-      <table class="table table-compact">
-        <thead>
-          <tr><th>User</th><th>Role</th><th>Status</th><th>Joined</th><th>Searches</th><th class="right">Actions</th></tr>
-        </thead>
-        <tbody>
-          {% for u in users %}
-          {% set is_me = u.id == me.id %}
-          <tr{% if selected and selected.id == u.id %} class="is-selected"{% endif %}>
-            <td>
-              <div class="cell-user">
-                <span class="avatar">{{ u.name[:2] | upper }}</span>
-                <div>
-                  <p class="strong">{{ u.name }}{% if is_me %} <span class="muted small">(you)</span>{% endif %}</p>
-                  <p class="muted small">@{{ u.username }}{% if u.email %} · {{ u.email }}{% endif %}</p>
-                </div>
-              </div>
-            </td>
-            <td>
-              <form method="post" action="{{ url_for('admin_user_role', user_id=u.id) }}">
-                <label class="sr-only" for="role-{{ u.id }}">Role for @{{ u.username }}</label>
-                <select id="role-{{ u.id }}" name="role" class="select-sm{% if u.role == 'admin' %} is-admin{% endif %}" data-autosubmit {{ 'disabled' if is_me }}
-                        data-confirm-value="admin" data-confirm-text="Give @{{ u.username }} full admin access?">
-                  <option value="user" {{ 'selected' if u.role == 'user' }}>User</option>
-                  <option value="admin" {{ 'selected' if u.role == 'admin' }}>Admin</option>
-                </select>
-              </form>
-            </td>
-            <td>
-              <form method="post" action="{{ url_for('admin_user_status', user_id=u.id) }}">
-                <label class="sr-only" for="status-{{ u.id }}">Status for @{{ u.username }}</label>
-                <select id="status-{{ u.id }}" name="status" class="select-sm{% if not u.is_active %} status-disabled{% endif %}" data-autosubmit {{ 'disabled' if is_me }}
-                        data-confirm-value="disabled" data-confirm-text="Disable @{{ u.username }}? They won't be able to log in.">
-                  <option value="active" {{ 'selected' if u.is_active }}>Active</option>
-                  <option value="disabled" {{ 'selected' if not u.is_active }}>Disabled</option>
-                </select>
-              </form>
-            </td>
-            <td class="nowrap">{{ (u.created_at or '')[:10] }}</td>
-            <td>{{ u.searches }}</td>
-            <td class="right">
-              <div class="actions">
-                <a class="icon-btn" href="{{ url_for('admin_page', tab='users', q=q, role=role, user=u.id) }}" aria-label="View @{{ u.username }}">{{ icon('eye', 18) }}</a>
-                {% if not is_me %}
-                <form method="post" action="{{ url_for('admin_user_delete', user_id=u.id) }}">
-                  <button type="submit" class="icon-btn" aria-label="Delete @{{ u.username }}" data-confirm="Delete @{{ u.username }} and their search history?">{{ icon('trash', 18) }}</button>
-                </form>
-                {% endif %}
-              </div>
-            </td>
-          </tr>
-          {% else %}
-          <tr><td colspan="6" class="empty">No users match your search.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
+<section class="card user-hero">
+  <span class="avatar avatar-xl">{{ selected.name[:2] | upper }}</span>
+  <div class="user-hero-who">
+    <h2 class="profile-name">{{ selected.name }}{% if is_me %} <span class="muted small">(you)</span>{% endif %}</h2>
+    <p class="muted">@{{ selected.username }}{% if selected.email %} · {{ selected.email }}{% endif %}</p>
+    <div class="pill-row">
+      <span class="pill pill-{{ selected.role }}">{{ selected.role | capitalize }}</span>
+      <span class="pill pill-{{ 'active' if selected.is_active else 'disabled' }}">{{ 'Active' if selected.is_active else 'Disabled' }}</span>
     </div>
-    <p class="muted small mt">{{ users | length }} account{{ '' if users | length == 1 else 's' }}. There must always be at least one admin.</p>
-  </section>
+  </div>
+  {% if not is_me %}
+  <div class="user-hero-actions">
+    <form method="post" action="{{ url_for('admin_user_status', user_id=selected.id) }}">
+      <label class="sr-only" for="status-sel">Status for @{{ selected.username }}</label>
+      <select id="status-sel" name="status" class="select-sm{% if not selected.is_active %} status-disabled{% endif %}" data-autosubmit
+              data-confirm-value="disabled" data-confirm-text="Disable @{{ selected.username }}? They won't be able to log in.">
+        <option value="active" {{ 'selected' if selected.is_active }}>Active</option>
+        <option value="disabled" {{ 'selected' if not selected.is_active }}>Disabled</option>
+      </select>
+    </form>
+    <form method="post" action="{{ url_for('admin_user_delete', user_id=selected.id) }}">
+      <button type="submit" class="btn btn-outline" data-confirm="Delete @{{ selected.username }} and their search history?">{{ icon('trash', 16) }} Delete account</button>
+    </form>
+  </div>
+  {% endif %}
+</section>
 
-  <section class="card grow-1 side-card">
-    <div class="card-head"><h2>Profile details</h2></div>
-    {% if selected %}
-      <div class="profile-top">
-        <span class="avatar avatar-lg">{{ selected.name[:2] | upper }}</span>
-        <p class="profile-name">{{ selected.name }}</p>
-        <p class="muted">@{{ selected.username }}</p>
-        {% if selected.email %}<p class="muted small">{{ selected.email }}</p>{% endif %}
-        <div class="pill-row">
-          <span class="pill pill-{{ selected.role }}">{{ selected.role | capitalize }}</span>
-          {% if not selected.is_active %}<span class="pill pill-disabled">Disabled</span>{% endif %}
-          {% if selected.cooking_role %}<span class="pill pill-hidden">{{ selected.cooking_role }}</span>{% endif %}
-        </div>
-      </div>
-      <dl class="detail-list">
-        <div><dt>Joined</dt><dd>{{ (selected.created_at or '')[:10] }}</dd></div>
-        <div><dt>Home country</dt><dd>{{ selected.home_country or '—' }}</dd></div>
-        <div><dt>Searches</dt><dd>{{ selected.searches }}</dd></div>
-      </dl>
-      {% if selected.favorite_cuisines %}
-        <p class="tag-cat">Favourite cuisines</p>
-        <div class="chip-row">{% for c in selected.favorite_cuisines %}<span class="chip-static">{{ country_label(c | upper) }}</span>{% endfor %}</div>
-      {% endif %}
-      {% if selected.avoid_allergens %}
-        <p class="tag-cat">Allergens to avoid</p>
-        <div class="chip-row">{% for a in selected.avoid_allergens %}<span class="chip-static">{{ a }}</span>{% endfor %}</div>
-      {% endif %}
-      {% if selected.bio %}<p class="tag-cat">Bio</p><p class="small">{{ selected.bio }}</p>{% endif %}
-      <p class="tag-cat">Latest searches</p>
-      {% if selected.history %}
-        <ul class="mini-list">
-          {% for h in selected.history %}
-            <li><span>{{ h.dish_name or h.search_type | capitalize }}{% if h.target_country %} → {{ country_label(h.target_country) }}{% endif %}</span><span class="muted small">{{ (h.created_at or '')[:10] }}</span></li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p class="muted small">No searches yet.</p>
-      {% endif %}
-    {% else %}
-      <p class="empty">Click {{ icon('eye', 16) }} on a user to see their profile.</p>
-    {% endif %}
-  </section>
+<div class="user-stats">
+  <div class="card"><p class="tag-cat">Role</p><p class="user-stat">{{ selected.role | capitalize }}</p></div>
+  <div class="card"><p class="tag-cat">Joined</p><p class="user-stat">{{ (selected.created_at or '')[:10] or '—' }}</p></div>
+  <div class="card"><p class="tag-cat">Searches</p><p class="user-stat">{{ selected.searches }}</p></div>
+  <div class="card"><p class="tag-cat">Last search</p><p class="user-stat">{{ (selected.history[0].created_at or '')[:10] if selected.history else '—' }}</p></div>
 </div>
+
+<section class="card">
+  <div class="card-head"><h2>Search history</h2></div>
+  {% if selected.history %}
+  <div class="table-wrap">
+    <table class="table table-compact">
+      <thead><tr><th>Date</th><th>Type</th><th>Searched dish</th><th>Matched with</th><th class="right">Score</th></tr></thead>
+      <tbody>
+        {% for h in selected.history %}
+        <tr>
+          <td class="nowrap">{{ (h.created_at or '')[:10] }}</td>
+          <td>{{ (h.search_type or '') | capitalize }}</td>
+          <td>{{ h.dish_name or '—' }}{% if h.origin_country %} <span class="muted small">· {{ country_label(h.origin_country) }}</span>{% endif %}</td>
+          <td>{{ h.result_title or '—' }}{% if h.result_country %} <span class="muted small">· {{ country_label(h.result_country) }}</span>{% elif h.target_country %} <span class="muted small">· {{ country_label(h.target_country) }}</span>{% endif %}</td>
+          <td class="right">{% if h.score is not none %}{{ h.score | round | int }}%{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">No searches yet.</p>
+  {% endif %}
+</section>
+
+{% else %}
+{# ---------- All users, full width ---------- #}
+<section class="card">
+  <form class="toolbar" method="get">
+    <input type="hidden" name="tab" value="users">
+    <label class="search-field">
+      <span class="sr-only">Search users</span>
+      {{ icon('search') }}
+      <input type="search" name="q" value="{{ q }}" placeholder="Search by name, username or email">
+    </label>
+    <label class="sr-only" for="f-role">Role</label>
+    <select id="f-role" name="role" data-autosubmit>
+      <option value="">All roles</option>
+      <option value="admin" {{ 'selected' if role == 'admin' }}>Admin</option>
+      <option value="user" {{ 'selected' if role == 'user' }}>User</option>
+    </select>
+    <button type="submit" class="btn btn-outline">Search</button>
+  </form>
+
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Joined</th><th>Searches</th><th class="right">Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        {% set is_me = u.id == me.id %}
+        <tr>
+          <td>
+            <a class="cell-user" href="{{ url_for('admin_page', tab='users', q=q, role=role, user=u.id) }}">
+              <span class="avatar">{{ u.name[:2] | upper }}</span>
+              <div>
+                <p class="strong">{{ u.name }}{% if is_me %} <span class="muted small">(you)</span>{% endif %}</p>
+                <p class="muted small">@{{ u.username }}</p>
+              </div>
+            </a>
+          </td>
+          <td class="muted">{{ u.email or '—' }}</td>
+          <td><span class="pill pill-{{ u.role }}">{{ u.role | capitalize }}</span></td>
+          <td>
+            <form method="post" action="{{ url_for('admin_user_status', user_id=u.id) }}">
+              <label class="sr-only" for="status-{{ u.id }}">Status for @{{ u.username }}</label>
+              <select id="status-{{ u.id }}" name="status" class="select-sm{% if not u.is_active %} status-disabled{% endif %}" data-autosubmit {{ 'disabled' if is_me }}
+                      data-confirm-value="disabled" data-confirm-text="Disable @{{ u.username }}? They won't be able to log in.">
+                <option value="active" {{ 'selected' if u.is_active }}>Active</option>
+                <option value="disabled" {{ 'selected' if not u.is_active }}>Disabled</option>
+              </select>
+            </form>
+          </td>
+          <td class="nowrap">{{ (u.created_at or '')[:10] }}</td>
+          <td>{{ u.searches }}</td>
+          <td class="right">
+            <div class="actions">
+              <a class="icon-btn" href="{{ url_for('admin_page', tab='users', q=q, role=role, user=u.id) }}" aria-label="View @{{ u.username }}">{{ icon('eye', 18) }}</a>
+              {% if not is_me %}
+              <form method="post" action="{{ url_for('admin_user_delete', user_id=u.id) }}">
+                <button type="submit" class="icon-btn" aria-label="Delete @{{ u.username }}" data-confirm="Delete @{{ u.username }} and their search history?">{{ icon('trash', 18) }}</button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="empty">No users match your search.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted small mt">{{ users | length }} account{{ '' if users | length == 1 else 's' }}. Click a user to open their profile.</p>
+</section>
+{% endif %}
 
 {# ======================================================================
    DISH MANAGEMENT
@@ -293,7 +290,7 @@
   <div class="table-wrap">
     <table class="table">
       <thead>
-        <tr><th>ID</th><th>Dish</th><th>Country</th><th>Ingredients</th><th>Notes</th><th class="right">Actions</th></tr>
+        <tr><th>ID</th><th>Dish</th><th>Country</th><th>Ingredients</th><th class="right">Actions</th></tr>
       </thead>
       <tbody>
         {% for i, r in rows %}
@@ -305,9 +302,6 @@
           </td>
           <td>{{ country_label(r.country) }}{% if r.region %}<br><span class="muted small">{{ r.region }}</span>{% endif %}</td>
           <td class="clip" title="{{ r.ingredient_text }}">{{ r.ingredient_text }}</td>
-          <td>
-            {% if r.culture_notes or r.history_notes %}<span class="dot dot-ok">Written</span>{% else %}<span class="dot dot-auto">GPT</span>{% endif %}
-          </td>
           <td class="right">
             <div class="actions">
               <a class="icon-btn" href="{{ url_for('admin_dish_form', recipe_id=r.recipe_id) }}" aria-label="Edit {{ r.title }}">{{ icon('edit', 18) }}</a>
@@ -337,58 +331,238 @@
    COUNTRY MANAGEMENT
    ====================================================================== #}
 {% elif tab == 'countries' %}
-<div class="row align-start">
-  <div class="grow-3 stack">
-    <div hidden>{% for c in store.countries %}<form method="post" action="{{ url_for('admin_country_update', name=c.name) }}" id="cf-{{ loop.index }}"></form>{% endfor %}</div>
-    <div class="country-grid">
-      {% for c in store.countries | sort(attribute='label') %}
-      {% set n = counts.get(c.name, 0) %}
-      {% set fid = 'cf-' ~ ((store.countries.index(c)) + 1) %}
-      <article class="country-card{% if not c.visible or not n %} is-hidden{% endif %}">
-        <div class="country-top">
-          <span class="country-code">{{ c.label[:2] | upper }}</span>
-          <div class="grow">
-            <label class="sr-only" for="{{ fid }}-label">Country name</label>
-            <input id="{{ fid }}-label" form="{{ fid }}" type="text" name="label" value="{{ c.label }}" class="inline-input">
-            <p class="muted small"><code>{{ c.name }}</code></p>
-          </div>
-          {% if not n %}<span class="pill pill-pending">No dishes</span>
-          {% elif c.visible %}<span class="pill pill-active">Shown</span>
-          {% else %}<span class="pill pill-hidden">Hidden</span>{% endif %}
-        </div>
-        <div class="country-fields">
-          <label class="sr-only" for="{{ fid }}-region">Region</label>
-          <select id="{{ fid }}-region" form="{{ fid }}" name="region" class="select-sm">
-            {% for r in regions %}<option {{ 'selected' if r == c.region }}>{{ r }}</option>{% endfor %}
-          </select>
-          <label class="check check-sm"><input form="{{ fid }}" type="checkbox" name="visible" {{ 'checked' if c.visible }}> Show</label>
-        </div>
-        <div class="country-bottom">
-          <a href="{{ url_for('admin_page', tab='dishes', country=c.name) }}"><span class="strong">{{ n }}</span> <span class="muted">dishes</span></a>
+{% set shown = store.countries | selectattr('visible') | list | length %}
+
+{# ---------- Region filter chips + main actions ---------- #}
+<div class="cm-bar">
+  <div class="cm-chips" role="group" aria-label="Filter by region">
+    <button type="button" class="cm-chip is-on" data-chip="">All <span>{{ store.countries | length }}</span></button>
+    {% for r in regions %}
+    <button type="button" class="cm-chip" data-chip="{{ r }}">{{ r }} <span>{{ region_counts.get(r, 0) }}</span></button>
+    {% endfor %}
+  </div>
+  <div class="cm-actions">
+    <label class="search-field cm-search">
+      <span class="sr-only">Find a country</span>
+      {{ icon('search') }}
+      <input type="search" id="cm-filter" placeholder="Find a country">
+    </label>
+    <button type="button" class="btn btn-outline" data-open="cm-regions">{{ icon('globe', 16) }} Regions</button>
+    <button type="button" class="btn btn-maroon" data-open="cm-add-country">{{ icon('plus', 16) }} Add country</button>
+  </div>
+</div>
+
+{# ---------- Add country ---------- #}
+<section class="card cm-panel" id="cm-add-country" hidden>
+  <div class="card-head"><h2>Add country</h2></div>
+  <form method="post" action="{{ url_for('admin_country_add') }}" class="cm-inline">
+    <div class="field"><label for="c-label">Country name</label>
+      <input id="c-label" type="text" name="label" placeholder="Laos" required></div>
+    <div class="field"><label for="c-region">Region</label>
+      <select id="c-region" name="region" required>
+        {% for r in regions %}<option value="{{ r }}">{{ r }}</option>{% endfor %}
+      </select></div>
+    <div class="cm-inline-btns">
+      <button type="submit" class="btn btn-maroon">Add country</button>
+      <button type="button" class="btn btn-outline" data-close>Cancel</button>
+    </div>
+  </form>
+  <p class="hint mt">A new country shows in the search dropdowns once it has at least one dish.</p>
+</section>
+
+{# ---------- Regions ---------- #}
+<section class="card cm-panel" id="cm-regions" hidden>
+  <div class="card-head"><h2>Regions</h2></div>
+  <table class="table cm-table cm-region-table">
+    <thead><tr><th>Region</th><th>Countries</th><th class="right">Actions</th></tr></thead>
+    <tbody>
+      {% for r in regions %}
+      {% set n = region_counts.get(r, 0) %}
+      {% set fallback = r == 'Other Asia' %}
+      <tr>
+        <td data-view><span class="strong">{{ r }}</span></td>
+        <td data-view>{{ n }}</td>
+        <td class="right" data-view>
+          {% if fallback %}
+            <span class="muted small">Used for countries without a region</span>
+          {% else %}
           <div class="actions">
-            <button form="{{ fid }}" type="submit" class="btn btn-outline btn-sm">Save</button>
-            <form method="post" action="{{ url_for('admin_country_delete', name=c.name) }}">
-              <button type="submit" class="icon-btn" aria-label="Remove {{ c.label }}" {{ 'disabled title="Delete its dishes first"' | safe if n }} data-confirm="Remove {{ c.label }}?">{{ icon('trash', 18) }}</button>
+            <button type="button" class="btn btn-outline btn-sm" data-edit>{{ icon('edit', 15) }} Rename</button>
+            <form method="post" action="{{ url_for('admin_region_delete') }}">
+              <input type="hidden" name="region" value="{{ r }}">
+              <button type="submit" class="icon-btn" aria-label="Delete {{ r }}"
+                {% if n %}disabled title="Move its {{ n }} {{ 'country' if n == 1 else 'countries' }} to another region first"{% endif %}
+                data-confirm="Delete the region {{ r }}?">{{ icon('trash', 18) }}</button>
             </form>
           </div>
-        </div>
-      </article>
+          {% endif %}
+        </td>
+        {% if not fallback %}
+        <td colspan="3" data-editor hidden>
+          <form method="post" action="{{ url_for('admin_region_rename') }}" class="cm-edit">
+            <input type="hidden" name="region" value="{{ r }}">
+            <div class="field"><label for="rn-{{ loop.index }}">New name</label>
+              <input id="rn-{{ loop.index }}" type="text" name="name" value="{{ r }}" maxlength="40" required></div>
+            <div class="cm-inline-btns">
+              <button type="submit" class="btn btn-maroon btn-sm">Save</button>
+              <button type="button" class="btn btn-outline btn-sm" data-cancel>Cancel</button>
+            </div>
+          </form>
+        </td>
+        {% endif %}
+      </tr>
       {% endfor %}
+    </tbody>
+  </table>
+  <form method="post" action="{{ url_for('admin_region_add') }}" class="cm-inline mt">
+    <div class="field"><label for="rg-new">Add a region</label>
+      <input id="rg-new" type="text" name="name" placeholder="North Asia" maxlength="40" required></div>
+    <div class="cm-inline-btns">
+      <button type="submit" class="btn btn-maroon">Add region</button>
+      <button type="button" class="btn btn-outline" data-close>Close</button>
     </div>
-  </div>
+  </form>
+  <p class="hint mt">Renaming a region moves its countries and dishes with it. A region can be deleted once no country uses it.</p>
+</section>
 
-  <section class="card grow-1 side-card">
-    <div class="card-head"><h2>Add country</h2></div>
-    <form method="post" action="{{ url_for('admin_country_add') }}" class="stack-sm">
-      <div class="field"><label for="c-label">Country name</label>
-        <input id="c-label" type="text" name="label" placeholder="e.g. Laos" required></div>
-      <div class="field"><label for="c-region">Region</label>
-        <select id="c-region" name="region">{% for r in regions %}<option>{{ r }}</option>{% endfor %}</select></div>
-      <button type="submit" class="btn btn-maroon btn-block">Add country</button>
-    </form>
-    <p class="hint mt">A country shows in the search dropdowns when “Show” is ticked and it has at least one dish. Renaming only changes how it's shown; its dishes stay linked to it.</p>
-  </section>
-</div>
+{# ---------- All countries, one table ---------- #}
+<section class="card">
+  <div class="table-wrap">
+    <table class="table cm-table" id="cm-countries">
+      <thead>
+        <tr>
+          <th><button type="button" class="cm-sort" data-sort="name" aria-label="Sort by country">Country <span aria-hidden="true"></span></button></th>
+          <th><button type="button" class="cm-sort" data-sort="region" aria-label="Sort by region">Region <span aria-hidden="true"></span></button></th>
+          <th><button type="button" class="cm-sort" data-sort="dishes" aria-label="Sort by dishes">Dishes <span aria-hidden="true"></span></button></th>
+          <th>In search</th>
+          <th class="right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in store.countries | sort(attribute='label') %}
+        {% set n = counts.get(c.name, 0) %}
+        <tr data-name="{{ c.label | lower }}" data-region="{{ c.region }}" data-dishes="{{ n }}">
+          <td data-view><span class="strong">{{ c.label }}</span></td>
+          <td data-view>{{ c.region if c.region in regions else '—' }}</td>
+          <td data-view><a href="{{ url_for('admin_page', tab='dishes', country=c.name) }}">{{ n }}</a></td>
+          <td data-view>
+            {% if not n %}<span class="pill pill-pending" title="Shows once it has a dish">No dishes yet</span>
+            {% else %}
+            <form method="post" action="{{ url_for('admin_country_update', name=c.name) }}">
+              <input type="hidden" name="label" value="{{ c.label }}">
+              <input type="hidden" name="region" value="{{ c.region }}">
+              {% if not c.visible %}<input type="hidden" name="visible" value="on">{% endif %}
+              <button type="submit" class="cm-toggle{{ ' is-on' if c.visible }}" role="switch" aria-checked="{{ 'true' if c.visible else 'false' }}"
+                      aria-label="{{ 'Hide' if c.visible else 'Show' }} {{ c.label }} in search">
+                <span class="cm-knob"></span><span class="cm-toggle-text">{{ 'Shown' if c.visible else 'Hidden' }}</span>
+              </button>
+            </form>
+            {% endif %}
+          </td>
+          <td class="right" data-view>
+            <div class="actions">
+              <button type="button" class="btn btn-outline btn-sm" data-edit>{{ icon('edit', 15) }} Edit</button>
+              <form method="post" action="{{ url_for('admin_country_delete', name=c.name) }}">
+                <button type="submit" class="icon-btn" aria-label="Remove {{ c.label }}"
+                  {% if n %}disabled title="Delete its {{ n }} dishes first"{% endif %} data-confirm="Remove {{ c.label }}?">{{ icon('trash', 18) }}</button>
+              </form>
+            </div>
+          </td>
+          <td colspan="5" data-editor hidden>
+            <form method="post" action="{{ url_for('admin_country_update', name=c.name) }}" class="cm-edit">
+              <div class="field"><label for="e-{{ loop.index }}-label">Name</label>
+                <input id="e-{{ loop.index }}-label" type="text" name="label" value="{{ c.label }}" required></div>
+              <div class="field"><label for="e-{{ loop.index }}-region">Region</label>
+                <select id="e-{{ loop.index }}-region" name="region">
+                  {% for opt in regions %}<option value="{{ opt }}" {{ 'selected' if opt == c.region }}>{{ opt }}</option>{% endfor %}
+                </select></div>
+              <label class="check check-sm"><input type="checkbox" name="visible" {{ 'checked' if c.visible }}> Show in search</label>
+              <div class="cm-inline-btns">
+                <button type="submit" class="btn btn-maroon btn-sm">Save</button>
+                <button type="button" class="btn btn-outline btn-sm" data-cancel>Cancel</button>
+              </div>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="empty">No countries yet. Use "Add country" to add one.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted small mt cm-count"><span id="cm-showing">{{ store.countries | length }}</span> of {{ store.countries | length }} countries · {{ shown }} shown in search</p>
+  <p class="muted small cm-nomatch" hidden>No country matches.</p>
+</section>
+<p class="hint">A country appears in the "Country of origin" and "Target country" dropdowns when it's switched to Shown and has at least one dish. Renaming only changes how it's shown; its dishes stay linked to it.</p>
+
+<script>
+  (() => {
+    const panels = document.querySelectorAll('.cm-panel');
+    document.querySelectorAll('[data-open]').forEach(btn => btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.open);
+      const open = target.hidden;
+      panels.forEach(p => { p.hidden = true; });
+      target.hidden = !open;
+      if (open) target.querySelector('input[type=text]')?.focus();
+    }));
+    document.querySelectorAll('.cm-panel [data-close]').forEach(b => b.addEventListener('click', () => { b.closest('.cm-panel').hidden = true; }));
+
+    // Edit / Rename swap a row to its form; Cancel or Esc swaps back
+    const setEditing = (row, on) => {
+      row.querySelectorAll(':scope > [data-view]').forEach(el => { el.hidden = on; });
+      row.querySelectorAll(':scope > [data-editor]').forEach(el => { el.hidden = !on; });
+      if (on) row.querySelector(':scope > [data-editor] input[type=text]')?.focus();
+    };
+    document.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => setEditing(b.closest('tr'), true)));
+    document.querySelectorAll('[data-cancel]').forEach(b => b.addEventListener('click', () => {
+      const row = b.closest('tr');
+      row.querySelectorAll('form').forEach(f => f.reset());
+      setEditing(row, false);
+    }));
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') return;
+      const row = e.target.closest?.('tr');
+      if (row && row.querySelector(':scope > [data-editor]:not([hidden])')) row.querySelector('[data-cancel]').click();
+    });
+
+    // Region chips + search filter the table
+    const rows = [...document.querySelectorAll('#cm-countries tbody tr[data-name]')];
+    const search = document.getElementById('cm-filter');
+    let region = '';
+    const apply = () => {
+      const q = search.value.trim().toLowerCase();
+      let n = 0;
+      rows.forEach(tr => {
+        const ok = (!region || tr.dataset.region === region) && (!q || tr.dataset.name.includes(q));
+        tr.hidden = !ok; n += ok;
+      });
+      document.getElementById('cm-showing').textContent = n;
+      document.querySelector('.cm-nomatch').hidden = n > 0;
+    };
+    document.querySelectorAll('[data-chip]').forEach(chip => chip.addEventListener('click', () => {
+      document.querySelectorAll('[data-chip]').forEach(c => c.classList.toggle('is-on', c === chip));
+      region = chip.dataset.chip;
+      apply();
+    }));
+    search.addEventListener('input', apply);
+
+    // Click a column heading to sort (click again to reverse)
+    const body = document.querySelector('#cm-countries tbody');
+    let sortKey = 'name', dir = 1;
+    document.querySelectorAll('[data-sort]').forEach(btn => btn.addEventListener('click', () => {
+      const key = btn.dataset.sort;
+      dir = key === sortKey ? -dir : (key === 'dishes' ? -1 : 1);
+      sortKey = key;
+      rows.sort((a, b) => {
+        const x = a.dataset[key], y = b.dataset[key];
+        const cmp = key === 'dishes' ? (Number(x) - Number(y)) : x.localeCompare(y) || a.dataset.name.localeCompare(b.dataset.name);
+        return cmp * dir;
+      }).forEach(tr => body.appendChild(tr));
+      document.querySelectorAll('[data-sort] span').forEach(s => { s.textContent = ''; });
+      btn.querySelector('span').textContent = dir > 0 ? '↑' : '↓';
+    }));
+  })();
+</script>
 
 {# ======================================================================
    PROMPT MANAGEMENT
@@ -447,112 +621,18 @@
 </div>
 
 {# ======================================================================
-   TAG MANAGEMENT
-   ====================================================================== #}
-{% elif tab == 'tags' %}
-<form class="toolbar" method="get">
-  <input type="hidden" name="tab" value="tags">
-  <label class="search-field">
-    <span class="sr-only">Search tags</span>
-    {{ icon('search') }}
-    <input type="search" name="q" value="{{ q }}" placeholder="Search tags">
-  </label>
-  <button type="submit" class="btn btn-outline">Search</button>
-</form>
-
-<div class="row align-start">
-  <div class="grow-3 stack">
-    <section class="card">
-      <div class="card-head"><h2>Custom tags</h2><span class="muted small">{{ custom_tags | length }} tag{{ '' if custom_tags | length == 1 else 's' }}</span></div>
-      <p class="hint card-hint">Typed in the “Tags” field of a dish. Renaming to a tag that already exists merges the two.</p>
-      {% if custom_tags %}
-      <div class="chip-list">
-        {% for t, n in custom_tags %}
-          {% if editing | lower == t | lower %}
-          <form method="post" action="{{ url_for('admin_tag_rename') }}" class="tag-edit">
-            <input type="hidden" name="old" value="{{ t }}">
-            <label class="sr-only" for="tag-new">New name for {{ t }}</label>
-            <input id="tag-new" name="new" value="{{ t }}" required autofocus>
-            <button type="submit" class="btn btn-maroon btn-sm">Save</button>
-            <a href="{{ url_for('admin_page', tab='tags', q=q) }}" class="btn btn-outline btn-sm">Cancel</a>
-          </form>
-          {% else %}
-          <span class="tag-chip">
-            <span>{{ t }}</span>
-            <span class="tag-count" title="Dishes with this tag">{{ n }}</span>
-            <a class="tag-btn" href="{{ url_for('admin_page', tab='tags', q=q, edit=t) }}" aria-label="Rename {{ t }}">{{ icon('edit', 14) }}</a>
-            <form method="post" action="{{ url_for('admin_tag_delete') }}">
-              <input type="hidden" name="name" value="{{ t }}">
-              <button type="submit" class="tag-btn" aria-label="Delete {{ t }}" data-confirm="Remove the tag “{{ t }}” from {{ n }} dish(es)?">{{ icon('trash', 14) }}</button>
-            </form>
-          </span>
-          {% endif %}
-        {% endfor %}
-      </div>
-      {% else %}
-        <p class="empty">{{ 'No custom tags match your search.' if q else 'No custom tags yet. Add them in the Tags field when you add or edit a dish.' }}</p>
-      {% endif %}
-    </section>
-
-    {% for group, tags in auto_groups.items() if tags %}
-    <section class="card">
-      <div class="card-head"><h2>{{ group }}</h2><span class="pill pill-hidden">Automatic</span></div>
-      <div class="chip-list">
-        {% for t, n in tags %}
-          <span class="tag-chip tag-chip-auto">{{ t }} <span class="tag-count">{{ n }}</span></span>
-        {% endfor %}
-      </div>
-    </section>
-    {% endfor %}
-  </div>
-
-  <section class="card grow-1 side-card">
-    <div class="card-head"><h2>How tags work</h2></div>
-    <ul class="help-list">
-      <li><strong>Automatic tags</strong> are made from each dish's data: the region, cooking actions (Grilled, Steamed…), main protein, dish type from the title, Spicy and Vegetarian.</li>
-      <li>To change an automatic tag, edit the dish's ingredients or cooking actions.</li>
-      <li><strong>Custom tags</strong> are added on a dish's form, comma-separated (e.g. street food, festive).</li>
-      <li>All tags show in “Search by tag” on the public site.</li>
-    </ul>
-    <a href="{{ url_for('admin_dish_form') }}" class="btn btn-outline btn-block mt">{{ icon('plus', 18) }} Add a dish with tags</a>
-  </section>
-</div>
-
-{# ======================================================================
    DATASET
    ====================================================================== #}
 {% elif tab == 'dataset' %}
 <div class="row align-start">
-  <section class="card grow-2">
-    <div class="card-head"><h2>Upload dishes</h2><span class="kpi-icon">{{ icon('upload') }}</span></div>
-    <p class="hint card-hint">Upload a <strong>.json</strong> list of dishes or a <strong>.csv</strong> with these columns:
-      <code>title, alternative_title, country, region, recipe_link, image_link, ingredient_text, action_text, cookware_text, utensil_text, tags</code>.
-      Lists inside a cell are comma-separated (the same format as recipes.json).</p>
-    <form method="post" action="{{ url_for('admin_dataset_upload') }}" enctype="multipart/form-data" class="stack-sm">
-      <div class="field">
-        <label for="dataset-file">File</label>
-        <input id="dataset-file" type="file" name="dataset" accept=".json,.csv" required class="file-input">
-      </div>
-      <div class="radio-row">
-        <label class="check"><input type="radio" name="mode" value="append" checked> Add to the current dataset</label>
-        <label class="check"><input type="radio" name="mode" value="replace"> Replace the whole dataset</label>
-      </div>
-      <button type="submit" class="btn btn-maroon" data-confirm-replace="Replace ALL dishes with the uploaded file?">{{ icon('upload', 18) }} Upload</button>
-    </form>
-  </section>
 
   <section class="card grow-1">
-    <div class="card-head"><h2>Download &amp; reset</h2><span class="kpi-icon">{{ icon('download') }}</span></div>
-    <p class="hint card-hint">Now using: <strong>{{ ('the edited dataset in Supabase' if store.db else 'the edited copy in admin_data/recipes.json') if store.uses_admin_data else 'the original recipes.json' }}</strong>.{% if store.db %} Saved in Supabase, so edits stay after a restart.{% endif %}</p>
+    <div class="card-head"><h2>Download dataset</h2></div>
     <div class="stack-sm">
       <a class="btn btn-outline btn-block" href="{{ url_for('admin_dataset_download', format='json') }}">{{ icon('download', 18) }} Download JSON</a>
       <a class="btn btn-outline btn-block" href="{{ url_for('admin_dataset_download', format='csv') }}">{{ icon('download', 18) }} Download CSV</a>
-      <form method="post" action="{{ url_for('admin_dataset_reset') }}">
-        <button type="submit" class="btn btn-outline btn-block btn-danger" {{ 'disabled' if not store.uses_admin_data }}
-                data-confirm="{{ 'Go back to the original recipes.json? This replaces the dishes in Supabase. Download a copy first if you want to keep your edits.' if store.db else 'Go back to the original recipes.json? Your edited copy is kept as a .bak file.' }}">{{ icon('reset', 18) }} Reset to original dataset</button>
-      </form>
     </div>
-    <p class="hint mt">New dishes reuse the vectors of known items. Brand-new items borrow the closest known vector; run the vectorizer again for a full update.</p>
+    <p class="hint mt">Export the complete recipe dataset, including all changes made in the admin console, as a JSON or CSV file for backup or offline review.</p>
   </section>
 </div>
 {% endif %}

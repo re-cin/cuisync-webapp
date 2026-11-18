@@ -3,9 +3,13 @@
 Uses the fine-tuned BERT model (BertForTokenClassification, labels O / B-INGREDIENT / I-INGREDIENT)
 to pull the ingredients out of recipe text that an admin pastes on the Admin page.
 
-    GET  /health   -> {"status": "ok", "model_ready": true/false}
+    GET  /health   -> {"status": "ok", "model_ready": true/false, "embed_ready": true/false}
     POST /extract  -> JSON {"text": "..."}
                       returns {"ingredients": [{"name": "...", "score": 0.97}, ...]}
+    POST /embed    -> JSON {"items": ["gochugaru", "air fryer", ...]}
+                      returns {"model": "all-MiniLM-L6-v2", "dim": 384, "vectors": [[...], ...]}
+                      Vectors for new items, made exactly like the team's vectorization notebook
+                      (SentenceTransformer("all-MiniLM-L6-v2"), normalize_embeddings=True).
 
 If NER_API_TOKEN is set on the Space, requests need "Authorization: Bearer <token>".
 The model files (config.json, model.safetensors, tokenizer.json, tokenizer_config.json)
@@ -18,7 +22,7 @@ import threading
 
 import torch
 from flask import Flask, jsonify, request
-from transformers import AutoModelForTokenClassification, AutoTokenizer
+from transformers import AutoModel, AutoModelForTokenClassification, AutoTokenizer
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024  # recipe text only
@@ -163,12 +167,58 @@ def extract_ingredients(text):
     return [{"name": name, "score": round(score, 3)} for name, score in found.items()]
 
 
+# ---------- Item vectors (POST /embed) ----------
+# all-MiniLM-L6-v2 is a public model. The Dockerfile downloads it into ./embed_model when the
+# Space is built, so nothing has to be uploaded for it.
+# What SentenceTransformer("all-MiniLM-L6-v2").encode(items, normalize_embeddings=True) does:
+# BERT word-piece vectors -> average over the real tokens (mean pooling) -> scale to length 1.
+EMBED_MODEL_NAME = "all-MiniLM-L6-v2"
+EMBED_MODEL_DIR = os.environ.get("EMBED_MODEL_DIR",
+                                 os.path.join(os.path.dirname(os.path.abspath(__file__)), "embed_model"))
+EMBED_MAX_TOKENS = 256    # the model's max_seq_length in sentence-transformers
+EMBED_MAX_ITEMS = 500     # most items in one request
+EMBED_BATCH = 64          # same batch size as the notebook
+
+EMBED_READY = threading.Event()
+_embed_tokenizer = None
+_embed_model = None
+
+
+def _load_embed_model():
+    global _embed_tokenizer, _embed_model
+    try:
+        _embed_tokenizer = AutoTokenizer.from_pretrained(EMBED_MODEL_DIR)
+        _embed_model = AutoModel.from_pretrained(EMBED_MODEL_DIR)
+        _embed_model.eval()
+        EMBED_READY.set()
+        print("[EMBED] Model loaded from", EMBED_MODEL_DIR)
+    except Exception as error:  # the NER part keeps working without it
+        print("[EMBED] Could not load the embedding model:", error)
+
+
+threading.Thread(target=_load_embed_model, daemon=True).start()
+
+
+def embed_items(items):
+    vectors = []
+    for start in range(0, len(items), EMBED_BATCH):
+        batch = items[start:start + EMBED_BATCH]
+        encoded = _embed_tokenizer(batch, padding=True, truncation=True,
+                                   max_length=EMBED_MAX_TOKENS, return_tensors="pt")
+        with torch.no_grad():
+            tokens = _embed_model(**encoded).last_hidden_state          # (batch, tokens, 384)
+        mask = encoded["attention_mask"].unsqueeze(-1).to(tokens.dtype)  # 1 = real token, 0 = padding
+        mean = (tokens * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1e-9)
+        vectors.extend(torch.nn.functional.normalize(mean, p=2, dim=1).tolist())
+    return vectors
+
+
 # ---------- Routes ----------
 
 @app.get("/")
 @app.get("/health")
 def health():
-    return jsonify({"status": "ok", "model_ready": MODEL_READY.is_set()})
+    return jsonify({"status": "ok", "model_ready": MODEL_READY.is_set(), "embed_ready": EMBED_READY.is_set()})
 
 
 @app.post("/extract")
@@ -190,3 +240,26 @@ def extract():
     except Exception as error:
         app.logger.exception("NER failed")
         return jsonify({"error": "ner_failed", "message": f"NER failed: {error}"}), 500
+
+
+@app.post("/embed")
+def embed():
+    if not _authorized():
+        return jsonify({"error": "unauthorized", "message": "Wrong or missing NER token."}), 401
+    if not EMBED_READY.is_set():
+        return jsonify({"error": "loading", "message": "The embedding model is still loading. Try again in a moment."}), 503
+
+    data = request.get_json(silent=True) or {}
+    items = data.get("items")
+    if not isinstance(items, list) or not items:
+        return jsonify({"error": "no_items", "message": "Send {\"items\": [\"...\", ...]}."}), 400
+    if len(items) > EMBED_MAX_ITEMS:
+        return jsonify({"error": "too_many", "message": f"At most {EMBED_MAX_ITEMS} items per request."}), 400
+    items = [str(item).strip().lower()[:200] for item in items]
+
+    try:
+        vectors = embed_items(items)
+        return jsonify({"model": EMBED_MODEL_NAME, "dim": len(vectors[0]), "vectors": vectors})
+    except Exception as error:
+        app.logger.exception("Embedding failed")
+        return jsonify({"error": "embed_failed", "message": f"Embedding failed: {error}"}), 500

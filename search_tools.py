@@ -200,7 +200,7 @@ def keyword_search(recipes, query, country="", names_fn=None):
 class IngredientSearch:
     """Rank dishes by how well they cover a list of ingredients."""
 
-    FLOOR = 0.35   # same floor as softmatch.py
+    FLOOR = 0.10   # same floor as softmatch.py (centered v2 vectors)
     MATCH_MIN = 0.55  # an ingredient counts as "found" in a dish at this similarity or higher
 
     def __init__(self, matcher):
