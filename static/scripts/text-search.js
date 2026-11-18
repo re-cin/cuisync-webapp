@@ -312,23 +312,30 @@ document.addEventListener('DOMContentLoaded', () => {
   function dishButton(d, onPick) {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'dish-card popup-dish-card';
+    // Same card as the Dish Dictionary ("Dishes" page): photo, name, other name, then a
+    // footer with "Country · Region" and "Select →"
+    button.className = 'dish-card popup-dish-card pdc';
     const found = (d.found || []).length
       ? `<p class="dish-card-found">Uses: ${d.found.map(([want, have]) => `<span title="you typed ${esc(want)}">${esc(have)}</span>`).join(', ')}</p>`
-      : `<p class="dish-card-ings">${esc((d.ingredients || []).join(', '))}</p>`;
+      : '';
+    const alt = d.alternative_title && d.alternative_title.toLowerCase() !== d.title.toLowerCase()
+      ? `<p class="pdc-alt">${esc(d.alternative_title)}</p>` : '';
+    // Region is hidden on phones (not enough room)
+    const place = esc(d.country_label || d.country || '')
+      + (d.region ? `<span class="pdc-region"> \u00b7 ${esc(d.region)}</span>` : '');
     button.innerHTML = `
       <div class="dish-card-img">
         <img src="${esc(d.image_link || NO_IMAGE)}" alt="${esc(d.title)}" loading="lazy">
-        <span class="dish-card-country">${esc(d.country_label)}</span>
         ${d.score != null ? `<span class="dish-card-score">${d.score}% match</span>` : ''}
       </div>
-      <div class="dish-card-body">
-        <h3>${esc(d.title)}</h3>
-        ${d.alternative_title && d.alternative_title.toLowerCase() !== d.title.toLowerCase()
-          ? `<p class="dish-card-alt"><i>${esc(d.alternative_title)}</i></p>` : ''}
+      <div class="pdc-body">
+        <h3 class="pdc-title">${esc(d.title)}</h3>
+        ${alt}
         ${found}
-        <div class="dish-card-tags">${(d.tags || []).slice(0, 4).map((t) => `<span class="tag-chip small">${esc(t)}</span>`).join('')}</div>
-        <span class="popup-select">SELECT THIS DISH</span>
+      </div>
+      <div class="pdc-foot">
+        <span class="pdc-place">${place}</span>
+        <span class="pdc-select">Select <span class="pdc-arrow" aria-hidden="true">&rarr;</span></span>
       </div>`;
     const img = button.querySelector('img');
     img.addEventListener('error', () => { img.onerror = null; img.src = NO_IMAGE; }, { once: true });
