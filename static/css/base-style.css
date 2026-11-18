@@ -570,3 +570,12 @@ a {
   .acct-name { display: none; }
   .acct-btn { padding-right: 9px; gap: 6px; }
 }
+
+/* Phones: nothing may make the page wider than the screen. On Android Chrome,
+   overflow-x: hidden on <body> alone still let the page swipe sideways (empty strip on the
+   right). "clip" cuts it off without making a second scroll area, so normal scrolling and the
+   sticky header keep working. */
+@supports (overflow-x: clip) {
+  html,
+  body { overflow-x: clip; }
+}
