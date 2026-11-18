@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/base-style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/panel.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/dictionary.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dish-information.css') }}">
 </head>
 <body class="dictionary-page">
 
@@ -231,6 +232,7 @@
   <script type="application/json" id="dict-entities">{{ entity_filters | tojson }}</script>
   <script>window.DICT_NO_IMAGE = "{{ url_for('static', filename='assets/no-image.svg') }}";</script>
   <script src="{{ url_for('static', filename='scripts/components.js') }}"></script>
+  <script src="{{ url_for('static', filename='scripts/dish-info-ui.js') }}"></script>
   <script src="{{ url_for('static', filename='scripts/dictionary.js') }}"></script>
 </body>
 </html>

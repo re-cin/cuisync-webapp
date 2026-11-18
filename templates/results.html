@@ -39,20 +39,7 @@
     {%- else -%}0{%- endif -%}
   {%- endmacro %}
 
-  {% macro information_sources(sources) -%}
-    {% if sources %}
-    <details class="rt-info-sources">
-      <summary>Sources</summary>
-      <ul>
-        {% for reference in sources %}
-          {% if reference.url and (reference.url.startswith('https://') or reference.url.startswith('http://')) %}
-          <li><a href="{{ reference.url }}" target="_blank" rel="noopener noreferrer">{{ reference.title or 'View source' }}<span class="rt-external-note"> (opens in a new tab)</span></a></li>
-          {% endif %}
-        {% endfor %}
-      </ul>
-    </details>
-    {% endif %}
-  {%- endmacro %}
+  {% import "partials/dish_information.html" as info_ui with context %}
 
   <!-- ==================================
        MAIN RESULTS CONTAINER
@@ -295,41 +282,7 @@
                 <span class="rt-eyebrow">{{ 'Your dish' if side == 'source' else 'Most similar dish' }} &middot; {{ country_label(dish.country) }}</span>
                 <h3 class="rt-dish-name">{{ dish.title }}</h3>
                 <div class="rt-column-body">
-                  <p class="rt-info-status {{ 'is-verified' if background.get('status') == 'verified' else 'is-pending' if background.get('status') in ['pending', 'unverified'] else 'is-unavailable' }}">
-                    {{ 'Reviewed information' if background.get('status') == 'verified' else 'Stored description · Unverified' if background.get('status') == 'unverified' else 'AI-generated · Not independently verified' if background.get('status') == 'pending' else 'Information unavailable' }}
-                  </p>
-                  <section class="rt-info-section" aria-labelledby="background-{{ side }}">
-                    <h4 id="background-{{ side }}">History &amp; Culture</h4>
-                    {% if background.get('status') in ['verified', 'pending', 'unverified'] and (background.get('historical_background') or background.get('cultural_background')) %}
-                    {# One display paragraph per dish: retained history and culture are not separate UI sections. #}
-                    {% set combined_text = (background.get('combined_background') or ((background.get('historical_background') or '') ~ ' ' ~ (background.get('cultural_background') or ''))) | trim %}
-                    <p class="rt-background-summary" data-cuisync-background="unified">{{ combined_text }}</p>
-                    {% if background.get('evidence_message') %}
-                    <p class="rt-background-evidence">{{ background.get('evidence_message') }}</p>
-                    {% endif %}
-                    {# The single paragraph is retained. Only the evidence label changes. #}
-                    {% set method = background.get('generation_method', 'gpt_fallback') %}
-                    {% if method == 'mixed' %}
-                    {% set methods = background.get('generation_fields', {}) or {} %}
-                    <p class="rt-background-evidence">Partially source-based — History: {{ 'Source-based' if methods.get('historical_background') == 'source_based' else 'AI fallback' }}; Culture: {{ 'Source-based' if methods.get('cultural_background') == 'source_based' else 'AI fallback' }}.</p>
-                    {% elif method == 'source_based' %}
-                    {% if background.get('wikipedia_fallback') %}
-                    <p class="rt-background-evidence">Wikipedia fallback · AI-generated · Not independently verified.</p>
-                    {% else %}
-                    <p class="rt-background-evidence">Source-based summary · {{ 'Reviewed' if background.get('status') == 'verified' else 'Not independently verified' }}.</p>
-                    {% endif %}
-                    {% else %}
-                    <p class="rt-background-evidence">AI-generated general-knowledge summary · Sources not established.</p>
-                    {% endif %}
-                    {% if background.get('status') in ['pending', 'unverified'] %}
-                    <p class="rt-ai-disclaimer"><strong>AI-Generated Information</strong> — This historical and cultural information was generated using artificial intelligence. {% if method == 'mixed' %}The listed sources may support only part of the combined paragraph. {% endif %}It may contain inaccuracies and should be used for general informational purposes only.</p>
-                    {% endif %}
-                    {% else %}
-                    <p class="rt-info-empty">{{ background.get('message') or 'Historical and cultural information is unavailable for this dish.' }}</p>
-                    {% endif %}
-                  </section>
-                  {% if background.get('status') in ['verified', 'pending', 'unverified'] %}
-                  {{ information_sources(background.get('sources', [])) }}{% endif %}
+                  {{ info_ui.culture_body(background, side) }}
                 </div>
               </article>
               {% endfor %}
@@ -350,116 +303,7 @@
                 <span class="rt-eyebrow">{{ 'Your dish' if side == 'source' else 'Most similar dish' }} &middot; {{ country_label(dish.country) }}</span>
                 <h3 class="rt-dish-name">{{ dish.title }}</h3>
                 <div class="rt-column-body">
-                  <section class="rt-info-section rt-nutrition-section" aria-labelledby="benefits-{{ side }}">
-                    <div class="rt-health-heading">
-                      <span class="rt-health-heading-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22V12"/><path d="M12 12c-5 0-8-3-8-8 5 0 8 3 8 8Z"/><path d="M12 16c0-5 3-8 8-8 0 5-3 8-8 8Z"/></svg>
-                      </span>
-                      <div>
-                        <h4 id="benefits-{{ side }}">Potential Nutritional Benefits</h4>
-                        <p class="rt-health-subtitle">What the listed ingredients may contribute.</p>
-                      </div>
-                    </div>
-                    {% if health_available and display_benefits %}
-                    <ul class="rt-benefit-list">
-                      {% for benefit in display_benefits[:3] %}
-                      <li>
-                        {% if benefit.ingredient %}<strong>{{ benefit.ingredient }}</strong>{% endif %}
-                        <p>{{ benefit.text }}</p>
-                      </li>
-                      {% endfor %}
-                    </ul>
-                    {% endif %}
-                    {% if not health_available or not display_benefits %}
-                    <p class="rt-info-empty">No sufficiently supported key nutritional benefits are available for these ingredients yet.</p>
-                    {% elif health.get('nutrition_status') != 'verified' %}
-                    <p class="rt-nutrition-limitation">Some listed ingredients lack verified nutrient data. These are general ingredient-based insights.</p>
-                    {% endif %}
-                  </section>
-                  <section class="rt-info-section rt-allergen-section" aria-labelledby="allergens-{{ side }}">
-                    <div class="rt-health-heading">
-                      <span class="rt-health-heading-icon rt-health-heading-icon--allergen" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M12 8v5"/><path d="M12 17h.01"/></svg>
-                      </span>
-                      <div>
-                        <h4 id="allergens-{{ side }}">Potential Allergens</h4>
-                        <p class="rt-health-subtitle">Based on the ingredients listed in this recipe.</p>
-                      </div>
-                    </div>
-                    {% if not health_available %}
-                    <p class="rt-info-empty">Ingredient-specific allergen information is unavailable right now.</p>
-                    {% else %}
-                    {# Only display explicit findings; an unassessed ingredient is not a negative finding. #}
-                    {% set allergen_findings = (health.get('potential_allergens') or []) | selectattr('classification', 'in', ['identified', 'possible']) | list %}
-                    {% if allergen_findings %}
-                    <div class="rt-allergen-groups">
-                      {% for status, group_title, group_explanation in [('identified', 'Identified', 'Identified in listed ingredients'), ('possible', 'Possible', 'Possible; check the product label')] %}
-                      {% set group_findings = allergen_findings | selectattr('classification', 'equalto', status) | list %}
-                      {% if group_findings %}
-                      <div class="rt-allergen-group rt-allergen-group--{{ status }}">
-                        <div class="rt-allergen-group-heading">
-                          <span class="rt-allergen-group-icon" aria-hidden="true">{{ '!' if status == 'identified' else '?' }}</span>
-                          <span class="rt-allergen-group-label">{{ group_title }}</span>
-                          <span class="rt-allergen-group-caption">{{ group_explanation }}</span>
-                        </div>
-                        <ul class="rt-allergen-findings" aria-label="{{ group_title }} allergens for {{ dish.title }}">
-                          {% for allergen in group_findings %}
-                          <li class="rt-allergen-finding {{ 'is-avoid' if allergen.avoid }}">
-                            <span class="rt-allergen-name">{{ allergen.name }}</span>
-                            {% if allergen.from %}<p class="rt-allergen-from">Ingredient: {{ allergen.from | join(', ') }}</p>{% endif %}
-                            {% if allergen.avoid %}<p class="rt-avoid-note">On your avoid list.</p>{% endif %}
-                          </li>
-                          {% endfor %}
-                        </ul>
-                      </div>
-                      {% endif %}
-                      {% endfor %}
-                    </div>
-                    {% else %}
-                    <p class="rt-info-empty">No major allergens identified in the ingredients assessed. This does not mean the dish is allergen-free.</p>
-                    {% endif %}
-                    {# Jurisdiction-specific label references stay separate from the baseline findings. #}
-                    {% set regional_markets = health.get('regional_markets') or [] %}
-                    {% set regional_findings = health.get('regional_allergens') or [] %}
-                    {% if regional_markets %}
-                    <details class="rt-market-comparison">
-                      <summary class="rt-regional-label-heading">Compare allergen labeling across 13 countries</summary>
-                      <div class="rt-market-content">
-                        <p class="rt-market-intro">Select the <strong>country where the food is sold</strong> to see its available labeling references.</p>
-                        <label class="rt-market-label" for="rt-market-{{ side }}">Country / market</label>
-                        <select class="rt-market-select" id="rt-market-{{ side }}" aria-label="Asian labeling market for {{ dish.title }}">
-                          {% for m in regional_markets %}
-                          <option value="{{ m.country }}" {{ 'selected' if m.country == dish.country else '' }}>{{ country_label(m.country) }}</option>
-                          {% endfor %}
-                        </select>
-                        <div class="rt-market-profiles">
-                          {% for m in regional_markets %}
-                          <p class="rt-market-profile" data-market-code="{{ m.country }}" data-coverage="{{ m.coverage }}" hidden>
-                            <strong>{{ m.jurisdiction }}</strong> —
-                            {% if m.coverage == 'specified' %}Documented allergen categories checked against listed ingredients.{% else %}No complete, current national allergen category list independently verified for this reference.{% endif %}
-                            {{ m.notes }}
-                          </p>
-                          {% endfor %}
-                        </div>
-                        <ul class="rt-allergen-findings rt-market-findings" aria-label="Regional allergen labeling references for {{ dish.title }}">
-                          {% for allergen in regional_findings %}
-                          <li class="rt-allergen-finding" data-market-code="{{ allergen.country }}" hidden>
-                            <span class="rt-allergen-name">{{ allergen.name }}</span>
-                            <span class="rt-allergen-certainty">{{ allergen.label_status | capitalize }} reference · {{ 'Named ingredient' if allergen.classification == 'identified' else 'Possible; product formulation or threshold unknown' }}</span>
-                            {% if allergen.from %}<p class="rt-allergen-from">Ingredient: {{ allergen.from | join(', ') }}</p>{% endif %}
-                          </li>
-                          {% endfor %}
-                        </ul>
-                        <p class="rt-market-empty" hidden>No matching named ingredients for this market's documented categories. This does not mean the dish is allergen-free.</p>
-                      </div>
-                    </details>
-                    {% endif %}
-                    {% if health.get('allergen_assessment') and health.allergen_assessment.get('unknown_ingredients') %}
-                    <p class="rt-unassessed-note">Some ingredients remain unassessed; other allergens may be missing.</p>
-                    {% endif %}
-                    {% endif %}
-                    <p class="rt-allergen-disclaimer">Ingredient names cannot establish that a dish is allergen-free. Check product labels, the complete recipe and cross-contact risks.</p>
-                  </section>
+                  {{ info_ui.health_body(health, dish, side) }}
                 </div>
               </article>
               {% endfor %}
