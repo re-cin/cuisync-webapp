@@ -615,7 +615,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (!hiddenDishInput.value || !originSelect.value) {
       event.preventDefault();
-      showErrorModal('Choose a Dish', 'Select one of the detected menu dishes before starting the comparison.');
+      showErrorModal('Choose a Dish', 'Choose one of the detected menu dishes before starting the comparison.');
       return;
     }
     // No target yet: open the target country list instead of an error popup

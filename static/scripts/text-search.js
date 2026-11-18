@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Same as the image search: a "Selected dish" card after picking from the popup, and a
-  // "Select a dish" card when the popup was closed without picking one.
+  // "Choose a dish" card when the popup was closed without picking one.
   function updateInputActions() {
     const several = Boolean(lastResults && lastResults.dishes.length > 1);
     const popupOpen = !popup.classList.contains('hidden');
@@ -313,7 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const button = document.createElement('button');
     button.type = 'button';
     // Same card as the Dish Dictionary ("Dishes" page): photo, name, other name, then a
-    // footer with the region and "Select →"
+    // footer with the region and "Choose →"
     button.className = 'dish-card popup-dish-card pdc';
     const found = (d.found || []).length
       ? `<p class="dish-card-found">Uses: ${d.found.map(([want, have]) => `<span title="you typed ${esc(want)}">${esc(have)}</span>`).join(', ')}</p>`
@@ -340,7 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
       <div class="pdc-foot">
         <span class="pdc-place">${place}</span>
-        <span class="pdc-select">Select <span class="pdc-arrow" aria-hidden="true">&rarr;</span></span>
+        <span class="pdc-select">Choose <span class="pdc-arrow" aria-hidden="true">&rarr;</span></span>
       </div>`;
     const img = button.querySelector('img');
     img.addEventListener('error', () => { img.onerror = null; img.src = NO_IMAGE; }, { once: true });
@@ -355,7 +355,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const n = data.total;
     if (data.mode === 'image') {
       popupTitle.textContent = 'Choose a Dish from the Menu';
-      popupDesc.textContent = `We found ${n} dishes in the image. Select the one you want to compare.`;
+      popupDesc.textContent = `We found ${n} dishes in the image. Choose the one you want to compare.`;
     } else if (data.mode === 'tags') {
       const parts = [];
       if (data.tags && data.tags.length) parts.push(`tagged ${data.tags.join(' + ')}`);
@@ -366,7 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
         + (n > data.dishes.length ? ` (showing the first ${data.dishes.length})` : '')
         + '. '
         + (data.ingredients && data.ingredients.length ? 'Dishes that use more of your ingredients come first. ' : '')
-        + 'Select the one you want to compare.'
+        + 'Choose the one you want to compare.'
         + (data.unknown && data.unknown.length ? ` Not in our ingredient list: ${data.unknown.join(', ')}.` : '');
     } else if (data.mode === 'ingredients' && data.country) {
       popupTitle.textContent = `${n} ${data.country_label} Dish${n === 1 ? '' : 'es'} Use Your Ingredients`;
@@ -375,13 +375,13 @@ document.addEventListener('DOMContentLoaded', () => {
         + (data.unknown && data.unknown.length ? ` Not in our ingredient list: ${data.unknown.join(', ')}.` : '');
     } else if (data.mode === 'ingredients') {
       popupTitle.textContent = `${n} Dish${n === 1 ? '' : 'es'} Use Your Ingredients`;
-      popupDesc.textContent = 'Select the dish you want to compare. Dishes that use more of your ingredients come first.'
+      popupDesc.textContent = 'Choose the dish you want to compare. Dishes that use more of your ingredients come first.'
         + (data.unknown && data.unknown.length ? ` Not in our ingredient list: ${data.unknown.join(', ')}.` : '');
     } else {
       popupTitle.textContent = data.close_spelling ? 'Did You Mean One of These?' : `${n} Dishes Found`;
       popupDesc.textContent = data.close_spelling
         ? `No dish name contains "${dishInput.value.trim()}". These have a similar spelling.`
-        : `We found several dishes for "${dishInput.value.trim()}". Select the one you want to compare.`;
+        : `We found several dishes for "${dishInput.value.trim()}". Choose the one you want to compare.`;
     }
 
     // Oab 6: cuisines you could cook from these ingredients
