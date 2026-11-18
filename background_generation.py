@@ -42,6 +42,8 @@ def generate(recipe, store, client=None, refresh=False, upgrade_sources=False, i
     except Exception:
         return b._unavailable(row, 'Temporary database failure; retry later.')
     current = cached and cached.get('data_version') == DATA_VERSION
+    if cached and (cached.get('verification_status') == 'verified' or cached.get('reviewed_at')):
+        return cached  # Reviewed records are never completed or refreshed automatically.
     has_content = current and any(str(cached.get(field) or '').strip() for field in fields)
     if upgrade_sources:
         return _upgrade_sources(recipe, store, row, cached, client, improve_existing=improve_existing, diagnostics=diagnostics)

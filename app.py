@@ -30,6 +30,8 @@ from dish_information_store import DishStoreError, get_store as get_dish_informa
 from dish_info_common import safe_url
 import cuisync_prompts
 import background_prompts
+import prompt_store
+import prompt_admin
 import explainer
 import search_tools
 from dataset_store import DatasetStore, DISH_FIELDS, REGION_CHOICES
@@ -189,14 +191,9 @@ if accounts.ensure_admin(ADMIN_USERNAME, ADMIN_PASSWORD, ADMIN_EMAIL):
           "(change the password at /admin/account)")
 
 # GPT prompts the admin saved
-cuisync_prompts.set_system_prompt(STORE.get_prompt("explanation", ""))
-background_prompts.configure(STORE.get_prompt)
-cultural_info.init(
-    STORE.data_dir,
-    lambda: STORE.get_prompt("cultural", cultural_info.DEFAULT_PROMPT),
-    explainer._client,
-    explainer.MODEL_NAME,
-)
+PROMPTS = prompt_store.configure(STORE.data_dir)
+cuisync_prompts.configure(PROMPTS.get_prompt)
+background_prompts.configure(PROMPTS.get_prompt)
 dish_information.configure(client=explainer._client)
 
 
@@ -1763,7 +1760,15 @@ def api_dish(idx):
         return jsonify({"error": "invalid recipe index"}), 404
     recipe = RECIPES[idx]
     country = recipe["country"]
+    # The current background pipeline owns displayed history/culture. Keep
+    # legacy ingredient-only health/allergen fields for older card consumers.
     info = cultural_info.dish_info(recipe, STORE.region_of(country), STORE.label_of(country))
+    current_info = dish_information.api_information(recipe, (current_user() or {}).get("avoid_allergens", []))
+    info.update(culture=current_info["culture"], history=current_info["history"],
+                source=current_info["source"], background=current_info["background"])
+    for field, key in (("culture", "culture_notes"), ("history", "history_notes")):
+        if str(recipe.get(key) or "").strip():
+            info[field] = recipe[key].strip()
     avoid = set((current_user() or {}).get("avoid_allergens", []))
     for a in info["allergens"]:
         a["avoid"] = a["name"] in avoid
@@ -1912,23 +1917,7 @@ def admin_page():
             counts[r["country"]] = counts.get(r["country"], 0) + 1
         ctx.update(counts=counts)
     elif tab == "prompts":
-        ctx.update(
-            explanation_prompt=cuisync_prompts.get_system_prompt(),
-            explanation_custom=bool(STORE.prompts.get("explanation")),
-            background_modes=[{
-                "name": name, "title": title, "description": description,
-                "prompt": background_prompts.get_prompt(name),
-                "custom": background_prompts.get_prompt(name).strip() != default.strip(),
-            } for name, default in background_prompts.defaults().items()
-              for title, description in [(
-                  ("Source-Based Generation", "Drafts history and culture from retrieved references. Unsupported fields stay empty; source identity and historical-date checks remain enforced.")
-                  if name == background_prompts.SOURCE else
-                  ("General-Knowledge Fallback", "Used when sources cannot support a field. Uses cautious wording and uncertainty; output remains labeled AI-generated information.")
-              )]],
-            cultural_custom=any(background_prompts.get_prompt(name).strip() != default.strip()
-                                for name, default in background_prompts.defaults().items()),
-            gpt_on=explainer._client is not None,
-        )
+        ctx.update(prompt_admin.context(PROMPTS, RECIPES))
     elif tab == "users":
         q = request.args.get("q", "").strip().lower()
         role = request.args.get("role", "")
@@ -2182,27 +2171,13 @@ def admin_dataset_reset():
 @app.route("/admin/prompts", methods=["POST"])
 @admin_required
 def admin_prompts():
-    which = request.form.get("which")
-    defaults = {"explanation": cuisync_prompts.DEFAULT_SYSTEM_PROMPT, **background_prompts.defaults()}
-    action = request.form.get("action")
-    if which not in defaults or action not in ("save", "reset"):
-        abort(400)
-    try:
-        text = "" if action == "reset" else background_prompts.validate_prompt(request.form.get("prompt", ""))
-        if text == defaults[which].strip():
-            text = ""
-        STORE.set_prompt(which, text)
-    except ValueError as error:
-        flash(str(error), "error")
-        return redirect(url_for("admin_page", tab="prompts"))
-    except OSError:
-        flash("Could not save the prompt. The active configuration has not changed.", "error")
-        return redirect(url_for("admin_page", tab="prompts"))
-    if which == "explanation":
-        cuisync_prompts.set_system_prompt(text)
-    flash(("Prompt reset to the default." if not text else "Prompt saved.") +
-          " Future generations use this prompt. Existing historical and cultural records are preserved.", "success")
-    return redirect(url_for("admin_page", tab="prompts"))
+    return prompt_admin.activate(PROMPTS, current_user())
+
+
+@app.route("/admin/prompts/test", methods=["POST"])
+@admin_required
+def admin_prompt_test():
+    return prompt_admin.preview(RECIPES, get_dish_information_store())
 
 
 @app.route("/admin/users/<user_id>/role", methods=["POST"])

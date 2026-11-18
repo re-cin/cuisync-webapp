@@ -3,11 +3,11 @@
 Holds everything the admin page can change without touching the original files:
   - the recipe dataset (add / edit / delete dishes, upload a new dataset)
   - the list of countries shown in the dropdowns (add / rename / hide / remove)
-  - the GPT prompts (similarity explanation and cultural information)
+  - legacy GPT prompt JSON (retained for migration; active prompts use prompt_store.py)
 
 The original recipes.json and the .npy files are never overwritten. Changes are saved
 in Supabase (the dishes: table recipes, see supabase_dataset.sql and dataset_db.py; the
-countries and GPT prompts stay in admin_data/), or all in admin_data/ when Supabase is not set up. The soft matcher is rebuilt from them:
+countries stay in admin_data/; active prompt versions use prompt_store.py), or all in admin_data/ when Supabase is not set up. The soft matcher is rebuilt from them:
   - dishes that were not changed keep their original item lists and vectors
   - a new ingredient (or action, cookware, utensil) that is already in the vocabulary
     reuses its vector
@@ -579,11 +579,11 @@ class DatasetStore:
 
     # ---------------- prompts ----------------
     def get_prompt(self, name, default):
-        """Saved explanation/background prompt, or default (legacy cultural key is retained)."""
+        """Legacy JSON accessor only; live GPT instructions use prompt_store.py."""
         return self.prompts.get(name) or default
 
     def set_prompt(self, name, text):
-        """Save a GPT prompt in admin_data/prompts.json. Empty text = go back to the default."""
+        """Legacy JSON writer; active admin configuration uses PromptStore.activate."""
         with self.lock:
             prompts = dict(self.prompts)
             if text and text.strip():

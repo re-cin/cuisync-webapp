@@ -1,0 +1,47 @@
+{% macro editor(card) %}
+<div data-prompt-editor>
+<div class="card-head"><h3>{{ card.title }}</h3><span data-prompt-status class="pill {{ 'pill-active' if card.custom else 'pill-hidden' }}">{{ 'Custom' if card.custom else 'Default' }}</span></div>
+<p class="hint">{{ card.description }} Active version: <strong data-active-version>{{ card.version }}</strong>.</p>
+<details class="prompt-rules"><summary>Protected System Rules (read-only)</summary><pre class="mono">{{ card.rules }}</pre></details>
+<form method="post" action="{{ url_for('admin_prompts') }}" class="stack-sm" data-prompt-form data-preview-url="{{ url_for('admin_prompt_test') }}">
+  <input type="hidden" name="which" value="{{ card.name }}">
+  <input type="hidden" name="expected_version" value="{{ card.version }}">
+  <input type="hidden" name="csrf_token" value="{{ prompt_csrf }}">
+  <div class="field">
+    <label for="p-{{ card.name }}">Editable Writing Instructions</label>
+    <textarea id="p-{{ card.name }}" name="prompt" rows="12" class="mono" required minlength="20" maxlength="20000">{{ card.prompt }}</textarea>
+    <p class="hint">Customize style, tone, sentence length and structure. Protected evidence and output requirements always apply.</p>
+  </div>
+  <div class="field">
+    <label for="sample-{{ card.name }}">{{ 'Sample dish pair (fixed reference scores)' if card.name == 'explanation' else 'Sample dish' }}</label>
+    <select name="sample" id="sample-{{ card.name }}">
+      {% if card.name == 'explanation' %}
+        {% for pair in prompt_pairs %}<option value="{{ loop.index0 }}">{{ pair.input_dish }} / {{ pair.matched_dish }} — {{ pair.overall_similarity }}%</option>{% endfor %}
+      {% else %}
+        {% for dish in prompt_dishes %}<option value="{{ loop.index0 }}">{{ dish.title }} ({{ dish.country }})</option>{% endfor %}
+      {% endif %}
+    </select>
+  </div>
+  <p class="hint">Testing uses GPT without activating these instructions, writing dish records or reading/writing the production explanation cache.</p>
+  <div class="inline-actions end">
+    <button type="button" class="btn btn-outline" data-test-prompt>Test Prompt</button>
+    <button type="submit" name="action" value="reset" formnovalidate class="btn btn-outline" data-confirm="Activate the default writing instructions as a new version?">{{ icon('reset', 16) }} Reset to default</button>
+    <button type="submit" name="action" value="save" class="btn btn-maroon">Save and activate</button>
+  </div>
+  <div data-prompt-feedback role="status" aria-live="polite"></div>
+  <div data-prompt-preview class="prompt-preview" hidden></div>
+  <details class="prompt-history"><summary>Version history (most recent 100)</summary>
+    <p class="hint">Restoring creates a new active version with the previous writing instructions. It preserves the audit history and compatible explanation cache entries.</p>
+    <div data-version-list>
+    {% for version in card.history %}
+    <details class="prompt-version" data-version="{{ version.version }}">
+      <summary>Version {{ version.version }} · <span data-version-status>{{ 'Active' if version.active else 'Inactive' }}</span> · {{ version.administrator }} · {{ version.modified_at }} (UTC)</summary>
+      <pre class="mono">{{ version.instructions }}</pre>
+      <button type="button" class="btn btn-outline" data-restore-version="{{ version.version }}" {% if version.active %}hidden{% endif %}>Restore version {{ version.version }}</button>
+    </details>
+    {% else %}<p class="hint">Version history is temporarily unavailable.</p>{% endfor %}
+    </div>
+  </details>
+</form>
+</div>
+{% endmacro %}

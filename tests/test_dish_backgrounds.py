@@ -252,15 +252,14 @@ class BackgroundTests(unittest.TestCase):
         self.assertEqual(store.writes, [])
         self.http.assert_not_called()
 
-    def test_old_version_verified_record_requires_new_evidence_and_review(self):
+    def test_old_version_verified_record_is_preserved_until_explicit_review_workflow(self):
         approved = record("verified", data_version=DATA_VERSION - 1, sources=[persisted_source()])
         store = MemoryStore(approved)
         with mock.patch.object(backgrounds, "retrieve_evidence", return_value=[persisted_source()]) as retrieve:
             result = backgrounds.enrich_background(RECIPE, store, client_with())
-        retrieve.assert_called_once_with(RECIPE)
-        self.assertEqual(result["data_version"], DATA_VERSION)
-        self.assertEqual(result["verification_status"], "pending")
-        self.assertEqual(len(store.writes), 1)
+        retrieve.assert_not_called()
+        self.assertEqual(result, approved)
+        self.assertEqual(store.writes, [])
 
     def test_fresh_pending_record_does_not_repeat_provider_calls(self):
         cached = record()
