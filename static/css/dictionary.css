@@ -646,6 +646,7 @@ body.dp-open { overflow: hidden; }
 .dp-heritage { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--gold-border); }
 .dp-eyebrow { display: block; margin-bottom: 6px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold-accent); }
 .dp-heritage p + p { margin-top: 8px; }
+.dp-admin { margin-top: 10px !important; font-size: 0.74rem !important; color: var(--text-muted) !important; }
 .dp-note {
   display: flex;
   flex-wrap: wrap;
@@ -1405,3 +1406,61 @@ body.dp-open { overflow: hidden; }
 .dict-breadcrumb span,
 .dict-breadcrumb .current { color: var(--gold-accent); }
 .dict-breadcrumb a:hover { color: var(--gold-light); }
+
+/* "Find similar dishes": logo gold text and arrow */
+.dp-similar,
+.dp-similar:hover { color: var(--gold-accent); }
+.dp-similar .dp-similar-arrow { color: var(--gold-accent); }
+
+/* ==========================================================================
+   Cards and the dish popup on the page's cream (--cream-bg) instead of off-white.
+   Neutral chips/tags go a step darker so they still stand out on it.
+   ========================================================================== */
+.dict-card { background: var(--cream-bg); }
+.dp-dialog { background: var(--cream-bg); }
+@media (max-width: 850px) {
+  .dp-tabs { background: var(--cream-bg); }
+}
+.dp-side { border-right-color: var(--gold-border); }
+.dp-tabs { border-bottom-color: var(--gold-border); }
+.dp-rows { border-top-color: rgba(200, 188, 158, 0.6); }
+.dp-row { border-bottom-color: rgba(200, 188, 158, 0.6); }
+.dp-tags .dict-tag,
+.dp-tags .dict-tag.is-country,
+.dp-tags .dict-tag.is-region,
+.dp-chip { background: #ddd4bf; }
+.dp-close { background: #ddd4bf !important; }
+.dp-close:hover { background: #d0c6ae !important; }
+@media (max-width: 850px) { .dp-close { background: #ddd4bf !important; } }
+.dp-dialog .rt-allergen-finding,
+.dp-dialog .dp-info-health .rt-allergen-group .rt-allergen-finding { background: var(--cream-card); }
+.dp-dialog .rt-market-select { background: var(--cream-card); }
+
+@media (max-width: 768px) {
+    .dict-toolbar .info-tooltip-content {
+        left: 50%;
+        right: auto;
+        transform: translate(-40%, 5px);
+    }
+
+    .dict-toolbar .info-tooltip:hover .info-tooltip-content,
+    .dict-toolbar .info-tooltip:focus-within .info-tooltip-content,
+    .dict-toolbar .info-tooltip.is-open .info-tooltip-content {
+        transform: translate(-40%, 0);
+    }
+}
+
+/* Prevent Origin tooltip from going off-screen on medium widths */
+@media (min-width: 769px) and (max-width: 1100px) {
+    .dict-toolbar .info-tooltip-content {
+        left: 50%;
+        right: auto;
+        transform: translate(-35%, 5px);
+    }
+
+    .dict-toolbar .info-tooltip:hover .info-tooltip-content,
+    .dict-toolbar .info-tooltip:focus-within .info-tooltip-content,
+    .dict-toolbar .info-tooltip.is-open .info-tooltip-content {
+        transform: translate(-35%, 0);
+    }
+}

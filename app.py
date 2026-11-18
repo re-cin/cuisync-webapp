@@ -14,6 +14,7 @@ from functools import lru_cache, wraps
 import cv2
 import numpy as np
 from flask import (Flask, Response, abort, flash, g, jsonify, redirect, render_template,
+                   render_template_string,
                    request, session, url_for)
 from werkzeug.middleware.proxy_fix import ProxyFix
 import ocr
@@ -24,10 +25,13 @@ from shapley import compute_shapley, influence_shares
 import accounts
 import ner
 import cultural_info
+import dish_information
+from dish_information_store import DishStoreError, get_store as get_dish_information_store
+from dish_info_common import safe_url
 import cuisync_prompts
 import explainer
 import search_tools
-from dataset_store import DatasetStore, DISH_FIELDS
+from dataset_store import DatasetStore, DISH_FIELDS, REGION_CHOICES
 
 
 app = Flask(__name__)
@@ -191,6 +195,7 @@ cultural_info.init(
     explainer._client,
     explainer.MODEL_NAME,
 )
+dish_information.configure(client=explainer._client)
 
 
 def reload_data():
@@ -237,6 +242,8 @@ def admin_required(view):
     def wrapper(*args, **kwargs):
         user = current_user()
         if not user or not user["is_admin"]:  # admins have their own log in page
+            if user:
+                flash("That page is for admins. Sign in with an admin account.", "error")
             return redirect(url_for("admin_login", next=request.full_path))
         return view(*args, **kwargs)
     return wrapper
@@ -249,7 +256,9 @@ app.jinja_env.filters["fromjson"] = lambda text: json.loads(text or "{}")
 def keep_admins_in_admin():
     """A logged-in admin only sees the admin pages: any page of the user site sends them to /admin."""
     path = request.path
-    if path.startswith(("/admin", "/static/", "/logout")) or path in ("/login", "/favicon.ico"):
+    # /sw.js (old PWA clean-up) must load for admins too
+    if path.startswith(("/admin", "/static/", "/logout")) or path in (
+            "/login", "/favicon.ico", "/sw.js"):
         return None
     user = current_user()
     if user and user["is_admin"]:
@@ -713,6 +722,10 @@ def get_search_results(dish_name, origin_country, target_country, force=False, r
         "results.html",
         source_dish=source_dish,
         recommended_dish=recommended_dish,
+        dish_information={
+            "source": dish_information.public_information(source_dish, (user or {}).get("avoid_allergens", [])),
+            "recommended": dish_information.public_information(recommended_dish, (user or {}).get("avoid_allergens", [])) if recommended_dish else None,
+        },
         target_country=target_country,
         target_any=target_any,
         ingredient_note=ingredient_note,
@@ -860,7 +873,7 @@ def clear_recent_searches():
 MAP_TARGET_PINS = 5     # with a target country: its 5 most similar dishes...
 MAP_OTHER_PINS = 15     # ...and the 15 most similar from every other country
 MAP_ANY_PINS = 20       # with "Any country": the 20 most similar from any country
-MAP_LIST_SIZE = 10      # the side panel lists the top 10 of the pins
+MAP_LIST_SIZE = 20      # the side panel lists all 20 dishes on the map
 
 
 def results_map(source_idx, current_idx, ordered_targets, total_scores, target_any, target_country,
@@ -1232,10 +1245,7 @@ def analysis_overview():
             get_analysis_region_counts(),  # recipe count per region
 
         "total_recipes":  # total recipes in the dataset
-            len(RECIPES),
-
-        "region_order":  # regions in the order the admin set on the Countries page
-            list(STORE.regions)
+            len(RECIPES)
     })
 
 # Analysis page 7: top ingredients of the picked countries
@@ -1505,21 +1515,30 @@ def api_find_dishes():
         # Dishes must have all the tags; with ingredients they are ranked by how many they use.
         tags = [t for t in q.split("|") if t]
         wanted = [w for w in split_names(request.args.get("ing", "")) if w]
-        # Countries of origin from the Region tab (a dish is from one country, so any of them)
+        # Countries of origin from the Region tab
         countries = {c.strip().lower() for c in request.args.get("country", "").split("|") if c.strip()}
+        # Region tab = places: regions and countries are "any of them" (OR), so
+        # South Korea + Southeast Asia -> every Korean dish and every Southeast Asian dish.
+        # The other tabs (cooking method, dish type) must all match (AND).
+        def region_of_recipe(r):
+            return r.get("country_region") or STORE.region_of(r.get("country"))
+        known_regions = {region_of_recipe(r) for r in RECIPES}
+        place_regions = {t for t in tags if t in known_regions}
+        other_tags = [t for t in tags if t not in place_regions]
         unknown, cuisines = [], []
         if wanted:
             results, unknown = INGREDIENT_SEARCH.search(RECIPES, wanted, "", limit=len(RECIPES))
-            if tags:
+            if other_tags:
                 results = [r for r in results
-                           if all(t in search_tools.recipe_tags(RECIPES[r[0]], STORE.region_of) for t in tags)]
-            cuisines = search_tools.possible_cuisines(RECIPES, results, STORE.label_of)
+                           if all(t in search_tools.recipe_tags(RECIPES[r[0]], STORE.region_of) for t in other_tags)]
         else:
-            results = search_tools.tag_search(RECIPES, tags, "", STORE.region_of)
-        if countries:
-            results = [r for r in results if RECIPES[r[0]]["country"].lower() in countries]
-            if wanted:
-                cuisines = search_tools.possible_cuisines(RECIPES, results, STORE.label_of)
+            results = search_tools.tag_search(RECIPES, other_tags, "", STORE.region_of)
+        if place_regions or countries:
+            results = [r for r in results
+                       if RECIPES[r[0]]["country"].lower() in countries
+                       or region_of_recipe(RECIPES[r[0]]) in place_regions]
+        if wanted:
+            cuisines = search_tools.possible_cuisines(RECIPES, results, STORE.label_of)
         saved = {"mode": "tags", "tag": tags}
         if wanted:
             saved["ing"] = ", ".join(wanted)
@@ -1689,7 +1708,6 @@ def dictionary():
             "c": country,
             "l": STORE.label_of(r["country"]),
             "g": search_tools.recipe_tags(r, STORE.region_of),
-            "r": r.get("country_region") or STORE.region_of(r["country"]),
             "i": r.get("image_link") or "",
         })
 
@@ -1728,12 +1746,9 @@ def api_dish_info(idx):
     if not 0 <= idx < len(RECIPES):
         return jsonify({"error": "invalid recipe index"}), 404
     recipe = RECIPES[idx]
-    info = cultural_info.dish_info(recipe, STORE.region_of(recipe["country"]), STORE.label_of(recipe["country"]))
-    info["tags"] = search_tools.recipe_tags(recipe, STORE.region_of)
     user = current_user()
-    avoid = set((user or {}).get("avoid_allergens", []))
-    for a in info["allergens"]:
-        a["avoid"] = a["name"] in avoid
+    info = dish_information.api_information(recipe, (user or {}).get("avoid_allergens", []))
+    info["tags"] = search_tools.recipe_tags(recipe, STORE.region_of)
     return jsonify(info)
 
 
@@ -1774,8 +1789,80 @@ def api_dish(idx):
     return jsonify(info)
 
 
+# Culture & history / Health info for the Dish Dictionary popup: the same GPT-generated
+# (Supabase-cached) information and the same layout as the comparison page.
+DISH_INFO_PANELS = (
+    '{% import "partials/dish_information.html" as ui with context %}'
+    '{% if part == "culture" %}{{ ui.culture_body(background, "dish") }}'
+    '{% else %}{{ ui.health_body(health, dish, "dish") }}{% endif %}'
+)
+
+
+@app.route("/api/dish/<int:idx>/information")
+def api_dish_information(idx):
+    if not 0 <= idx < len(RECIPES):
+        return jsonify({"error": "invalid recipe index"}), 404
+    recipe = RECIPES[idx]
+    user = current_user()
+    info = dish_information.public_information(recipe, (user or {}).get("avoid_allergens", []))
+    background = info.get("background") or {}
+    health = info.get("health") or {}
+    dish = {"title": (recipe.get("title") or "").strip(), "country": recipe["country"]}
+    panels = {part: render_template_string(DISH_INFO_PANELS, part=part, background=background,
+                                           health=health, dish=dish)
+              for part in ("culture", "health")}
+    return jsonify(
+        culture=panels["culture"], health=panels["health"],
+        # Still being written by GPT / looked up in the background: the page checks again
+        generating={"culture": background.get("status") == "unavailable",
+                    "health": health.get("status") != "verified"},
+    )
+
+
 # ---------------- admin (Oab 1, 2, 5; Galang 3) ----------------
-ADMIN_TABS = ("overview", "users", "dishes", "countries", "prompts", "dataset")
+ADMIN_TABS = ("overview", "users", "dishes", "countries", "prompts", "tags", "dataset")
+
+
+@app.route("/admin/dish-information")
+@admin_required
+def dish_information_admin():
+    state = request.args.get("state", "pending")
+    if state not in {"pending", "verified", "unavailable"}:
+        state = "pending"
+    store = get_dish_information_store()
+    rows = []
+    try:
+        if store is not None:
+            rows = store.list("dish_backgrounds", {"verification_status": state})
+    except DishStoreError:
+        flash("Dish information is temporarily unavailable.", "error")
+    # Evidence links are sanitized even in the privileged review UI.
+    for row in rows:
+        row["sources"] = [{**source, "url": safe_url(source.get("url"))}
+                          for source in row.get("sources", []) if isinstance(source, dict)]
+    session.setdefault("dish_information_csrf", secrets.token_urlsafe(32))
+    return render_template("admin/dish_information.html", active="dish-information", state=state,
+                           drafts=rows, csrf_token=session["dish_information_csrf"], configured=store is not None)
+
+
+@app.route("/admin/dish-information/<uuid:record_id>/approve", methods=["POST"])
+@admin_required
+def approve_dish_background(record_id):
+    token = session.get("dish_information_csrf", "")
+    if not token or not secrets.compare_digest(token, request.form.get("csrf_token", "")):
+        abort(400, "Reload the review page and submit again.")
+    if request.form.get("confirm_sources") != "yes":
+        abort(400, "Confirm that you reviewed the linked evidence.")
+    store = get_dish_information_store()
+    try:
+        if store is None:
+            raise DishStoreError("Supabase is not configured.")
+        store.approve_background(str(record_id), current_user()["id"], request.form.get("review_note", ""),
+                                 expected_updated_at=request.form.get("updated_at"))
+        flash("Historical and cultural information marked as reviewed.", "success")
+    except DishStoreError as error:
+        flash(str(error), "error")
+    return redirect(url_for("dish_information_admin"))
 
 
 @app.route("/admin")
@@ -1784,7 +1871,7 @@ def admin_page():
     tab = request.args.get("tab", "overview")
     if tab not in ADMIN_TABS:
         tab = "overview"
-    ctx = {"tab": tab, "store": STORE, "regions": STORE.regions}
+    ctx = {"tab": tab, "store": STORE, "regions": REGION_CHOICES}
     if tab == "overview":
         per_country = {}
         for r in RECIPES:
@@ -1821,7 +1908,7 @@ def admin_page():
         counts = {}
         for r in RECIPES:
             counts[r["country"]] = counts.get(r["country"], 0) + 1
-        ctx.update(counts=counts, region_counts=STORE.region_counts())
+        ctx.update(counts=counts)
     elif tab == "prompts":
         ctx.update(
             explanation_prompt=cuisync_prompts.get_system_prompt(),
@@ -1843,8 +1930,20 @@ def admin_page():
                  and (not role or u["role"] == role)]
         selected = next((dict(u) for u in all_users if u["id"] == request.args.get("user")), None)
         if selected:
-            selected["history"] = accounts.get_history(selected["id"], limit=50)
+            selected["history"] = accounts.get_history(selected["id"], limit=5)
         ctx.update(users=users, me=current_user(), q=q, role=role, selected=selected)
+    elif tab == "tags":
+        groups, _ = search_tools.all_tags(RECIPES, STORE.region_of)
+        custom = STORE.custom_tags()
+        q = request.args.get("q", "").strip().lower()
+        ctx.update(
+            q=q,
+            custom_tags=sorted(((t, n) for t, n in custom.items() if not q or q in t.lower()),
+                               key=lambda x: (-x[1], x[0])),
+            auto_groups={g: [(t, n) for t, n in ts if not q or q in t.lower()]
+                         for g, ts in groups.items() if g != "Custom"},
+            editing=request.args.get("edit", ""),
+        )
     return render_template("admin/admin.html", **ctx)
 
 
@@ -1881,11 +1980,33 @@ def admin_logout():
     return redirect(url_for("admin_login"))
 
 
+@app.route("/admin/tags/rename", methods=["POST"])
+@admin_required
+def admin_tag_rename():
+    try:
+        n = STORE.rename_tag(request.form.get("old"), request.form.get("new"))
+        flash(f'Tag renamed on {n} dish(es).', "success")
+    except ValueError as error:
+        flash(str(error), "error")
+    return redirect(url_for("admin_page", tab="tags"))
+
+
+@app.route("/admin/tags/delete", methods=["POST"])
+@admin_required
+def admin_tag_delete():
+    try:
+        n = STORE.delete_tag(request.form.get("name"))
+        flash(f'Tag removed from {n} dish(es).', "success")
+    except ValueError as error:
+        flash(str(error), "error")
+    return redirect(url_for("admin_page", tab="tags"))
+
+
 def _after_data_change(message):
     missing = reload_data()
     if missing:
         sample = ", ".join(item for _, item in missing[:6])
-        flash(f"{message} Note: {len(missing)} new item(s) are not in the vectors yet "
+        flash(f"{message} Note: {len(missing)} new item(s) had no close match in the vectors "
               f"({sample}{'...' if len(missing) > 6 else ''}), so they can't add to similarity until "
               "the vectorizer is run again.", "info")
     else:
@@ -1915,7 +2036,7 @@ def admin_dish_form(recipe_id=None):
             flash(str(error), "error")
             dish = dict(request.form.items())
     return render_template("admin/admin_dish.html", dish=dish, recipe_id=recipe_id, fields=DISH_FIELDS,
-                           all_countries=STORE.countries, store=STORE, regions=STORE.regions,
+                           all_countries=STORE.countries, store=STORE, regions=REGION_CHOICES,
                            ner_status=ner.status())
 
 
@@ -1955,12 +2076,6 @@ def admin_dish_delete(recipe_id):
     return redirect(request.referrer or url_for("admin_page", tab="dishes"))
 
 
-def _country_view():
-    """Country Management layout ("cards" or "list"), so a save goes back to the same layout."""
-    view = request.form.get("view") or request.args.get("view") or ""
-    return view if view == "list" else None
-
-
 @app.route("/admin/countries/add", methods=["POST"])
 @admin_required
 def admin_country_add():
@@ -1969,7 +2084,7 @@ def admin_country_add():
         flash(f"Added {request.form.get('label')}. It shows in the dropdowns once it has a dish.", "success")
     except ValueError as error:
         flash(str(error), "error")
-    return redirect(url_for("admin_page", tab="countries", view=_country_view()))
+    return redirect(url_for("admin_page", tab="countries"))
 
 
 @app.route("/admin/countries/<name>/update", methods=["POST"])
@@ -1982,7 +2097,7 @@ def admin_country_update(name):
         flash("Country saved.", "success")
     except ValueError as error:
         flash(str(error), "error")
-    return redirect(url_for("admin_page", tab="countries", view=_country_view()))
+    return redirect(url_for("admin_page", tab="countries"))
 
 
 @app.route("/admin/countries/<name>/delete", methods=["POST"])
@@ -1993,52 +2108,32 @@ def admin_country_delete(name):
         flash("Country removed.", "success")
     except ValueError as error:
         flash(str(error), "error")
-    return redirect(url_for("admin_page", tab="countries", view=_country_view()))
+    return redirect(url_for("admin_page", tab="countries"))
 
 
-@app.route("/admin/regions/add", methods=["POST"])
+@app.route("/admin/dataset/upload", methods=["POST"])
 @admin_required
-def admin_region_add():
+def admin_dataset_upload():
+    file = request.files.get("dataset")
+    mode = "replace" if request.form.get("mode") == "replace" else "append"
+    if not file or not file.filename:
+        flash("Choose a .json or .csv file first.", "error")
+        return redirect(url_for("admin_page", tab="dataset"))
     try:
-        name = STORE.add_region(request.form.get("name"))
-        flash(f"Added the region {name}. Pick it on a country to use it.", "success")
-    except ValueError as error:
-        flash(str(error), "error")
-    return redirect(url_for("admin_page", tab="countries", view=_country_view()))
-
-
-@app.route("/admin/regions/rename", methods=["POST"])
-@admin_required
-def admin_region_rename():
-    try:
-        moved = STORE.rename_region(request.form.get("region"), request.form.get("name"))
-        if moved:
-            reload_data()
-        flash("Region saved.", "success")
-    except ValueError as error:
-        flash(str(error), "error")
-    return redirect(url_for("admin_page", tab="countries", view=_country_view()))
-
-
-@app.route("/admin/regions/move", methods=["POST"])
-@admin_required
-def admin_region_move():
-    try:
-        STORE.move_region(request.form.get("region"), -1 if request.form.get("direction") == "up" else 1)
-    except ValueError as error:
-        flash(str(error), "error")
-    return redirect(url_for("admin_page", tab="countries", view=_country_view()))
-
-
-@app.route("/admin/regions/delete", methods=["POST"])
-@admin_required
-def admin_region_delete():
-    try:
-        STORE.delete_region(request.form.get("region"))
-        flash("Region deleted.", "success")
-    except ValueError as error:
-        flash(str(error), "error")
-    return redirect(url_for("admin_page", tab="countries", view=_country_view()))
+        raw = file.read().decode("utf-8-sig")
+        if file.filename.lower().endswith(".csv"):
+            records = list(csv.DictReader(io.StringIO(raw)))
+        else:
+            records = json.loads(raw)
+            if isinstance(records, dict):
+                records = records.get("recipes") or [records]
+        if not isinstance(records, list):
+            raise ValueError("The file must contain a list of dishes.")
+        count = STORE.import_dataset(records, mode)
+        _after_data_change(f"{'Replaced the dataset with' if mode == 'replace' else 'Added'} {count} dishes.")
+    except (ValueError, UnicodeDecodeError, csv.Error) as error:
+        flash(f"Upload failed: {error}", "error")
+    return redirect(url_for("admin_page", tab="dataset"))
 
 
 @app.route("/admin/dataset/download")
@@ -2055,6 +2150,21 @@ def admin_dataset_download():
                         headers={"Content-Disposition": "attachment; filename=cuisync_dataset.csv"})
     return Response(json.dumps(RECIPES, ensure_ascii=False, indent=1), mimetype="application/json",
                     headers={"Content-Disposition": "attachment; filename=cuisync_dataset.json"})
+
+
+@app.route("/admin/dataset/reset", methods=["POST"])
+@admin_required
+def admin_dataset_reset():
+    try:
+        STORE.reset_to_original()
+    except ValueError as error:
+        flash(str(error), "error")
+        return redirect(url_for("admin_page", tab="dataset"))
+    reload_data()
+    flash("The dataset is back to the original recipes.json." if STORE.db else
+          "The dataset is back to the original recipes.json (your edited copy was kept as a .bak file).",
+          "success")
+    return redirect(url_for("admin_page", tab="dataset"))
 
 
 @app.route("/admin/prompts", methods=["POST"])
@@ -2082,8 +2192,11 @@ def admin_prompts():
 @app.route("/admin/users/<user_id>/role", methods=["POST"])
 @admin_required
 def admin_user_role(user_id):
-    # Roles are fixed: users sign up as "user", the admin comes from .env. Not changeable here.
-    flash("Roles can't be changed.", "error")
+    try:
+        accounts.set_role(user_id, request.form.get("role"))
+        flash("Role updated.", "success")
+    except ValueError as error:
+        flash(str(error), "error")
     return redirect(url_for("admin_page", tab="users", user=user_id))
 
 
@@ -2149,28 +2262,28 @@ def forbidden(_error):
 
 
 
-# ---------------- PWA: installable app (manifest, service worker, offline page) ----------------
-from flask import send_from_directory as _send_from_directory
-
-PWA_DIR = os.path.join(app.root_path, "static", "pwa")
-
-
-@app.route("/manifest.webmanifest")
-def pwa_manifest():
-    return _send_from_directory(PWA_DIR, "manifest.webmanifest", mimetype="application/manifest+json")
+# ---------------- Old PWA clean-up ----------------
+# The site used to install a service worker. Phones and browsers that still have it ask for
+# /sw.js now and then: this one removes itself and its saved copies, then reloads the pages.
+OLD_SW_CLEANUP = """
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter((k) => k.startsWith('cuisync-')).map((k) => caches.delete(k)));
+    await self.registration.unregister();
+    const pages = await self.clients.matchAll({ type: 'window' });
+    pages.forEach((page) => page.navigate(page.url));
+  })());
+});
+"""
 
 
 @app.route("/sw.js")
-def pwa_service_worker():
-    # Served from the site root so it can work for every page. Never cached, so updates arrive.
-    response = _send_from_directory(PWA_DIR, "sw.js", mimetype="application/javascript")
+def old_service_worker_cleanup():
+    response = app.response_class(OLD_SW_CLEANUP, mimetype="application/javascript")
     response.headers["Cache-Control"] = "no-cache"
     return response
-
-
-@app.route("/offline")
-def pwa_offline():
-    return render_template("offline.html")
 
 
 if __name__ == "__main__":

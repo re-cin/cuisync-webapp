@@ -1,9 +1,13 @@
 // Comparison page: interactive map of the most similar dishes (bottom of the page).
 // - A pin for each dish (photo in a circle, rank badge); clicking it opens that dish's comparison
 // - Your dish has a gold ring; the dish on this page is highlighted
-// - Side panel with the top 10 (made in results.html); on phones it sits under the map
-// - Drag / scroll to move and zoom, with a wide margin so the map can be moved even when not
-//   zoomed in. Target button = focus on your dish, Reset = whole map.
+// - Side panel with the dishes on the map (made in results.html). Bigger screens: beside the map.
+//   Phones: hidden under the preview; in full screen it's a bottom sheet that grows when you scroll
+//   the list up and shrinks back (showing the map) when you scroll down past its top. Tapping a pin
+//   on a phone scrolls the list to that dish instead of opening it straight away.
+// - On the page the map is a preview: no drag/zoom, so scrolling the page over it stays smooth.
+//   "Full screen" (or a click on the map) turns on moving and zooming, with a wide margin so
+//   the map can be moved even when not zoomed in. Target button = focus on your dish, Reset = whole map.
 document.addEventListener('DOMContentLoaded', () => {
   const dataEl = document.getElementById('rmap-data');
   const box = document.getElementById('rmap-map');
@@ -16,6 +20,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const tip = document.getElementById('rmap-tooltip');
   const side = document.getElementById('rmap-side');
   const toggleBtn = document.getElementById('rmap-toggle');
+  const rmap = document.getElementById('rmap');
+  const openBtn = document.getElementById('rmap-full-open');
+  const closeBtn = document.getElementById('rmap-full-close');
+  let isFull = false;
   const NO_IMAGE = '/static/assets/no-image.svg';
   const TOPOLOGY_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json';
   const ASIA_FRAME = { type: 'MultiPoint', coordinates: [[22, -12], [150, 56]] };
@@ -63,7 +71,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function visibleArea() {
     const w = box.clientWidth, h = box.clientHeight;
     const left = !phoneLayout.matches && !side.classList.contains('is-collapsed') ? side.offsetWidth : 0;
-    return { w: w - left, h, cx: left + (w - left) / 2, cy: h / 2 };
+    const bottom = phoneLayout.matches && isFull ? Math.min(side.offsetHeight, h * 0.6) : 0;
+    return { w: w - left, h: h - bottom, cx: left + (w - left) / 2, cy: (h - bottom) / 2 };
   }
 
   // ---------- pins ----------
@@ -130,11 +139,21 @@ document.addEventListener('DOMContentLoaded', () => {
         el.appendChild(n);
       }
       const pin = { dish, el, lonlat: best, isSource };
-      el.addEventListener('mouseenter', (e) => pinTip(e, pin));
-      el.addEventListener('mousemove', (e) => pinTip(e, pin));
+      // Tooltips only for a real mouse (a tap on a phone fires these too)
+      el.addEventListener('mouseenter', (e) => { if (!phoneLayout.matches) pinTip(e, pin); });
+      el.addEventListener('mousemove', (e) => { if (!phoneLayout.matches) pinTip(e, pin); });
       el.addEventListener('mouseleave', () => { tip.hidden = true; });
       // A drag that starts on a pin moves the map instead of opening the link
-      el.addEventListener('click', (e) => { if (box.dataset.dragged === '1') e.preventDefault(); });
+      el.addEventListener('click', (e) => {
+        if (box.dataset.dragged === '1') { e.preventDefault(); return; }
+        // Phones have no hover tooltip: the first tap shows the dish in the list instead
+        if (isFull && phoneLayout.matches && !isSource) {
+          e.preventDefault();
+          e.stopPropagation();
+          tip.hidden = true;
+          showInList(dish.idx);
+        }
+      });
       pinsLayer.appendChild(el);
       pins.push(pin);
     };
@@ -200,13 +219,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const first = !zoom;
     if (first) {
       zoomT = d3.zoomIdentity;
+      // The zoom behaviour is only attached to the map in full screen (see setFull)
       zoom = d3.zoom()
         .scaleExtent([1, 8])
-        .filter((event) => {
-          // Scroll-zoom only with Ctrl/Cmd (or a pinch), so the page still scrolls over the map
-          if (event.type === 'wheel') return event.ctrlKey || event.metaKey;
-          return !event.button;
-        })
+        // Full screen only, so the scroll wheel can zoom (there's no page to scroll there)
+        .filter((event) => event.type === 'wheel' || !event.button)
         .on('start', () => { box.dataset.dragged = '0'; })
         .on('zoom', (event) => {
           if (event.sourceEvent && event.sourceEvent.type !== 'wheel') box.dataset.dragged = '1';
@@ -215,17 +232,85 @@ document.addEventListener('DOMContentLoaded', () => {
           positionPins();
         })
         .on('end', () => { setTimeout(() => { box.dataset.dragged = '0'; }, 0); });
-      d3.select(box).call(zoom).on('dblclick.zoom', null);
     }
     // Big margin around the map so it can be dragged anywhere, even when not zoomed in
     const padX = Math.max(w * 0.6, 440), padY = Math.max(h * 0.6, 320);
     zoom.translateExtent([[-padX, -padY], [w + padX, h + padY]]).extent([[0, 0], [w, h]]);
-    if (first) {
-      buildPins();
-      d3.select(box).call(zoom.transform, homeTransform());
-    }
-    positionPins();
+    if (first) buildPins();
+    // New size (first draw, full screen in/out, window resize): show the whole map again
+    d3.select(box).call(zoom.transform, homeTransform());
   }
+
+  // ---------- full screen ----------
+  function setFull(on) {
+    if (on === isFull) return;
+    isFull = on;
+    rmap.classList.toggle('is-full', on);
+    document.documentElement.classList.toggle('rmap-lock', on);
+    openBtn.hidden = on;
+    closeBtn.hidden = !on;
+    tip.hidden = true;
+    setSheet(false);
+    panel.scrollTop = 0;
+    if (zoom) {
+      if (on) d3.select(box).call(zoom).on('dblclick.zoom', null);   // drag + zoom on
+      else d3.select(box).on('.zoom', null);                          // back to a still preview
+    }
+    requestAnimationFrame(() => {
+      draw();
+      (on ? closeBtn : openBtn).focus();
+    });
+  }
+  openBtn.addEventListener('click', () => setFull(true));
+  closeBtn.addEventListener('click', () => setFull(false));
+  // A click on the map (not on a pin) also opens full screen
+  box.addEventListener('click', (e) => {
+    if (!isFull) { setFull(true); return; }
+    if (phoneLayout.matches && !e.target.closest('.rmap-pin') && box.dataset.dragged !== '1') setSheet(false);
+  });
+
+  // ---------- phones, full screen: the list is a bottom sheet ----------
+  // Scrolling the list up grows the sheet (the map stays visible in a strip at the top);
+  // scrolling down at the top of the list shrinks it back so the map shows again.
+  const panel = document.getElementById('rmap-panel');
+  let sheetOpen = false;
+  let quietUntil = 0;           // ignore scroll events caused by showInList()
+  function setSheet(open) {
+    sheetOpen = open;
+    side.classList.toggle('is-expanded', open);
+  }
+  const sheetActive = () => isFull && phoneLayout.matches;
+  panel.addEventListener('scroll', () => {
+    if (!sheetActive()) return;
+    if (Date.now() < quietUntil) { quietUntil = Date.now() + 200; return; }   // still our own smooth scroll
+    if (!sheetOpen && panel.scrollTop > 4) setSheet(true);
+  }, { passive: true });
+  let touchY = null;
+  panel.addEventListener('touchstart', (e) => { touchY = e.touches[0].clientY; }, { passive: true });
+  panel.addEventListener('touchmove', (e) => {
+    if (!sheetActive() || touchY === null) return;
+    const dy = e.touches[0].clientY - touchY;
+    if (sheetOpen && panel.scrollTop <= 0 && dy > 24) { setSheet(false); touchY = null; }
+    else if (!sheetOpen && dy < -24) { setSheet(true); touchY = null; }
+  }, { passive: true });
+  panel.addEventListener('touchend', () => { touchY = null; }, { passive: true });
+  panel.addEventListener('wheel', (e) => {          // the same with a mouse / trackpad
+    if (!sheetActive()) return;
+    if (!sheetOpen && e.deltaY > 0) setSheet(true);
+    else if (sheetOpen && e.deltaY < 0 && panel.scrollTop <= 0) setSheet(false);
+  }, { passive: true });
+
+  // A pin was tapped: bring its dish into view in the list and highlight it for a moment
+  function showInList(idx) {
+    const row = panel.querySelector(`li[data-idx="${idx}"]`);
+    if (!row) return;
+    quietUntil = Date.now() + 800;
+    panel.scrollTo({ top: Math.max(0, row.offsetTop - panel.clientHeight / 2 + row.offsetHeight / 2), behavior: 'smooth' });
+    panel.querySelectorAll('li.is-flash').forEach((li) => li.classList.remove('is-flash'));
+    row.classList.add('is-flash');
+    setTimeout(() => row.classList.remove('is-flash'), 1800);
+  }
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isFull) setFull(false); });
 
   // Whole map, centred in the part not covered by the panel
   function homeTransform() {

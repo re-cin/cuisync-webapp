@@ -55,7 +55,7 @@
         <div class="legend">
           <span class="chip chip-existing">In dataset</span>
           <span class="chip chip-suggested">Did you mean…?</span>
-          <span class="chip chip-new">New (needs the vectorizer)</span>
+          <span class="chip chip-new">New (borrows the closest vector)</span>
         </div>
         <div id="ner-chips" class="chip-list" aria-live="polite"></div>
         <div class="inline-actions">
@@ -87,7 +87,7 @@
         <div class="legend">
           <span class="chip chip-existing">In dataset</span>
           <span class="chip chip-suggested">Did you mean…?</span>
-          <span class="chip chip-new">New (needs the vectorizer)</span>
+          <span class="chip chip-new">New (borrows the closest vector)</span>
         </div>
         <div class="dir-groups">
           <div><p class="tag-cat">Cooking actions</p><div class="chip-list" data-dir-group="actions" data-field="action_text"></div></div>
@@ -115,11 +115,30 @@
         <div class="field"><label for="utensil_text">Utensils</label>
           <input id="utensil_text" type="text" name="utensil_text" value="{{ dish.utensil_text or '' }}" placeholder="knife, bowl"></div>
       </div>
-      <p class="hint">Items already in the dataset reuse their vectors. New items have no vector until the vectorizer is run again, so they don't count towards similarity yet. The Dashboard lists them.</p>
+      <p class="hint">Items already in the dataset reuse their vectors. New items borrow the closest known vector, and the Dashboard lists any with no match.</p>
     </section>
   </div>
 
   <div class="grow-1 stack side-card">
+    <section class="card">
+      <div class="card-head"><h2>Tags</h2><a href="{{ url_for('admin_page', tab='tags') }}" class="small-link">Manage</a></div>
+      <div class="field"><label for="tags">Custom tags</label>
+        <input id="tags" type="text" name="tags" value="{{ dish.tags or '' }}" placeholder="street food, festive, breakfast">
+        <p class="hint">Added to the automatic tags (region, cooking method, protein…). Comma-separated.</p></div>
+      <div class="chip-row chip-preview" data-preview-for="tags" aria-hidden="true"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Cultural notes</h2></div>
+      <p class="hint card-hint">Leave empty to let GPT write them. When filled in, these are shown instead of the GPT text.</p>
+      <div class="stack-sm">
+        <div class="field"><label for="culture_notes">Culture</label>
+          <textarea id="culture_notes" name="culture_notes" rows="3">{{ dish.culture_notes or '' }}</textarea></div>
+        <div class="field"><label for="history_notes">History</label>
+          <textarea id="history_notes" name="history_notes" rows="3">{{ dish.history_notes or '' }}</textarea></div>
+      </div>
+    </section>
+
     <button class="btn btn-maroon btn-block" type="submit">{{ 'Save changes' if recipe_id else 'Add dish' }}</button>
     <a class="btn btn-outline btn-block" href="{{ url_for('admin_page', tab='dishes') }}">Cancel</a>
   </div>

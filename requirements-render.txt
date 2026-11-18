@@ -24,3 +24,6 @@ huggingface_hub>=0.24.0
 
 # Accounts in Supabase (accounts.py)
 requests>=2.31.0
+
+# Dish Information Module (Supabase PostgreSQL SDK)
+supabase==2.31.0

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  {% include "partials/pwa_head.html" %}
+  {% include "partials/head_icons.html" %}
   <title>CUISYNC - Asian Cuisine Analysis</title>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -283,8 +283,7 @@
       const countriesByRegion =
         analysisOverview.countries_by_region || {};
 
-      // Region order set by the admin (Countries page), else the default order
-      const preferredOrder = analysisOverview.region_order || [
+      const preferredOrder = [
         "Southeast Asia",
         "East Asia",
         "South Asia",

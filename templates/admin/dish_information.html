@@ -1,0 +1,31 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}Stored dish backgrounds{% endblock %}
+{% block heading %}Stored dish backgrounds{% endblock %}
+{% block lead %}Generated backgrounds display automatically. No administrator approval is required.{% endblock %}
+{% block content %}
+<nav class="page-actions" aria-label="Stored status">
+  {% for status in ['pending', 'verified', 'unavailable'] %}
+  <a class="btn {{ 'btn-maroon' if state == status else 'btn-outline' }}" href="{{ url_for('dish_information_admin', state=status) }}">{{ status | title }}</a>
+  {% endfor %}
+</nav>
+{% if not configured %}<p class="hint">Configure Supabase and install the Python SDK to load the stored backgrounds.</p>{% endif %}
+{% for draft in drafts %}
+<article class="card mt">
+  <div class="card-head"><h2>{{ draft.dish_name }} · {{ draft.country }}</h2><span class="status">{{ draft.verification_status | title }}</span></div>
+  {% if draft.verification_status == 'unavailable' %}<p>{{ draft.unavailable_reason }}</p>{% endif %}
+  {% if draft.verification_status == 'pending' and draft.unavailable_reason %}<p class="hint">{{ draft.unavailable_reason }}</p>{% endif %}
+  <h3>History &amp; Culture</h3>
+  {% set combined_text = ((draft.historical_background or '') ~ ' ' ~ (draft.cultural_background or '')) | trim %}
+  <p class="dish-combined-background" style="white-space: normal;">{{ combined_text if combined_text else 'Information unavailable.' }}</p>
+  {% if draft.verification_status == 'pending' and combined_text %}
+  <p><strong>AI-Generated Information</strong> — This historical and cultural information was generated using artificial intelligence. It may contain inaccuracies and should be used for general informational purposes only.</p>
+  {% endif %}
+  <h3>Retrieved references</h3>
+  {% for source in draft.sources %}
+  <details class="mt"><summary>{% if source.url %}<a href="{{ source.url }}" target="_blank" rel="noopener noreferrer">{{ source.title or 'Source' }}</a>{% else %}Source unavailable{% endif %}</summary>
+    <p>{{ source.excerpt or 'Open the source to inspect its evidence.' }}</p>
+  </details>
+  {% endfor %}
+</article>
+{% else %}<section class="card mt"><p>No {{ state }} backgrounds. Run the enrichment script to populate the cache.</p></section>{% endfor %}
+{% endblock %}

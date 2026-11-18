@@ -4,7 +4,8 @@
   ingredient_search()  - dishes ranked by how well they cover the ingredients you have,
                          using the same ingredient vectors as the similarity score
   possible_cuisines()  - groups those dishes by country: which cuisines you could cook
-  recipe_tags()        - tags for a dish (region, cooking method, dish type)
+  recipe_tags()        - tags for a dish (region, cooking method, main protein, dish type,
+                         spicy, vegetarian, plus any tags the admin added)
 """
 import difflib
 import re
@@ -44,6 +45,21 @@ METHOD_TAGS = {
     "Smoked": {"smoke"},
     "Pickled": {"pickle"},
 }
+PROTEIN_TAGS = {
+    "Chicken": {"chicken"},
+    "Pork": {"pork", "bacon", "ham", "lard", "pancetta"},
+    "Beef": {"beef", "oxtail", "brisket", "steak", "veal"},
+    "Lamb & Goat": {"lamb", "mutton", "goat"},
+    "Duck": {"duck"},
+    "Seafood": {"shrimp", "prawn", "fish", "squid", "crab", "clam", "mussel", "scallop", "octopus",
+                "lobster", "salmon", "tuna", "mackerel", "anchovy", "cod", "tilapia", "milkfish", "catfish"},
+    "Egg": {"egg"},
+    "Tofu": {"tofu"},
+}
+MEAT_WORDS = set().union(*(PROTEIN_TAGS[k] for k in PROTEIN_TAGS if k not in ("Egg", "Tofu"))) | {
+    "meat", "sausage", "chorizo", "liver", "tripe", "gelatin", "bonito", "dashi", "fish sauce",
+    "shrimp paste", "oyster sauce", "oyster", "belacan", "anchovies", "chicken stock", "beef stock",
+    "bone broth", "broth"}
 TYPE_TAGS = {
     "Noodles": {"noodle", "noodles", "pho", "ramen", "udon", "soba", "pancit", "mee", "mie", "laksa", "pad", "bihun", "japchae"},
     "Rice": {"rice", "biryani", "nasi", "pilaf", "congee", "jook", "bibimbap", "donburi", "onigiri", "sushi", "risotto"},
@@ -56,6 +72,9 @@ TYPE_TAGS = {
                 "cookie", "cookies", "jelly", "custard", "flan", "leche", "ice", "candy", "tart", "pie"},
     "Grilled Skewers": {"satay", "sate", "yakitori", "kebab", "kabob", "inasal", "skewer", "skewers"},
 }
+SPICY_WORDS = {"chili", "chilli", "chile", "chilies", "cayenne", "gochujang", "gochugaru", "sambal",
+               "jalapeno", "bird's eye", "red pepper flake", "chili flake", "chili powder", "sriracha", "harissa"}
+
 CONDIMENT_WORDS = {"sauce", "paste", "stock", "broth", "powder", "oil", "bouillon", "cube", "extract",
                    "seasoning", "granule", "granules", "essence", "fat", "dripping", "drippings"}
 
@@ -63,8 +82,8 @@ _TAG_CACHE = {}
 
 
 def recipe_tags(recipe, region_of=None):
-    key = (id(recipe), recipe.get("title"), recipe.get("alternative_title"), recipe.get("action_text"),
-           recipe.get("country"), recipe.get("country_region"), region_of(recipe.get("country")) if region_of else "")
+    key = (id(recipe), recipe.get("title"), recipe.get("ingredient_text"), recipe.get("action_text"),
+           recipe.get("tags"), recipe.get("country"))
     if key in _TAG_CACHE:
         return _TAG_CACHE[key]
     tags = []
@@ -80,28 +99,46 @@ def recipe_tags(recipe, region_of=None):
     if "Deep-fried" in tags and "Fried" in tags:
         tags.remove("Fried")
 
+    ingredients = _items(recipe.get("ingredient_text"))
+    # Condiments don't make a main protein ("fish sauce" is not a seafood dish)
+    main_items = [i for i in ingredients if not set(i.split()) & CONDIMENT_WORDS]
+    ing_words = {w for i in main_items for w in re.findall(r"[a-z]+", i)}
+    for tag, words in PROTEIN_TAGS.items():
+        if ing_words & words and not (tag == "Egg" and ing_words & {"eggplant"} and "egg" not in ing_words):
+            tags.append(tag)
+
     title_words = _words(recipe.get("title")) | _words(recipe.get("alternative_title"))
     for tag, words in TYPE_TAGS.items():
         if title_words & words:
             tags.append(tag)
+
+    text = ", ".join(ingredients)
+    if any(w in text for w in SPICY_WORDS):
+        tags.append("Spicy")
+    if not any(re.search(r"\b" + re.escape(w) + r"s?\b", text) for w in MEAT_WORDS):
+        tags.append("Vegetarian")
+
+    for custom in _items(recipe.get("tags")):
+        label = custom.strip().title()
+        if label and label not in tags:
+            tags.append(label)
     _TAG_CACHE[key] = tags
     return tags
 
 
 def all_tags(recipes, region_of=None):
     counts = Counter()
-    regions = set()
     for r in recipes:
-        tags = recipe_tags(r, region_of)
-        counts.update(tags)
-        region = r.get("country_region") or (region_of(r.get("country")) if region_of else "")
-        if region:
-            regions.add(region)
+        counts.update(recipe_tags(r, region_of))
     groups = {
-        "Region": [t for t in counts if t in regions],
+        "Region": [t for t in counts if t.endswith("Asia")],
         "Cooking method": [t for t in METHOD_TAGS if t in counts],
+        "Main protein": [t for t in PROTEIN_TAGS if t in counts],
         "Dish type": [t for t in TYPE_TAGS if t in counts],
+        "Diet & flavor": [t for t in ("Spicy", "Vegetarian") if t in counts],
     }
+    used = {t for g in groups.values() for t in g}
+    groups["Custom"] = sorted(t for t in counts if t not in used)
     return {g: [(t, counts[t]) for t in sorted(ts, key=lambda t: -counts[t]) if counts[t]]
             for g, ts in groups.items() if ts}, counts
 
