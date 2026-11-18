@@ -1,0 +1,128 @@
+{# Create account, step 2.
+   mode "check":     "Check your email" - type the code from the email, or click the link in it.
+   mode "confirmed": "Email confirmed" - the account is ready (the user is now logged in). #}
+{% from "admin/admin_icons.html" import icon %}
+{% set confirmed = mode == 'confirmed' %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>CUISYNC - {{ 'Email confirmed' if confirmed else 'Confirm your email' }}</title>
+  {% include "partials/head_icons.html" %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base-style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+</head>
+<body class="admin-page auth-page">
+{% include "partials/flash.html" %}
+<div class="login-shell">
+
+  <section class="login-brand user-brand">
+    <a href="{{ url_for('home') }}" class="admin-logo">CUISYNC</a>
+    <div class="login-brand-copy">
+      <p class="eyebrow eyebrow-gold"><span class="diamond"></span>Discover Asian cuisines</p>
+      <h1>{{ 'You’re all set.' if confirmed else 'One last step.' }}</h1>
+      <p>{{ 'Your email is confirmed and your CuiSync account is ready.' if confirmed
+            else 'Confirm your email so we know it’s really you. Your account is created once it’s confirmed.' }}</p>
+    </div>
+  </section>
+
+  <section class="login-form-wrap">
+    {% if confirmed %}
+    <div class="login-form confirm-card">
+      <span class="confirm-icon is-done" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+      </span>
+      <div class="login-heading">
+        <h2>Email confirmed</h2>
+        <p>Welcome to CuiSync{% if user and (user.name or user.username) %}, {{ user.name or user.username }}{% endif %}! Your account has been created and you’re now logged in.</p>
+      </div>
+      <a class="btn btn-maroon btn-block" href="{{ url_for('home') }}#search-section">Start searching</a>
+      <p class="auth-switch"><a href="{{ url_for('profile') }}">Set up your profile</a> (favourite cuisines, allergens)</p>
+    </div>
+    {% else %}
+    <div class="login-form confirm-card" id="confirm-check">
+      <span class="confirm-icon" aria-hidden="true">{{ icon('mail', 30) }}</span>
+      <div class="login-heading">
+        <h2>Check your email</h2>
+        {% if email %}
+        <p>We sent a confirmation email to <strong class="confirm-email">{{ email }}</strong>. Open it and click the link, or type the code from it below.</p>
+        {% else %}
+        <p>Open the confirmation email we sent you and click the link, or type the code from it below.</p>
+        {% endif %}
+      </div>
+
+      <!-- Shown by the script below while a clicked email link is being checked -->
+      <p class="confirm-status" id="confirm-status" hidden></p>
+
+      <form method="POST" action="{{ url_for('register_confirm') }}" class="confirm-code-form">
+        <input type="hidden" name="action" value="code">
+        {% if not email %}
+        <div class="field">
+          <label for="confirm-email-input">Email address</label>
+          <div class="input-icon">
+            <input id="confirm-email-input" name="email" type="email" required autocomplete="email" placeholder="you@example.com">
+            <span>{{ icon('mail') }}</span>
+          </div>
+        </div>
+        {% endif %}
+        <div class="field">
+          <label for="code">Confirmation code</label>
+          <input id="code" name="code" class="confirm-code" type="text" inputmode="numeric" autocomplete="one-time-code"
+                 pattern="[0-9 ]{6,12}" maxlength="12" required placeholder="123456">
+        </div>
+        <button type="submit" class="btn btn-maroon btn-block">Confirm email</button>
+      </form>
+
+      <form method="POST" action="{{ url_for('register_confirm') }}" class="confirm-resend">
+        <input type="hidden" name="action" value="resend">
+        {% if email %}<input type="hidden" name="email" value="{{ email }}">{% endif %}
+        <span>Didn’t get it? Check your spam folder, or</span>
+        <button type="submit" class="small-link confirm-resend-btn">resend the email</button>
+      </form>
+
+      <p class="auth-switch">
+        Wrong email? <a href="{{ url_for('register') }}">Create the account again</a>
+        &middot; <a href="{{ url_for('login') }}">Log in</a>
+      </p>
+    </div>
+    {% endif %}
+  </section>
+</div>
+{% if not confirmed %}
+<script>
+  /* Supabase's default email link confirms the email and comes back here with the session in the
+     address (#access_token=...), or with #error=... when the link expired. The token only lives in
+     the address bar, so it's sent to the server once and removed from the address. */
+  (function () {
+    const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
+    if (!hash.toString()) return;
+    history.replaceState(null, '', location.pathname + location.search);
+    const status = document.getElementById('confirm-status');
+    const show = (text, bad) => { status.hidden = false; status.textContent = text; status.classList.toggle('is-error', !!bad); };
+    if (hash.get('error') || hash.get('error_code')) {
+      show(hash.get('error_code') === 'otp_expired'
+        ? 'That confirmation link has expired or was already used. Request a new email below.'
+        : 'That confirmation link didn’t work. Request a new email below.', true);
+      return;
+    }
+    const token = hash.get('access_token');
+    if (!token) return;
+    show('Confirming your email…');
+    fetch('{{ url_for("register_confirm_link") }}', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+      body: JSON.stringify({ access_token: token }),
+    }).then((r) => r.json()).then((data) => {
+      if (data.ok) location.replace(data.redirect);
+      else show('We couldn’t confirm your email with that link. Try the code instead, or request a new email.', true);
+    }).catch(() => show('We couldn’t reach the server. Please try again.', true));
+  })();
+</script>
+{% endif %}
+</body>
+</html>

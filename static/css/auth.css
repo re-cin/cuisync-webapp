@@ -38,3 +38,45 @@
 /* Logo at the top, text centred in the remaining space */
 .user-brand { justify-content: flex-start; }
 .user-brand .login-brand-copy { margin: auto 0; }
+
+/* ---------- Create account, step 2: "Check your email" / "Email confirmed" ---------- */
+.confirm-card { text-align: center; }
+.confirm-card .field { text-align: left; }
+.confirm-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 4px;
+  border-radius: 50%;
+  background: rgba(128, 13, 18, 0.08);
+  color: var(--maroon-main);
+}
+.confirm-icon.is-done { background: var(--maroon-main); color: var(--gold-accent); }
+.confirm-email { color: var(--maroon-main); word-break: break-all; }
+.confirm-code-form { display: flex; flex-direction: column; gap: 16px; }
+.confirm-code {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--admin-border, #d8cdb9);
+  border-radius: 10px;
+  background: #fff;
+  font: inherit;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: 0.45em;
+  text-align: center;
+}
+.confirm-code:focus { outline: 2px solid var(--maroon-main); outline-offset: 1px; }
+.confirm-status {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #e3ecd6;
+  color: #2d5520;
+  font-size: 0.85rem;
+}
+.confirm-status.is-error { background: #f2d3cf; color: var(--maroon-main); }
+.confirm-resend { font-size: 0.85rem; color: var(--admin-muted, #7a6e62); }
+.confirm-resend-btn { padding: 0; border: 0; background: none; cursor: pointer; font-size: inherit; }

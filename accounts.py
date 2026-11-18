@@ -81,7 +81,7 @@ def _headers(key, extra=None):
     return headers
 
 
-def _call(method, path, key=None, params=None, json=None, prefer=None, ok=(200, 201, 204)):
+def _call(method, path, key=None, params=None, json=None, prefer=None, ok=(200, 201, 204), extra_auth=None):
     if not configured():
         # Read .env again before giving up (in case the settings were added after the app started)
         try:
@@ -92,7 +92,9 @@ def _call(method, path, key=None, params=None, json=None, prefer=None, ok=(200, 
         init()
     if not configured():
         raise SupabaseError("Accounts are not set up yet (Supabase settings are missing in .env).")
-    extra = {"Prefer": prefer} if prefer else None
+    extra = {"Prefer": prefer} if prefer else {}
+    if extra_auth:   # a signed-in user's token (the apikey header still identifies the project)
+        extra["Authorization"] = f"Bearer {extra_auth}"
     try:
         response = requests.request(method, URL + path, headers=_headers(key or SERVICE_KEY, extra),
                                     params=params, json=json, timeout=TIMEOUT)
@@ -215,7 +217,7 @@ def authenticate(login, password):
     if response.status_code != 200:
         data = response.json() if response.content else {}
         if "not confirmed" in str(data).lower():
-            raise SupabaseError("Please confirm your email first (check your inbox).")
+            raise EmailNotConfirmed("Please confirm your email first (check your inbox).")
         return None
     user = get_user(response.json()["user"]["id"])
     if user and not user["is_active"]:
@@ -251,6 +253,145 @@ def create_user(username, password, role="user", display_name="", email=""):
         _call("DELETE", f"/auth/v1/admin/users/{user_id}", ok=(200, 204, 404))
         raise
     return user_id
+
+
+# ---------------------------------------------------------------------------
+# Sign up with email confirmation
+#   1. start_signup()  - Supabase Auth makes the (not yet confirmed) user and emails a
+#                        confirmation link (and a 6-digit code if the email template has one)
+#   2. the user clicks the link, or types the code on the "Check your email" page
+#   3. confirm_with_code() / confirm_with_token_hash() / user_from_access_token()
+#      return the user id once the email is confirmed; only then can they log in
+# Needs "Confirm email" turned on in Supabase (Authentication > Sign In / Providers > Email).
+# ---------------------------------------------------------------------------
+
+class EmailNotConfirmed(SupabaseError):
+    """The account exists but its email is not confirmed yet."""
+
+
+def _signup_error(response):
+    """Friendlier messages for the email-sending errors of /auth/v1/signup and /resend."""
+    try:
+        data = response.json()
+    except ValueError:
+        data = {}
+    text = " ".join(str((data or {}).get(k, "")) for k in ("msg", "message", "error_description", "error", "error_code", "code")).lower()
+    if "rate limit" in text or "over_email_send_rate_limit" in text or response.status_code == 429:
+        return SupabaseError("Too many confirmation emails were sent just now. Please wait a few minutes and try again.")
+    if "not authorized" in text or "email_address_not_authorized" in text:
+        print("[CuiSync] Supabase could not send the confirmation email: set up custom SMTP in "
+              "Supabase (Authentication > Emails > SMTP Settings). The built-in sender only emails team members.")
+        return SupabaseError("We couldn't send the confirmation email right now. Please try again later.")
+    if "error sending" in text or "smtp" in text:
+        print(f"[CuiSync] Supabase email error: {text.strip()}")
+        return SupabaseError("We couldn't send the confirmation email right now. Please try again later.")
+    return _error_from(response)
+
+
+def _auth_user(user_id):
+    """The Supabase Auth record (email_confirmed_at, created_at, ...), or None."""
+    response = _call("GET", f"/auth/v1/admin/users/{user_id}", ok=(200, 404))
+    return response.json() if response.status_code == 200 else None
+
+
+def start_signup(username, password, display_name="", email="", redirect_to=""):
+    """Step 1: checks the form, makes the unconfirmed Supabase user and sends the email.
+    Returns "sent" (check your email) or "active" (Supabase has email confirmation off),
+    together with the user id."""
+    username = (username or "").strip()
+    email = (email or "").strip().lower()
+    if not USERNAME_RE.match(username):
+        raise SupabaseError("Username must be 3-30 characters: letters, numbers, . or _")
+    if not EMAIL_RE.match(email):
+        raise SupabaseError("Please enter a valid email address.")
+    if len(password or "") < 6:
+        raise SupabaseError("Password must be at least 6 characters.")
+    taken = _profile_by("username", username.lower())
+    if taken:
+        auth = _auth_user(taken["id"]) or {}
+        unconfirmed = not auth.get("email_confirmed_at")
+        if unconfirmed and (taken.get("email") or "").lower() == email:
+            pass   # the same person signing up again: Supabase sends a new email below
+        elif unconfirmed and _older_than(auth.get("created_at"), days=1):
+            # Never confirmed in a day: free the username again
+            _call("DELETE", f"/auth/v1/admin/users/{taken['id']}", ok=(200, 204, 404))
+        else:
+            raise SupabaseError("That username is already taken.")
+    params = {"redirect_to": redirect_to} if redirect_to else None
+    response = _call("POST", "/auth/v1/signup", key=ANON_KEY, params=params, json={
+        "email": email, "password": password,
+        "data": {"name": display_name.strip()[:60], "username": username.lower()},
+    }, ok=(200, 201, 400, 422, 429, 500))
+    if response.status_code not in (200, 201):
+        raise _signup_error(response)
+    data = response.json()
+    user = data.get("user") or data
+    # An email that already has a confirmed account comes back with no identities
+    # (Supabase hides that the account exists).
+    if isinstance(user.get("identities"), list) and not user["identities"]:
+        raise SupabaseError("An account with this email already exists. Please log in instead.")
+    user_id = user.get("id")
+    # The on_auth_user_created trigger made the profile; make sure the name/username are set
+    _rest("PATCH", "profiles", params={"id": f"eq.{user_id}"}, prefer="return=minimal",
+          json={"username": username.lower(), "name": display_name.strip()[:60], "email": email})
+    return ("active" if data.get("access_token") else "sent"), user_id
+
+
+def _older_than(stamp, days):
+    try:
+        made = datetime.datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return datetime.datetime.now(datetime.timezone.utc) - made > datetime.timedelta(days=days)
+
+
+def resend_signup(email):
+    response = _call("POST", "/auth/v1/resend", key=ANON_KEY, json={"type": "signup", "email": (email or "").strip().lower()},
+                     ok=(200, 400, 422, 429, 500))
+    if response.status_code != 200:
+        raise _signup_error(response)
+
+
+def _verified_user_id(response):
+    if response.status_code != 200:
+        return None
+    data = response.json()
+    return (data.get("user") or {}).get("id") or data.get("id")
+
+
+def confirm_with_code(email, code):
+    """The 6-digit code from the email. Returns the user id, or None for a wrong/expired code."""
+    code = re.sub(r"\s", "", code or "")
+    if not re.fullmatch(r"\d{6,10}", code):
+        return None
+    for kind in ("email", "signup"):
+        response = _call("POST", "/auth/v1/verify", key=ANON_KEY, ok=(200, 400, 401, 403, 404, 422),
+                         json={"type": kind, "email": (email or "").strip().lower(), "token": code})
+        user_id = _verified_user_id(response)
+        if user_id:
+            return user_id
+    return None
+
+
+def confirm_with_token_hash(token_hash, kind="email"):
+    """The link in the email when it points to /register/confirm?token_hash=..."""
+    kind = kind if kind in ("email", "signup") else "email"
+    response = _call("POST", "/auth/v1/verify", key=ANON_KEY, ok=(200, 400, 401, 403, 404, 422),
+                     json={"type": kind, "token_hash": token_hash})
+    return _verified_user_id(response)
+
+
+def user_from_access_token(access_token):
+    """The default Supabase link confirms the email itself and comes back with a session in
+    the address (#access_token=...). Returns the user id if that session is real and confirmed."""
+    if not access_token:
+        return None
+    response = _call("GET", "/auth/v1/user", key=ANON_KEY, ok=(200, 401, 403),
+                     extra_auth=access_token)
+    if response.status_code != 200:
+        return None
+    data = response.json()
+    return data.get("id") if data.get("email_confirmed_at") else None
 
 
 def ensure_admin(username, password, email):

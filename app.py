@@ -1329,6 +1329,12 @@ def login():
     if request.method == "POST":
         try:
             user = accounts.authenticate(request.form.get("username"), request.form.get("password"))
+        except accounts.EmailNotConfirmed as error:
+            # Signed up but never confirmed: send them to "Check your email" (with Resend)
+            login_name = (request.form.get("username") or "").strip()
+            session["pending_signup"] = {"email": accounts._email_for_login(login_name) or "", "sent_at": 0}
+            flash(str(error), "error")
+            return redirect(url_for("register_confirm"))
         except accounts.SupabaseError as error:
             flash(str(error), "error")
             return render_template("auth.html", mode="login", next=request.values.get("next", "")), 400
@@ -1348,22 +1354,99 @@ def login():
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    """Create account, step 1: the form. Supabase then emails a confirmation link / code and the
+    account can't be used until the email is confirmed (step 2: /register/confirm)."""
     if request.method == "POST":
         if request.form.get("password") != request.form.get("confirm"):
             flash("The two passwords don't match.", "error")
         else:
             try:
-                uid = accounts.create_user(request.form.get("username"), request.form.get("password"),
-                                           display_name=request.form.get("display_name", ""),
-                                           email=request.form.get("email", ""))
-                session.clear()
-                session["user_id"] = uid
-                # no message after signing up; there is no profile to set up any more, so go home
-                return redirect(url_for("home"))
+                state, uid = accounts.start_signup(
+                    request.form.get("username"), request.form.get("password"),
+                    display_name=request.form.get("display_name", ""),
+                    email=request.form.get("email", ""),
+                    redirect_to=url_for("register_confirm", _external=True))
+                if state == "active":   # email confirmation is turned off in Supabase
+                    session.clear()
+                    session["user_id"] = uid
+                    return redirect(url_for("home"))
+                session["pending_signup"] = {"email": request.form.get("email", "").strip().lower(),
+                                             "sent_at": time.time()}
+                return redirect(url_for("register_confirm"))
             except ValueError as error:
                 flash(str(error), "error")
     return render_template("auth.html", mode="register", next="",
                            form={k: request.form.get(k, "") for k in ("email", "username", "display_name")})
+
+
+def _finish_signup(user_id):
+    """Email confirmed: log the new user in and show the "Email confirmed" page."""
+    session.clear()
+    session["user_id"] = user_id
+    user = accounts.get_user(user_id) or {}
+    return render_template("auth_confirm.html", mode="confirmed", user=user)
+
+
+RESEND_WAIT = 60   # seconds between "Resend email" presses
+
+
+@app.route("/register/confirm", methods=["GET", "POST"])
+def register_confirm():
+    """Create account, step 2: "Check your email". The user types the code from the email, or
+    clicks the link in it (which comes back here, either with ?token_hash=... or, with
+    Supabase's default email, with #access_token=... that the page sends to /register/confirm/link)."""
+    pending = session.get("pending_signup") or {}
+    email = pending.get("email", "")
+    try:
+        if request.method == "GET" and request.args.get("token_hash"):
+            uid = accounts.confirm_with_token_hash(request.args["token_hash"], request.args.get("type", "email"))
+            if uid:
+                return _finish_signup(uid)
+            flash("That confirmation link has expired or was already used. Request a new one below.", "error")
+        elif request.method == "POST":
+            action = request.form.get("action")
+            if request.form.get("email"):
+                email = request.form["email"].strip().lower()
+            if action == "resend":
+                wait = RESEND_WAIT - (time.time() - pending.get("sent_at", 0))
+                if not email:
+                    flash("Enter the email address you signed up with.", "error")
+                elif wait > 0 and pending.get("email") == email:
+                    flash(f"Please wait {int(wait) + 1} seconds before asking for another email.", "error")
+                else:
+                    accounts.resend_signup(email)
+                    session["pending_signup"] = {"email": email, "sent_at": time.time()}
+                    flash(f"We sent a new confirmation email to {email}.", "success")
+                return redirect(url_for("register_confirm"))
+            uid = accounts.confirm_with_code(email, request.form.get("code"))
+            if uid:
+                return _finish_signup(uid)
+            flash("That code is wrong or has expired. Check the latest email, or request a new one.", "error")
+    except ValueError as error:
+        flash(str(error), "error")
+    return render_template("auth_confirm.html", mode="check", email=email)
+
+
+@app.route("/register/confirm/link", methods=["POST"])
+def register_confirm_link():
+    """The default Supabase email link: Supabase already confirmed the email and sent the user
+    back with a session in the address bar; the page posts its access token here."""
+    data = request.get_json(silent=True) or {}
+    try:
+        uid = accounts.user_from_access_token(str(data.get("access_token") or ""))
+    except ValueError:
+        uid = None
+    if not uid:
+        return jsonify({"ok": False}), 400
+    session.clear()
+    session["user_id"] = uid
+    return jsonify({"ok": True, "redirect": url_for("register_confirmed")})
+
+
+@app.route("/register/confirmed")
+@login_required
+def register_confirmed():
+    return render_template("auth_confirm.html", mode="confirmed", user=current_user() or {})
 
 
 @app.route("/logout")
