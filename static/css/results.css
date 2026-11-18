@@ -2996,3 +2996,53 @@ a.entity-chip:focus-visible { outline: 2px solid var(--gold-accent); outline-off
 .rt-column .rt-ai-disclaimer strong { color: var(--gold-accent); font-size: inherit; letter-spacing: normal; }
 .rt-column .rt-ai-disclaimer { font-size: 0.7rem; }
 .rt-column .rt-ai-disclaimer strong { font-weight: 600; }
+
+/* ==========================================================================
+   Dish information: header above the tabbed card, and tabs like the Dish Dictionary
+   (on the card's cream, a faint line under the bar, the active tab underlined in red)
+   ========================================================================== */
+.rt-info-heading { margin: 0 0 16px; }
+.rt-tabs {
+  display: flex;
+  gap: 28px;
+  padding: 0 32px;
+  background: var(--cream-bg);
+  border-bottom: 1px solid var(--gold-border);
+}
+.rt-tabs.is-stuck { box-shadow: none; }
+.rt-tab {
+  flex: none;
+  padding: 18px 0 14px;
+  margin-bottom: -1px;
+  border-top: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--maroon-main);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.rt-tabs:not(.is-stuck) .rt-tab:first-child,
+.rt-tabs:not(.is-stuck) .rt-tab:nth-child(2),
+.rt-tabs:not(.is-stuck) .rt-tab:last-child { border-radius: 0; }
+.rt-tab:hover { background: transparent; color: var(--maroon-main); border-bottom-color: var(--gold-border); }
+.rt-tab.is-active {
+  background: transparent;
+  color: var(--maroon-main);
+  font-weight: 600;
+  border-bottom-color: var(--maroon-main);
+}
+.rt-tab:focus-visible { outline: 2px solid var(--maroon-main); outline-offset: 2px; }
+/* Phones: the 2 x 2 grid stays (all four tabs visible), with the same underline */
+@media (max-width: 700px) {
+  .rt-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; padding: 4px 16px 0; }
+  .rt-tab { padding: 12px 0 10px; font-size: 0.72rem; white-space: normal; text-align: center; }
+}
+
+/* Health information: the allergen pills are the same cream as the card they sit in
+   (--cream-card) instead of near-white, and the health cards share that cream */
+#rt-panel-health .rt-allergen-group,
+#rt-panel-health .rt-benefit-list li,
+#rt-panel-health .rt-market-findings .rt-allergen-finding,
+#rt-panel-health .rt-market-select { background: var(--cream-card); }
+#rt-panel-health .rt-allergen-group .rt-allergen-finding,
+#rt-panel-health .rt-allergen-group .rt-allergen-finding + .rt-allergen-finding { background: var(--cream-card); }

@@ -140,6 +140,10 @@ document.addEventListener('DOMContentLoaded', () => {
     ocrLoading.style.display = isLoading ? 'block' : 'none';
     imageSearchButton.disabled = isLoading;
     imageForm.classList.toggle('is-ocr-loading', isLoading);
+    if (window.CuiSyncBusy) {
+      if (isLoading) window.CuiSyncBusy.start(null, 'Reading the menu...');
+      else window.CuiSyncBusy.stop();
+    }
   }
 
   // Fill the dish card
@@ -179,6 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     updateTargetVisibility();
     // No target yet: open the target country list next to the card
+    targetSelect.dispatchEvent(new CustomEvent('picker:reveal'));
     if (!targetSelect.value) {
       targetSelect.classList.add('needs-attention');
       targetSelect.dispatchEvent(new CustomEvent('picker:open'));
@@ -326,6 +331,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   }
+
+  // The x on the busy screen (or Esc) stops the scan
+  window.addEventListener('cuisync:cancel', () => {
+    if (activeScanController) activeScanController.abort();
+  });
 
   // Show preview, then scan
   // Same 16 MB limit as app.py
@@ -623,7 +633,9 @@ document.addEventListener('DOMContentLoaded', () => {
       event.preventDefault();
       targetSelect.classList.add('needs-attention');
       targetSelect.dispatchEvent(new CustomEvent('picker:open'));
+      return;
     }
+    if (window.CuiSyncBusy) window.CuiSyncBusy.start(imageSearchButton);
   });
   targetSelect.addEventListener('change', () => targetSelect.classList.remove('needs-attention'));
-});
+});

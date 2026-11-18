@@ -213,3 +213,178 @@ class AppFooter extends HTMLElement {
 
 customElements.define('app-nav', AppNav);
 customElements.define('app-footer', AppFooter);
+
+/* ------------------------------------------------------------------
+   Busy screen: while a search runs (or the page is loading the results),
+   the button reads "Searching..." and a translucent tint covers the page
+   so nothing can be clicked twice.
+     CuiSyncBusy.start(button, label?)   CuiSyncBusy.stop()
+   ------------------------------------------------------------------ */
+window.CuiSyncBusy = (() => {
+  let overlay = null;
+  let busyButtons = [];
+  function ensureOverlay() {
+    if (overlay) return overlay;
+    overlay = document.createElement('div');
+    overlay.className = 'busy-overlay';
+    overlay.setAttribute('role', 'status');
+    overlay.setAttribute('aria-live', 'polite');
+    overlay.innerHTML = '<div class="busy-box">'
+      + '<span class="busy-spinner" aria-hidden="true"></span>'
+      + '<span class="busy-words"><span class="busy-text">Searching...</span>'
+      + '<span class="busy-time" aria-hidden="true">0 seconds</span></span>'
+      + '</div>';
+    // Swallow every click while busy
+    overlay.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); });
+    document.body.appendChild(overlay);
+    return overlay;
+  }
+  // Seconds counting up under the label
+  let timer = null;
+  let startedAt = 0;
+  function tick() {
+    const n = Math.floor((Date.now() - startedAt) / 1000);
+    overlay.querySelector('.busy-time').textContent = `${n} second${n === 1 ? '' : 's'}`;
+  }
+  // Searches that fetch (not a page load) listen to this to stop their request
+  let controller = new AbortController();
+  function start(button, label = 'Searching...') {
+    const o = ensureOverlay();
+    o.querySelector('.busy-text').textContent = label;
+    if (!o.classList.contains('is-on')) {
+      if (controller.signal.aborted) controller = new AbortController();
+      startedAt = Date.now();
+      tick();
+      clearInterval(timer);
+      timer = setInterval(tick, 1000);
+    }
+    if (button && !button.dataset.busyLabel) {
+      button.dataset.busyLabel = button.innerHTML;
+      button.textContent = label;
+      button.disabled = true;
+      button.classList.add('is-busy');
+      busyButtons.push(button);
+    }
+    document.documentElement.classList.add('is-busy');
+    o.classList.add('is-on');
+  }
+  // The browser's stop button (or Esc): stop the page load or the request and go back to the page
+  function cancel() {
+    if (!document.documentElement.classList.contains('is-busy')) return;
+    controller.abort();
+    try { window.stop(); } catch (e) { /* old browsers */ }
+    stop();
+    window.dispatchEvent(new CustomEvent('cuisync:cancel'));
+  }
+  function stop() {
+    clearInterval(timer);
+    timer = null;
+    busyButtons.forEach((b) => {
+      if (b.dataset.busyLabel !== undefined) b.innerHTML = b.dataset.busyLabel;
+      delete b.dataset.busyLabel;
+      b.disabled = false;
+      b.classList.remove('is-busy');
+    });
+    busyButtons = [];
+    document.documentElement.classList.remove('is-busy');
+    if (overlay) overlay.classList.remove('is-on');
+  }
+  // Coming back with the browser's Back button (page restored from cache): not busy any more
+  // The browser's own stop button (the x in place of reload) cancels the page that was loading:
+  // browsers with the Navigation API report it as a failed navigation, so the busy screen goes
+  // away and the page can be used again
+  if (window.navigation) {
+    window.navigation.addEventListener('navigateerror', () => {
+      if (document.documentElement.classList.contains('is-busy')) cancel();
+    });
+  }
+  // (only then: a normal page load also fires pageshow, after a search may already have started)
+  window.addEventListener('pageshow', (e) => { if (e.persisted) stop(); });
+  document.addEventListener('keydown', (e) => {
+    if (!document.documentElement.classList.contains('is-busy')) return;
+    if (e.key === 'Escape') { e.preventDefault(); cancel(); return; }
+    if (e.key !== 'Tab') e.preventDefault();
+  }, true);
+
+  // Every link that opens a comparison or a search (map pins and list, search history,
+  // "Find similar dishes", ...) and every normal form sent to a search page shows the
+  // busy screen while the next page loads.
+  // (/history/<id> opens a past search from "My search history"; /history/<id>/delete doesn't count)
+  const SEARCH_PAGES = /^\/(?:(?:compare|similar-dishes|search-text|search-image)(?:\/|$)|history\/\d+\/?$)/;
+  const isSearchUrl = (url) => url.origin === location.origin
+    && (SEARCH_PAGES.test(url.pathname) || (url.pathname === '/' && url.searchParams.has('dish')));
+  // Only short text buttons/links change their label; cards and map pins keep theirs
+  function labelTarget(el) {
+    if (el.querySelector('img, .rmap-pin-rank') || el.classList.contains('rmap-pin')) return null;
+    return el.textContent.trim().length <= 40 ? el : null;
+  }
+  document.addEventListener('click', (e) => {
+    // Runs after the element's own handlers: a click they cancelled (a map drag, a pin tap
+    // that only scrolls the list on phones) doesn't count
+    if (e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+    const a = e.target.closest('a[href]');
+    if (!a || (a.target && a.target !== '_self') || a.hasAttribute('download')) return;
+    const url = new URL(a.href, location.href);
+    if (!isSearchUrl(url)) return;
+    if (url.pathname === location.pathname && url.search === location.search) return;   // this page
+    start(labelTarget(a));
+  });
+  document.addEventListener('submit', (e) => {
+    if (e.defaultPrevented) return;
+    const form = e.target;
+    if ((form.method || '').toLowerCase() === 'dialog') return;
+    if (!isSearchUrl(new URL(form.action, location.href))) return;
+    start(e.submitter || form.querySelector('button[type="submit"]'));
+  });
+
+  return { start, stop, cancel, get signal() { return controller.signal; } };
+})();
+
+/* ==============================
+   REUSABLE INFO TOOLTIP
+============================== */
+
+document.addEventListener('click', (event) => {
+    const trigger = event.target.closest('.info-tooltip-trigger');
+
+    // Close tooltips when clicking outside
+    if (!trigger) {
+        document.querySelectorAll('.info-tooltip.is-open').forEach((tooltip) => {
+            if (!tooltip.contains(event.target)) {
+                tooltip.classList.remove('is-open');
+
+                const button = tooltip.querySelector('.info-tooltip-trigger');
+                button?.setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        return;
+    }
+
+    const tooltip = trigger.closest('.info-tooltip');
+    const isOpen = tooltip.classList.contains('is-open');
+
+    // Close other open tooltips
+    document.querySelectorAll('.info-tooltip.is-open').forEach((item) => {
+        item.classList.remove('is-open');
+        item.querySelector('.info-tooltip-trigger')
+            ?.setAttribute('aria-expanded', 'false');
+    });
+
+    // Toggle selected tooltip
+    if (!isOpen) {
+        tooltip.classList.add('is-open');
+        trigger.setAttribute('aria-expanded', 'true');
+    }
+});
+
+// Close tooltips using Escape
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+        document.querySelectorAll('.info-tooltip.is-open').forEach((tooltip) => {
+            tooltip.classList.remove('is-open');
+            tooltip.querySelector('.info-tooltip-trigger')
+                ?.setAttribute('aria-expanded', 'false');
+        });
+    }
+});

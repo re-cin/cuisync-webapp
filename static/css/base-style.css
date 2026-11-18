@@ -579,3 +579,124 @@ a {
   html,
   body { overflow-x: clip; }
 }
+
+/* ---------- Busy screen (CuiSyncBusy in components.js) ---------- */
+.busy-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100001;              /* above the nav (99999) and the full-screen map */
+  display: grid;
+  place-items: center;
+  background: rgba(30, 6, 6, 0.45);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s;
+  cursor: progress;
+}
+.busy-overlay.is-on { opacity: 1; visibility: visible; }
+.busy-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 22px;
+  border-radius: 8px;
+  background: var(--cream-bg);
+  color: var(--maroon-main);
+  font-family: 'Poppins', sans-serif;
+  font-weight: 600;
+  font-size: 0.95rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+.busy-spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(128, 13, 18, 0.2);
+  border-top-color: var(--maroon-main);
+  border-radius: 50%;
+  animation: busy-spin 0.8s linear infinite;
+}
+@keyframes busy-spin { to { transform: rotate(360deg); } }
+html.is-busy, html.is-busy body { cursor: progress; }
+button.is-busy { cursor: progress; }
+@media (prefers-reduced-motion: reduce) { .busy-spinner { animation-duration: 2s; } }
+
+/* Busy screen: seconds counter under the label */
+.busy-words { display: flex; flex-direction: column; line-height: 1.25; }
+.busy-time {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==============================
+   REUSABLE INFO TOOLTIP
+============================== */
+
+.info-tooltip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    margin-left: 5px;
+}
+
+.info-tooltip-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 17px;
+    height: 17px;
+    padding: 0;
+    border: 1px solid #800d12;
+    border-radius: 50%;
+    background: transparent;
+    color: #800d12;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.info-tooltip-content {
+    position: absolute;
+    z-index: 9999;
+    bottom: calc(100% + 9px);
+    left: 50%;
+    width: 230px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #2c1a11;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.5;
+    text-align: left;
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, 5px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.info-tooltip:hover .info-tooltip-content,
+.info-tooltip:focus-within .info-tooltip-content,
+.info-tooltip.is-open .info-tooltip-content {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate(-50%, 0);
+}
+
+@media (max-width: 768px) {
+    .info-tooltip-content {
+        left: 50%;
+        right: auto;
+        width: min(230px, calc(100vw - 50px));
+        transform: translate(-45%, 5px);
+    }
+
+    .info-tooltip:hover .info-tooltip-content,
+    .info-tooltip:focus-within .info-tooltip-content,
+    .info-tooltip.is-open .info-tooltip-content {
+      transform: translate(-45%, 0);
+    }
+}

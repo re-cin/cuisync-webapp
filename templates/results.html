@@ -164,6 +164,7 @@
          ================================== -->
     <section class="section-dark rt-section" id="comparison-details">
       <div class="inner-content">
+        <h2 class="section-heading rt-info-heading">Dish information</h2>
         <div class="rt-card" id="rt-card">
           <div class="rt-sentinel" id="rt-sentinel" aria-hidden="true"></div>
           <div class="rt-tabs" role="tablist" aria-label="Comparison details" id="rt-tabs">
@@ -403,20 +404,23 @@
           {% if mp.target %}The 5 most similar dishes from {{ mp.target }} and the 15 most similar from other countries.
           {% else %}The 20 most similar dishes from any country.{% endif %}
           Click a dish to compare it with {{ source_dish.title }}.
-          <span class="rmap-hint">Drag to move the map; zoom with the + and &minus; buttons, Ctrl + scroll or a pinch.</span>
+          <span class="rmap-hint">Click the map to open it full screen, where you can move around and zoom.</span>
         </p>
 
         <div class="rmap" id="rmap">
-          <!-- Side panel: the top 10 (collapsible on bigger screens) -->
+          <!-- Side panel with the dishes on the map. Bigger screens: beside the map (collapsible).
+               Phones: hidden under the preview; in full screen it's a bottom sheet over the map. -->
           <aside class="rmap-side" id="rmap-side" aria-labelledby="rmap-list-title">
-            <button type="button" class="rmap-toggle" id="rmap-toggle" aria-expanded="true" aria-controls="rmap-side" aria-label="Hide the top 10 list">
+            <button type="button" class="rmap-toggle" id="rmap-toggle" aria-expanded="true" aria-controls="rmap-side" aria-label="Hide the list">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
             </button>
-            <div class="rmap-panel">
+            <div class="rmap-panel" id="rmap-panel">
+              <span class="rmap-grabber" aria-hidden="true"></span>
+              <p class="rmap-panel-hint">Tap a dish to see how similar it is</p>
               <h3 class="rmap-list-title" id="rmap-list-title">Top {{ mp.listSize }} similar dishes</h3>
               <ol class="rmap-list">
                 {% for d in mp.dishes if d.rank and d.rank <= mp.listSize %}
-                <li>
+                <li data-idx="{{ d.idx }}">
                   <a class="rmap-item {{ 'is-current' if d.current }}" href="{{ d.url }}"
                      {% if d.current %}aria-current="page"{% endif %}
                      title="{{ 'You are viewing this comparison' if d.current else 'Compare with ' ~ d.title }}">
@@ -442,6 +446,15 @@
             <div class="rmap-tooltip" id="rmap-tooltip" hidden></div>
           </div>
 
+          <!-- The map is a still preview on the page; clicking it (or this button) opens full screen -->
+          <button type="button" class="rmap-full-btn" id="rmap-full-open">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+            Full screen
+          </button>
+          <button type="button" class="rmap-full-btn rmap-exit-btn" id="rmap-full-close" hidden>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            Exit full screen
+          </button>
           <div class="rmap-zoom" role="group" aria-label="Map controls">
             <button type="button" id="rmap-focus" class="rmap-focus" aria-label="Focus on your dish" title="Focus on {{ source_dish.title }}">
               <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
@@ -501,4 +514,5 @@
   </script>
 
 </body>
-</html>
+</html>
+
