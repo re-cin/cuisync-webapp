@@ -1406,3 +1406,8 @@ body.dp-open { overflow: hidden; }
 .dict-breadcrumb span,
 .dict-breadcrumb .current { color: var(--gold-accent); }
 .dict-breadcrumb a:hover { color: var(--gold-light); }
+
+/* "Find similar dishes": logo gold text and arrow */
+.dp-similar,
+.dp-similar:hover { color: var(--gold-accent); }
+.dp-similar .dp-similar-arrow { color: var(--gold-accent); }

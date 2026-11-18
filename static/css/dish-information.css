@@ -127,4 +127,4 @@
 }
 .dp-info .rt-ai-disclaimer { margin-top: 32px; }
 .dp-info .rt-ai-disclaimer strong { font-weight: 400; }
-.dp-info .rt-ai-disclaimer strong { color: #fff; font-size: inherit; letter-spacing: normal; }
+.dp-info .rt-ai-disclaimer strong { color: var(--gold-accent); font-size: inherit; letter-spacing: normal; }
