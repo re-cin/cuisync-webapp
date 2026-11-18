@@ -423,8 +423,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const url = `/api/find-dishes?mode=tags&q=${encodeURIComponent(tags.join('|'))}`
         + (picks.ingredient.length ? `&ing=${encodeURIComponent(picks.ingredient.join(', '))}` : '')
         + (picks.country.length ? `&country=${encodeURIComponent(picks.country.join('|'))}` : '');
-      const r = await fetch(url, { credentials: 'same-origin' });
-      const data = await r.json();
+      let data;
+      try {
+        const r = await fetch(url, { credentials: 'same-origin', signal: window.CuiSyncBusy.signal });
+        data = await r.json();
+      } catch (e) {
+        if (e.name === 'AbortError') return;   // cancelled with the x on the busy screen
+        throw e;
+      }
       if (!data.total) {
         showErrorModal('No Dishes Found', 'No dish matches all of these picks. Try removing one.');
         return;

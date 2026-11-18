@@ -616,10 +616,3 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   render();
 });
-
-// "Find similar dishes" opens the home page search: show the busy screen while it loads
-// (not for a ctrl/cmd-click, which opens a new tab)
-document.getElementById('dp-similar')?.addEventListener('click', (e) => {
-  if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
-  if (window.CuiSyncBusy) window.CuiSyncBusy.start(e.currentTarget);
-});

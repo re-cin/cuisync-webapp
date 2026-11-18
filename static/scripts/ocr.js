@@ -332,6 +332,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // The x on the busy screen (or Esc) stops the scan
+  window.addEventListener('cuisync:cancel', () => {
+    if (activeScanController) activeScanController.abort();
+  });
+
   // Show preview, then scan
   // Same 16 MB limit as app.py
   const MAX_UPLOAD_BYTES = 16 * 1024 * 1024;
@@ -633,4 +638,4 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.CuiSyncBusy) window.CuiSyncBusy.start(imageSearchButton);
   });
   targetSelect.addEventListener('change', () => targetSelect.classList.remove('needs-attention'));
-});
+});

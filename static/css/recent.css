@@ -320,3 +320,9 @@ a.rc-card:focus-visible { outline: 2px solid var(--gold-accent); outline-offset:
   .rr-view { display: none; }                 /* the whole row opens it */
   .rr-thumbs img { width: 44px; height: 44px; }
 }
+
+/* Search history page: the search bar box and the cards on the page's cream (--cream-bg),
+   the same as the Dish Dictionary, instead of the lighter off-white */
+.recent-page .recent-toolbar,
+.rc-card,
+.rc-media { background: var(--cream-bg); }

@@ -1540,3 +1540,13 @@ span.tag-chip:not(.removable) { border-radius: 4px; }
 .country-pill[aria-pressed="true"] .country-pill-count { background: transparent; opacity: 0.85; }
 .country-pill:focus-visible { outline: 2px solid var(--maroon-main); outline-offset: 2px; }
 .popup-dish-grid > [hidden] { display: none !important; }
+
+/* "My search history" (profile page): the boxes, history cards and arrows on the page's
+   cream (--cream-bg) instead of off-white; their gold borders keep them apart */
+.profile-page .pf-card,
+.profile-page .hc-nav { background: var(--cream-bg); }
+/* The history cards: a touch lighter than the box (--cream-card) so they stand out */
+.profile-page .hc-card,
+.profile-page .hc-photos { background: var(--cream-card); }
+.profile-page .hc-card:hover { background: #ebe4d0; }
+.profile-page .hc-card { border-color: var(--gold-border); }

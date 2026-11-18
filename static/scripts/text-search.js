@@ -460,8 +460,11 @@ document.addEventListener('DOMContentLoaded', () => {
     window.CuiSyncBusy.start(submitButton);
     try {
       const r = await fetch(`/api/find-dishes?mode=${searchMode}&q=${encodeURIComponent(q)}`,
-        { credentials: 'same-origin' });
+        { credentials: 'same-origin', signal: window.CuiSyncBusy.signal });
       return await r.json();
+    } catch (e) {
+      if (e.name === 'AbortError') return null;   // cancelled with the x on the busy screen
+      throw e;
     } finally {
       window.CuiSyncBusy.stop();
     }
@@ -480,6 +483,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     const data = await findDishes('dish', q);
+    if (!data) return;
     if (!data.total) {
       showErrorModal("We Can't Find Your Dish",
         `"${q}" isn't in our recipe database yet. Please check the spelling or try a more general dish name.`);
@@ -526,16 +530,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // by the page still loading)
     const goToSearch = () => document.getElementById('search-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     (async () => {
+      window.CuiSyncBusy.start(submitButton);
       try {
-        const info = await fetch(`/api/dish/${dishIdx}`, { credentials: 'same-origin' }).then((r) => r.json());
+        const info = await fetch(`/api/dish/${dishIdx}`, { credentials: 'same-origin', signal: window.CuiSyncBusy.signal }).then((r) => r.json());
         if (!info || !info.title) return;
         dishInput.value = info.title;
         updateClearBtn();
         const data = await fetch(`/api/find-dishes?mode=dish&q=${encodeURIComponent(info.title)}`,
-          { credentials: 'same-origin' }).then((r) => r.json());
+          { credentials: 'same-origin', signal: window.CuiSyncBusy.signal }).then((r) => r.json());
         const match = (data.dishes || []).find((d) => String(d.recipe_id) === String(info.recipe_id))
           || ((data.dishes || []).length === 1 ? data.dishes[0] : null);
-        if (!match) { goToSearch(); runSearch(false); return; }
+        if (!match) { window.CuiSyncBusy.stop(); goToSearch(); runSearch(false); return; }
         lastResults = data;
         pickDish(match, true);
         updateInputActions();
@@ -543,6 +548,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Clean the address so a refresh doesn't pick it again
         history.replaceState(null, '', location.pathname + location.hash);
       } catch (e) { /* leave the search bar as it is */ }
+      finally { window.CuiSyncBusy.stop(); }
     })();
   }
   updateOriginDisplay();
