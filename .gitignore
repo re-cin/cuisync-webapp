@@ -1,5 +1,7 @@
 # Virtual environments
 venv/
+.tools/
+supabase/.temp/
 .venv/
 env/
 

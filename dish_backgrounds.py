@@ -1054,18 +1054,18 @@ def enrich_background(recipe, store, client=None, refresh=False, upgrade_sources
         _REQUEST_STATS.current = previous_stats
 
 
-def _draft_with_retry(client, row):
+def _draft_with_retry(client, row, instructions=None):
     import background_prompts
     fallback = bool(row.get("fallback_fields"))
-    prompt, rules, version = background_prompts.configuration(fallback)
+    prompt, rules, version = background_prompts.configuration(fallback, instructions)
     row["_draft_prompt_version"] = version
     for attempt in range(MAX_PROVIDER_ATTEMPTS):
         try:
             _request_attempt("openai")
             return client.chat.completions.create(
                 model=os.environ.get("OPENAI_MODEL", "gpt-4o"),
-                messages=[{"role": "system", "content": prompt},
-                          {"role": "system", "content": rules}, {"role": "user", "content": json.dumps({
+                messages=[{"role": "system", "content": rules}, {"role": "user", "content": json.dumps({
+                    "editable_writing_instructions": prompt,
                     "dish": row["dish_name"], "country": row["country"], "source_excerpts": row["sources"], "requested_fields": row.get("fallback_fields", row.get("draft_fields", ["historical_background", "cultural_background"])),
                 }, ensure_ascii=False)}],
                 temperature=0.15, max_tokens=1000, response_format={"type": "json_object"}, timeout=30,

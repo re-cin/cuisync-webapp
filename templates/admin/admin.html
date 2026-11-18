@@ -394,7 +394,11 @@
    PROMPT MANAGEMENT
    ====================================================================== #}
 {% elif tab == 'prompts' %}
+{% from 'admin/prompt_editor.html' import editor with context %}
 {% if not gpt_on %}<div class="flash flash-info inline-flash">GPT is off right now (no OPENAI_API_KEY), so these prompts are saved but only used once GPT is on.</div>{% endif %}
+{% if prompt_storage_warning %}<div class="flash flash-error inline-flash">Prompt database unavailable. Showing the last known configuration with protected backend rules. Saving requires the database to recover; reload before editing. History may be incomplete.</div>{% endif %}
+{% if not prompt_remote %}<div class="flash flash-info inline-flash">Local development: version history is stored in SQLite under admin_data. Configure Supabase for persistence across deployments.</div>{% endif %}
+{% if legacy_pending %}<div class="flash flash-info inline-flash">Local legacy instructions differ from the active configuration for {{ legacy_pending | join(', ') }}. The original prompts.json is preserved. Use the documented migration command to review and import them safely.</div>{% endif %}
 <div class="row align-start" data-prompt-management>
   <section class="card grow-1 side-card">
     <div class="card-head"><h2>Prompts</h2></div>
@@ -414,38 +418,14 @@
 
   <div class="grow-3 stack">
     <section class="card" id="prompt-explanation" role="tabpanel" aria-labelledby="prompt-tab-explanation">
-      <div class="card-head"><h2>Similarity explanation</h2><span class="pill {{ 'pill-active' if explanation_custom else 'pill-hidden' }}">{{ 'Custom' if explanation_custom else 'Default' }}</span></div>
-      <p class="hint card-hint">Explains the supplied culinary evidence and Shapley contributions. Editing changes the wording instructions only; similarity calculations, recipe data, few-shot examples, grounding checks and template fallback stay the same. Each custom prompt uses a separate explanation cache.</p>
-      <form method="post" action="{{ url_for('admin_prompts') }}" class="stack-sm">
-        <input type="hidden" name="which" value="explanation">
-        <div class="field">
-          <label for="p-explanation">Prompt text</label>
-          <textarea id="p-explanation" name="prompt" rows="16" class="mono" required minlength="20" maxlength="20000">{{ explanation_prompt }}</textarea>
-        </div>
-        <div class="inline-actions end">
-          <button type="submit" name="action" value="reset" formnovalidate class="btn btn-outline" data-confirm="Go back to the default prompt?">{{ icon('reset', 16) }} Reset to default</button>
-          <button type="submit" name="action" value="save" class="btn btn-maroon">Save prompt</button>
-        </div>
-      </form>
+      {{ editor(prompt_cards[0]) }}
     </section>
 
     <section class="card" id="prompt-cultural" role="tabpanel" aria-labelledby="prompt-tab-cultural">
       <div class="card-head"><h2>Historical and Cultural Information</h2></div>
       <p class="hint card-hint">Manage the two generation modes used for dish history and culture. Both return <code>historical_background</code> and <code>cultural_background</code>. Mandatory evidence and output rules are added by the backend and cannot be removed here. Saving does not regenerate stored descriptions.</p>
-      {% for mode in background_modes %}
-      <div class="card-head"><h3>{{ mode.title }} Prompt</h3><span class="pill {{ 'pill-active' if mode.custom else 'pill-hidden' }}">{{ 'Custom' if mode.custom else 'Default' }}</span></div>
-      <p class="hint">{{ mode.description }}</p>
-      <form method="post" action="{{ url_for('admin_prompts') }}" class="stack-sm">
-        <input type="hidden" name="which" value="{{ mode.name }}">
-        <div class="field">
-          <label for="p-{{ mode.name }}">{{ mode.title }} prompt</label>
-          <textarea id="p-{{ mode.name }}" name="prompt" rows="12" class="mono" required minlength="20" maxlength="20000">{{ mode.prompt }}</textarea>
-        </div>
-        <div class="inline-actions end">
-          <button type="submit" name="action" value="reset" formnovalidate class="btn btn-outline" data-confirm="Go back to the default prompt?">{{ icon('reset', 16) }} Reset to default</button>
-          <button type="submit" name="action" value="save" class="btn btn-maroon">Save prompt</button>
-        </div>
-      </form>
+      {% for card in prompt_cards[1:] %}
+      {{ editor(card) }}
       {% endfor %}
     </section>
   </div>

@@ -1,13 +1,8 @@
-"""Cultural information for a dish (panel revision Oab 4): culture involved, history,
-health benefits and allergens.
+"""Compatibility ingredient notes, allergens and country overview templates.
 
-  - Allergens are found with rules from the dish's own ingredient list, so they never
-    depend on GPT. Each allergen shows the ingredients that triggered it.
-  - Culture, history and health notes come from, in this order:
-      1. notes the admin typed for the dish (admin page)
-      2. GPT (cached in Supabase when configured, otherwise in admin_data/cuisync.db),
-         clearly labelled as AI-generated
-      3. a short template built from the dataset (when GPT is off)
+Public history/culture use dish_information's source/fallback pipeline. Legacy
+GPT/cache helpers remain for cache tooling, but no public endpoint invokes them.
+Ingredient-only notes and administrator-written recipe notes remain available.
 """
 import hashlib
 import json
@@ -192,16 +187,10 @@ def dish_info(recipe, region_label, country_label):
         "region": region_label,
         "ingredients": _ingredients(recipe),
     }
-    info, source = None, "template"
-    if _client is not None:
-        try:
-            info = _ask_gpt(payload, _get_prompt())
-            source = "ai"
-        except Exception as exc:  # GPT down / bad JSON -> template
-            print("[CuiSync] cultural info GPT failed:", type(exc).__name__, exc)
-            info = None
-    if not info or not info.get("culture"):
-        info, source = _template_notes(recipe, region_label, country_label), "template"
+    # Compatibility nutrition/allergen projection only. Displayed history and
+    # culture now come from dish_information's source/fallback pipeline.
+    # Keep old cache helpers available for imports, but never call legacy GPT.
+    info, source = _template_notes(recipe, region_label, country_label), "template"
     # Notes typed by the admin always win
     admin_fields = []
     if (recipe.get("culture_notes") or "").strip():
