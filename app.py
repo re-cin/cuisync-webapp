@@ -29,6 +29,7 @@ import dish_information
 from dish_information_store import DishStoreError, get_store as get_dish_information_store
 from dish_info_common import safe_url
 import cuisync_prompts
+import background_prompts
 import explainer
 import search_tools
 from dataset_store import DatasetStore, DISH_FIELDS, REGION_CHOICES
@@ -189,6 +190,7 @@ if accounts.ensure_admin(ADMIN_USERNAME, ADMIN_PASSWORD, ADMIN_EMAIL):
 
 # GPT prompts the admin saved
 cuisync_prompts.set_system_prompt(STORE.get_prompt("explanation", ""))
+background_prompts.configure(STORE.get_prompt)
 cultural_info.init(
     STORE.data_dir,
     lambda: STORE.get_prompt("cultural", cultural_info.DEFAULT_PROMPT),
@@ -1913,8 +1915,18 @@ def admin_page():
         ctx.update(
             explanation_prompt=cuisync_prompts.get_system_prompt(),
             explanation_custom=bool(STORE.prompts.get("explanation")),
-            cultural_prompt=STORE.get_prompt("cultural", cultural_info.DEFAULT_PROMPT),
-            cultural_custom=bool(STORE.prompts.get("cultural")),
+            background_modes=[{
+                "name": name, "title": title, "description": description,
+                "prompt": background_prompts.get_prompt(name),
+                "custom": background_prompts.get_prompt(name).strip() != default.strip(),
+            } for name, default in background_prompts.defaults().items()
+              for title, description in [(
+                  ("Source-Based Generation", "Drafts history and culture from retrieved references. Unsupported fields stay empty; source identity and historical-date checks remain enforced.")
+                  if name == background_prompts.SOURCE else
+                  ("General-Knowledge Fallback", "Used when sources cannot support a field. Uses cautious wording and uncertainty; output remains labeled AI-generated information.")
+              )]],
+            cultural_custom=any(background_prompts.get_prompt(name).strip() != default.strip()
+                                for name, default in background_prompts.defaults().items()),
             gpt_on=explainer._client is not None,
         )
     elif tab == "users":
@@ -2171,21 +2183,25 @@ def admin_dataset_reset():
 @admin_required
 def admin_prompts():
     which = request.form.get("which")
-    if which not in ("explanation", "cultural"):
+    defaults = {"explanation": cuisync_prompts.DEFAULT_SYSTEM_PROMPT, **background_prompts.defaults()}
+    action = request.form.get("action")
+    if which not in defaults or action not in ("save", "reset"):
         abort(400)
-    text = "" if request.form.get("action") == "reset" else request.form.get("prompt", "")
-    if which == "explanation" and text.strip() == cuisync_prompts.DEFAULT_SYSTEM_PROMPT.strip():
-        text = ""
-    if which == "cultural" and text.strip() == cultural_info.DEFAULT_PROMPT.strip():
-        text = ""
     try:
+        text = "" if action == "reset" else background_prompts.validate_prompt(request.form.get("prompt", ""))
+        if text == defaults[which].strip():
+            text = ""
         STORE.set_prompt(which, text)
     except ValueError as error:
         flash(str(error), "error")
         return redirect(url_for("admin_page", tab="prompts"))
+    except OSError:
+        flash("Could not save the prompt. The active configuration has not changed.", "error")
+        return redirect(url_for("admin_page", tab="prompts"))
     if which == "explanation":
         cuisync_prompts.set_system_prompt(text)
-    flash("Prompt reset to the default." if not text else "Prompt saved. New searches use it right away.", "success")
+    flash(("Prompt reset to the default." if not text else "Prompt saved.") +
+          " Future generations use this prompt. Existing historical and cultural records are preserved.", "success")
     return redirect(url_for("admin_page", tab="prompts"))
 
 

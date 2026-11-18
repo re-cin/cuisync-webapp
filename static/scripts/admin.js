@@ -1,5 +1,53 @@
 // CuiSync Admin: small helpers used on every admin page.
 (() => {
+  // Keep every prompt form mounted: category changes only hide/show panels,
+  // preserving unsaved text and each editor's independent save/reset form.
+  const prompts = document.querySelector('[data-prompt-management]');
+  if (prompts) {
+    const tabs = Array.from(prompts.querySelectorAll('[role="tab"]'));
+    const panels = Array.from(prompts.querySelectorAll('[role="tabpanel"]'));
+    const selectCategory = (id) => {
+      if (!tabs.some((tab) => tab.getAttribute('aria-controls') === id)) return;
+      tabs.forEach((tab) => {
+        const selected = tab.getAttribute('aria-controls') === id;
+        tab.classList.toggle('selected', selected);
+        tab.setAttribute('aria-selected', String(selected));
+        tab.tabIndex = selected ? 0 : -1;
+      });
+      panels.forEach((panel) => { panel.hidden = panel.id !== id; });
+    };
+    const activate = (tab) => {
+      const id = tab.getAttribute('aria-controls');
+      selectCategory(id);
+      // Remember the selected category across a save/redirect without navigating.
+      window.history.replaceState(null, '', `#${id}`);
+    };
+    tabs.forEach((tab, index) => {
+      tab.addEventListener('click', (event) => {
+        event.preventDefault();
+        activate(tab);
+      });
+      tab.addEventListener('keydown', (event) => {
+        let next;
+        if (event.key === 'ArrowDown') next = (index + 1) % tabs.length;
+        else if (event.key === 'ArrowUp') next = (index - 1 + tabs.length) % tabs.length;
+        else if (event.key === 'Home') next = 0;
+        else if (event.key === 'End') next = tabs.length - 1;
+        else if (event.key === ' ') next = index;
+        else return;
+        event.preventDefault();
+        activate(tabs[next]);
+        tabs[next].focus();
+      });
+    });
+    const selectFromHash = () => {
+      const id = window.location.hash.slice(1);
+      selectCategory(panels.some((panel) => panel.id === id) ? id : 'prompt-explanation');
+    };
+    window.addEventListener('hashchange', selectFromHash);
+    selectFromHash();
+  }
+
   // Mobile: open / close the sidebar menu
   const toggle = document.getElementById('sidebar-toggle');
   const nav = document.getElementById('admin-nav');

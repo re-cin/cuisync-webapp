@@ -579,17 +579,19 @@ class DatasetStore:
 
     # ---------------- prompts ----------------
     def get_prompt(self, name, default):
-        """The GPT prompt the admin saved ('explanation' or 'cultural'), or the default."""
+        """Saved explanation/background prompt, or default (legacy cultural key is retained)."""
         return self.prompts.get(name) or default
 
     def set_prompt(self, name, text):
         """Save a GPT prompt in admin_data/prompts.json. Empty text = go back to the default."""
         with self.lock:
+            prompts = dict(self.prompts)
             if text and text.strip():
-                self.prompts[name] = text.strip()
+                prompts[name] = text.strip()
             else:
-                self.prompts.pop(name, None)
-            self._save_json(self.prompts_path, self.prompts)
+                prompts.pop(name, None)
+            self._save_json(self.prompts_path, prompts)
+            self.prompts = prompts
 
     # ---------------- matcher files ----------------
     def _vector_for(self, feature, item, new_items, new_vecs):
