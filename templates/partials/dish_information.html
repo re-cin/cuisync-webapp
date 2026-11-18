@@ -17,31 +17,24 @@
 {%- endmacro %}
 
 {% macro culture_body(background, side) -%}
-  <p class="rt-info-status {{ 'is-verified' if background.get('status') == 'verified' else 'is-pending' if background.get('status') in ['pending', 'unverified'] else 'is-unavailable' }}">
-    {{ 'Reviewed information' if background.get('status') == 'verified' else 'Stored description · Unverified' if background.get('status') == 'unverified' else 'AI-generated · Not independently verified' if background.get('status') == 'pending' else 'Information unavailable' }}
-  </p>
+  {# One notice only: "Reviewed" when checked, otherwise the AI disclaimer below (the old
+     status pill, per-section "unverified" line and "Sources not established" line said the same). #}
+  {% if background.get('status') == 'verified' %}
+  <p class="rt-info-status is-verified">Reviewed information</p>
+  {% endif %}
   <section class="rt-info-section" aria-labelledby="background-{{ side }}">
     <h4 id="background-{{ side }}">History &amp; Culture</h4>
     {% if background.get('status') in ['verified', 'pending', 'unverified'] and (background.get('historical_background') or background.get('cultural_background')) %}
     {# One display paragraph per dish: retained history and culture are not separate UI sections. #}
     {% set combined_text = (background.get('combined_background') or ((background.get('historical_background') or '') ~ ' ' ~ (background.get('cultural_background') or ''))) | trim %}
     <p class="rt-background-summary" data-cuisync-background="unified">{{ combined_text }}</p>
-    {% if background.get('evidence_message') %}
-    <p class="rt-background-evidence">{{ background.get('evidence_message') }}</p>
-    {% endif %}
-    {# The single paragraph is retained. Only the evidence label changes. #}
+    {# Only say something extra when (part of) the text is backed by sources #}
     {% set method = background.get('generation_method', 'gpt_fallback') %}
     {% if method == 'mixed' %}
     {% set methods = background.get('generation_fields', {}) or {} %}
-    <p class="rt-background-evidence">Partially source-based — History: {{ 'Source-based' if methods.get('historical_background') == 'source_based' else 'AI fallback' }}; Culture: {{ 'Source-based' if methods.get('cultural_background') == 'source_based' else 'AI fallback' }}.</p>
-    {% elif method == 'source_based' %}
-    {% if background.get('wikipedia_fallback') %}
-    <p class="rt-background-evidence">Wikipedia fallback · AI-generated · Not independently verified.</p>
-    {% else %}
-    <p class="rt-background-evidence">Source-based summary · {{ 'Reviewed' if background.get('status') == 'verified' else 'Not independently verified' }}.</p>
-    {% endif %}
-    {% else %}
-    <p class="rt-background-evidence">AI-generated general-knowledge summary · Sources not established.</p>
+    <p class="rt-background-evidence">Partly source-based — History: {{ 'source-based' if methods.get('historical_background') == 'source_based' else 'AI' }}; Culture: {{ 'source-based' if methods.get('cultural_background') == 'source_based' else 'AI' }}.</p>
+    {% elif method == 'source_based' and not background.get('wikipedia_fallback') %}
+    <p class="rt-background-evidence">Source-based summary.</p>
     {% endif %}
     {% if background.get('status') in ['pending', 'unverified'] %}
     <p class="rt-ai-disclaimer"><strong>AI-Generated Information</strong> — This historical and cultural information was generated using artificial intelligence. {% if method == 'mixed' %}The listed sources may support only part of the combined paragraph. {% endif %}It may contain inaccuracies and should be used for general informational purposes only.</p>
@@ -166,6 +159,9 @@
     <p class="rt-unassessed-note">Some ingredients remain unassessed; other allergens may be missing.</p>
     {% endif %}
     {% endif %}
+    {# Only under actual findings: the "none found" message already says it isn't allergen-free #}
+    {% if health_available and allergen_findings %}
     <p class="rt-allergen-disclaimer">Ingredient names cannot establish that a dish is allergen-free. Check product labels, the complete recipe and cross-contact risks.</p>
+    {% endif %}
   </section>
 {%- endmacro %}

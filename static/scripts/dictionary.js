@@ -207,10 +207,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // and the same layout as the comparison page, from /api/dish/<id>/information.
   // The first time a dish is opened GPT may still be writing it, so check again a few times.
   const infoCache = new Map();
-  function fillInfo(info) {
+  function fillInfo(info, final) {
     [['culture', 'dp-info-culture'], ['health', 'dp-info-health']].forEach(([part, cls]) => {
       const panel = document.getElementById('dp-panel-' + part);
-      const note = info.generating && info.generating[part]
+      const note = !final && info.generating && info.generating[part]
         ? '<p class="dp-info-generating">Still being prepared. This updates by itself in a few seconds.</p>' : '';
       panel.innerHTML = `<div class="dp-info ${cls} rt-column-body">${note}${info[part] || ''}</div>`;
     });
@@ -218,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   function loadInfo(d, attempt = 0) {
     const cached = infoCache.get(d.id);
-    if (cached) { fillInfo(cached); return; }
+    if (cached) { fillInfo(cached, true); return; }
     fetch(`/api/dish/${d.id}/information`).then(r => {
       if (!r.ok) throw new Error(r.status);
       return r.json();
@@ -226,7 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (popFor !== d) return;
       const waiting = info.generating && (info.generating.culture || info.generating.health);
       if (!waiting) infoCache.set(d.id, info);
-      fillInfo(info);
+      fillInfo(info, attempt >= 8);
       // GPT / the nutrition lookup runs in the background: check again (about 40 seconds in all)
       if (waiting && attempt < 8) setTimeout(() => { if (popFor === d) loadInfo(d, attempt + 1); }, 5000);
     }).catch(() => {
