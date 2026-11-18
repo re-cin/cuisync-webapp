@@ -317,7 +317,9 @@ document.addEventListener('DOMContentLoaded', () => {
     button.className = 'dish-card popup-dish-card pdc';
     const found = (d.found || []).length
       ? `<p class="dish-card-found">Uses: ${d.found.map(([want, have]) => `<span title="you typed ${esc(want)}">${esc(have)}</span>`).join(', ')}</p>`
-      : '';
+      : ((d.ingredients || []).length ? `<p class="dish-card-ings pdc-ings">${esc(d.ingredients.join(', '))}</p>` : '');
+    const tags = (d.tags || []).length
+      ? `<div class="dish-card-tags pdc-tags">${d.tags.slice(0, 4).map((t) => `<span class="tag-chip small">${esc(t)}</span>`).join('')}</div>` : '';
     const alt = d.alternative_title && d.alternative_title.toLowerCase() !== d.title.toLowerCase()
       ? `<p class="pdc-alt">${esc(d.alternative_title)}</p>` : '';
     // Region is hidden on phones (not enough room)
@@ -332,6 +334,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <h3 class="pdc-title">${esc(d.title)}</h3>
         ${alt}
         ${found}
+        ${tags}
       </div>
       <div class="pdc-foot">
         <span class="pdc-place">${place}</span>
