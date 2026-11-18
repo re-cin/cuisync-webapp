@@ -126,3 +126,4 @@
   letter-spacing: 0.3px;
 }
 .dp-info .rt-ai-disclaimer { margin-top: 32px; }
+.dp-info .rt-ai-disclaimer strong { font-weight: 400; }

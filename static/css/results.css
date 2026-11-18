@@ -2992,3 +2992,4 @@ a.entity-chip:focus-visible { outline: 2px solid var(--gold-accent); outline-off
   letter-spacing: 0.3px;
 }
 .rt-column .rt-ai-disclaimer { margin-top: 32px; }
+.rt-column .rt-ai-disclaimer strong { font-weight: 400; }
