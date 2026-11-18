@@ -856,11 +856,13 @@
      until the user presses its OK, and that tab's form stays locked until then.
      Pressing OK in one tab doesn't affect the others.
      The same short message is always next to the Search button too.
-     Guests see the boxes again on every visit; logged-in users only until they press OK. */
+     Once OK is pressed it stays hidden in this browser (guests too); a new device shows it again. */
   (function () {
     const userId = {{ (current_user.id if current_user else '') | tojson }};
     const FORMS = { text: 'text-search-form', tag: 'tag-search-form', image: 'image-search-form' };
-    const keyOf = (name) => (userId ? `cuisync-guide-ok-${userId}-${name}` : null);
+    // Saved in this browser only: after OK it stays hidden on refresh, but shows again on another
+    // device or browser. Guests and each logged-in account have their own key.
+    const keyOf = (name) => `cuisync-guide-ok-${userId || 'guest'}-${name}`;
     function seen(name) {
       const key = keyOf(name);
       if (!key) return false;
