@@ -84,7 +84,16 @@
 
       <!-- Region (more than one allowed), filled in by dictionary.js -->
       <div class="dict-field">
-        <span class="dict-field-label" id="dict-label-region">Region</span>
+        <span class="dict-field-label" id="dict-label-region">
+          Region
+          <span class="info-tooltip">
+              <button type="button" class="info-tooltip-trigger"
+                  aria-expanded="false" aria-label="Region information">i</button>
+              <span class="info-tooltip-content">
+                  Filter dishes based on the specific region where they originated.
+              </span>
+          </span>
+        </span>
       <div class="dict-dd" data-dd="region">
         <button type="button" class="dict-dd-btn" aria-haspopup="true" aria-expanded="false" aria-labelledby="dict-label-region dict-value-region">
           <span class="dict-dd-value" id="dict-value-region" data-dd-value>All</span>
