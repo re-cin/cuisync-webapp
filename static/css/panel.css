@@ -1495,7 +1495,7 @@ span.tag-chip:not(.removable) { border-radius: 4px; }
   .pdc .dish-card-found { font-size: 0.72rem; -webkit-line-clamp: 1; }
   .pdc-foot { margin-top: 8px; padding: 8px 12px; font-size: 0.7rem; }
 }
-@media (max-width: 600px) { .pdc-region { display: none; } }
+
 
 /* Popup cards keep the ingredient preview and tag chips under the name */
 .pdc .pdc-ings { margin-top: 8px; font-size: 0.8rem; line-height: 1.45; color: var(--text-muted); -webkit-line-clamp: 2; }

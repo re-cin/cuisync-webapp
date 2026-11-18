@@ -313,21 +313,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const button = document.createElement('button');
     button.type = 'button';
     // Same card as the Dish Dictionary ("Dishes" page): photo, name, other name, then a
-    // footer with "Country · Region" and "Select →"
+    // footer with the region and "Select →"
     button.className = 'dish-card popup-dish-card pdc';
     const found = (d.found || []).length
       ? `<p class="dish-card-found">Uses: ${d.found.map(([want, have]) => `<span title="you typed ${esc(want)}">${esc(have)}</span>`).join(', ')}</p>`
       : ((d.ingredients || []).length ? `<p class="dish-card-ings pdc-ings">${esc(d.ingredients.join(', '))}</p>` : '');
-    const tags = (d.tags || []).length
-      ? `<div class="dish-card-tags pdc-tags">${d.tags.slice(0, 4).map((t) => `<span class="tag-chip small">${esc(t)}</span>`).join('')}</div>` : '';
+    const region = (d.region || '').toLowerCase();
+    const tagList = (d.tags || []).filter((t) => !region || t.toLowerCase() !== region);
+    const tags = tagList.length
+      ? `<div class="dish-card-tags pdc-tags">${tagList.slice(0, 4).map((t) => `<span class="tag-chip small">${esc(t)}</span>`).join('')}</div>` : '';
     const alt = d.alternative_title && d.alternative_title.toLowerCase() !== d.title.toLowerCase()
       ? `<p class="pdc-alt">${esc(d.alternative_title)}</p>` : '';
-    // Region is hidden on phones (not enough room)
-    const place = esc(d.country_label || d.country || '')
-      + (d.region ? `<span class="pdc-region"> \u00b7 ${esc(d.region)}</span>` : '');
+    // Country sits on the photo; the footer shows the region (so no region tag chip)
+    const place = esc(d.region || '');
     button.innerHTML = `
       <div class="dish-card-img">
         <img src="${esc(d.image_link || NO_IMAGE)}" alt="${esc(d.title)}" loading="lazy">
+        ${d.country_label || d.country ? `<span class="dish-card-country">${esc(d.country_label || d.country)}</span>` : ''}
         ${d.score != null ? `<span class="dish-card-score">${d.score}% match</span>` : ''}
       </div>
       <div class="pdc-body">
