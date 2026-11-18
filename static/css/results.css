@@ -3037,3 +3037,12 @@ a.entity-chip:focus-visible { outline: 2px solid var(--gold-accent); outline-off
   .rt-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; padding: 4px 16px 0; }
   .rt-tab { padding: 12px 0 10px; font-size: 0.72rem; white-space: normal; text-align: center; }
 }
+
+/* Health information: the allergen pills are the same cream as the card they sit in
+   (--cream-card) instead of near-white, and the health cards share that cream */
+#rt-panel-health .rt-allergen-group,
+#rt-panel-health .rt-benefit-list li,
+#rt-panel-health .rt-market-findings .rt-allergen-finding,
+#rt-panel-health .rt-market-select { background: var(--cream-card); }
+#rt-panel-health .rt-allergen-group .rt-allergen-finding,
+#rt-panel-health .rt-allergen-group .rt-allergen-finding + .rt-allergen-finding { background: var(--cream-card); }
