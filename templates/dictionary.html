@@ -53,7 +53,16 @@
     <form class="dict-toolbar" id="dict-toolbar" onsubmit="return false">
       <!-- Origin (more than one allowed) -->
       <div class="dict-field">
-        <span class="dict-field-label" id="dict-label-country">Origin</span>
+        <span class="dict-field-label" id="dict-label-country">
+          Origin
+          <span class="info-tooltip">
+            <button type="button" class="info-tooltip-trigger"
+              aria-expanded="false" aria-label="Origin information">i</button>
+            <span class="info-tooltip-content">
+              Filter dishes based on the country or region where they originated.
+            </span>
+          </span>
+        </span>
       <div class="dict-dd" data-dd="country">
         <button type="button" class="dict-dd-btn" aria-haspopup="true" aria-expanded="false" aria-labelledby="dict-label-country dict-value-country">
           <span class="dict-dd-value" id="dict-value-country" data-dd-value>All</span>
@@ -90,7 +99,16 @@
 
       <!-- Checklists filled in by dictionary.js -->
       <div class="dict-field">
-        <span class="dict-field-label" id="dict-label-ingredients">Ingredients</span>
+        <span class="dict-field-label" id="dict-label-ingredients">
+          Ingredients
+          <span class="info-tooltip">
+            <button type="button" class="info-tooltip-trigger"
+              aria-expanded="false" aria-label="Ingredients information">i</button>
+            <span class="info-tooltip-content">
+              Find dishes that contain the ingredients you select.
+            </span>
+          </span>
+        </span>
       <div class="dict-dd dict-dd--wide dict-dd--browse" data-dd="ingredients" data-kinds="ingredient">
         <button type="button" class="dict-dd-btn" aria-haspopup="true" aria-expanded="false" aria-labelledby="dict-label-ingredients dict-value-ingredients">
           <span class="dict-dd-value" id="dict-value-ingredients" data-dd-value>All</span>
@@ -109,7 +127,16 @@
       </div>
 
       <div class="dict-field">
-        <span class="dict-field-label" id="dict-label-directions">Directions</span>
+        <span class="dict-field-label" id="dict-label-directions">
+          Directions
+          <span class="info-tooltip">
+            <button type="button" class="info-tooltip-trigger"
+              aria-expanded="false" aria-label="Directions information">i</button>
+            <span class="info-tooltip-content">
+              Filter dishes by cooking actions, cookware, and utensils used in their preparation.
+            </span>
+          </span>
+        </span>
       <div class="dict-dd dict-dd--wide dict-dd--browse" data-dd="directions" data-kinds="action cookware utensil">
         <button type="button" class="dict-dd-btn" aria-haspopup="true" aria-expanded="false" aria-labelledby="dict-label-directions dict-value-directions">
           <span class="dict-dd-value" id="dict-value-directions" data-dd-value>All</span>

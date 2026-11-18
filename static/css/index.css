@@ -203,6 +203,15 @@ hr {
   margin-bottom: 5px;
 }
 
+.target-country-label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--maroon-dark);
+    letter-spacing: 0.8px;
+    margin-bottom: 5px;
+}
+
 .form-group input {
   width: 100%;
   padding: 24px 16px;
@@ -2027,3 +2036,18 @@ hr {
   align-self: center;
 }
 .tag-chip-input .tag-choose-btn[hidden] { display: none; }
+
+/* EJ's "Target country" label sits above the country card: on wide screens, move the dish card
+   next to it down by the label's height so both cards start and end at the same line */
+.text-pick-row .target-country-label {
+  display: flex;
+  align-items: center;
+  height: 19px;
+  margin-bottom: 6px;
+}
+@media (min-width: 721px) {
+  .text-pick-row:has(> .text-target-group:not([hidden])) > .selected-dish-card,
+  .text-pick-row:has(> .text-target-group:not([hidden])) > .select-dish-prompt {
+    margin-top: 25px !important;
+  }
+}

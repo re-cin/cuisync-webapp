@@ -93,7 +93,16 @@
         <input type="hidden" name="search_mode" value="dish">
 
         <div class="form-group full-width" id="dish-mode-group">
-          <label for="dish-name-input">DISH NAME</label>
+          <label for="dish-name-input">
+            DISH NAME
+            <span class="info-tooltip">
+                <button type="button" class="info-tooltip-trigger"
+                        aria-expanded="false" aria-label="Dish name information">i</button>
+                <span class="info-tooltip-content">
+                    Enter the name of the dish you want CuiSync to analyze.
+                </span>
+            </span>
+          </label>
           <div class="search-dropdown-wrapper">
             <input 
               type="text" 
@@ -159,6 +168,16 @@
 
         <!-- Target country: shown as a card like the selected dish (country-picker.js builds it) -->
         <div class="text-target-group" id="text-target-group" hidden>
+          <div class="target-country-label">
+            TARGET COUNTRY
+            <span class="info-tooltip">
+                <button type="button" class="info-tooltip-trigger"
+                        aria-expanded="false" aria-label="Target country information">i</button>
+                <span class="info-tooltip-content">
+                    Choose the country where you want to find a similar dish. Select Any Country to search across all available countries for the best match.
+                </span>
+            </span>
+          </div>
           <select id="text-target" name="target_country" data-country-picker aria-label="Target country">
             <option value="" disabled selected>Choose a target country...</option>
             <option value="any">Any country (best match)</option>
@@ -214,7 +233,15 @@
         <div class="form-group full-width tag-panel" id="tag-panel-region" data-panel="region" role="tabpanel"
              data-options="{{ home_tag_groups().get('Region', []) | map('first') | list | tojson | forceescape }}"
              data-countries="{{ home_country_options() | tojson | forceescape }}">
-          <label for="tag-entry-region">REGION OR COUNTRY <span class="label-hint">(type to search, press Enter to add)</span></label>
+          <label for="tag-entry-region">REGION OR COUNTRY <span class="label-hint">(type to search, press Enter to add)</span>
+            <span class="info-tooltip">
+              <button type="button" class="info-tooltip-trigger"
+                      aria-expanded="false" aria-label="Region or country information">i</button>
+              <span class="info-tooltip-content">
+                  Select the country or region where the dish originated or is commonly associated with.
+              </span>
+          </span>
+          </label>
           <div class="search-dropdown-wrapper">
             <div class="ingredient-chip-input tag-chip-input">
               <div class="ingredient-chips" data-chips></div>
@@ -242,7 +269,15 @@
         </div>
         <div class="form-group full-width tag-panel" id="tag-panel-ingredient" data-panel="ingredient" role="tabpanel" hidden
              data-free="1">
-          <label for="tag-entry-ingredient">INGREDIENT <span class="label-hint">(any ingredient in our dataset; press Enter or comma after each one)</span></label>
+          <label for="tag-entry-ingredient">INGREDIENT <span class="label-hint">(any ingredient in our dataset; press Enter or comma after each one)</span>
+            <span class="info-tooltip">
+              <button type="button" class="info-tooltip-trigger"
+                      aria-expanded="false" aria-label="Ingredient information">i</button>
+              <span class="info-tooltip-content">
+                  Add the ingredients used in the dish. CuiSync compares ingredient similarities when recommending related dishes.
+              </span>
+            </span>
+          </label>
           <div class="search-dropdown-wrapper">
             <div class="ingredient-chip-input tag-chip-input">
               <div class="ingredient-chips" data-chips></div>
@@ -261,7 +296,15 @@
         </div>
         <div class="form-group full-width tag-panel" id="tag-panel-method" data-panel="method" role="tabpanel" hidden
              data-options="{{ home_tag_groups().get('Cooking method', []) | map('first') | list | tojson | forceescape }}">
-          <label for="tag-entry-method">COOKING METHOD <span class="label-hint">(type to search, press Enter to add)</span></label>
+          <label for="tag-entry-method">COOKING METHOD <span class="label-hint">(type to search, press Enter to add)</span>
+            <span class="info-tooltip">
+              <button type="button" class="info-tooltip-trigger"
+                      aria-expanded="false" aria-label="Cooking method information">i</button>
+                <span class="info-tooltip-content">
+                    Specify how the dish is prepared, such as fried, boiled, steamed, or grilled. CuiSync uses this information to compare cooking methods.
+                </span>
+            </span>
+          </label>
           <div class="search-dropdown-wrapper">
             <div class="ingredient-chip-input tag-chip-input">
               <div class="ingredient-chips" data-chips></div>
@@ -322,6 +365,16 @@
 
           <!-- Target country: only shown once a dish is picked -->
           <div class="text-target-group" id="tag-target-group" hidden>
+            <div class="target-country-label">
+              TARGET COUNTRY
+              <span class="info-tooltip">
+                  <button type="button" class="info-tooltip-trigger"
+                          aria-expanded="false" aria-label="Target country information">i</button>
+                  <span class="info-tooltip-content">
+                      Choose the country where you want to find a similar dish. Select Any Country to search across all available countries for the best match.
+                  </span>
+              </span>
+            </div>
             <select id="tag-target" name="target_country" data-country-picker aria-label="Target country">
               <option value="" disabled selected>Choose a target country...</option>
               <option value="any">Any country (best match)</option>
@@ -453,6 +506,16 @@
 
           <!-- Target country: only shown once a dish is found / picked -->
           <div class="text-target-group" id="img-target-group" hidden>
+            <div class="target-country-label">
+              TARGET COUNTRY
+              <span class="info-tooltip">
+                  <button type="button" class="info-tooltip-trigger"
+                          aria-expanded="false" aria-label="Target country information">i</button>
+                  <span class="info-tooltip-content">
+                      Choose the country where you want to find a similar dish. Select Any Country to search across all available countries for the best match.
+                  </span>
+              </span>
+            </div>
             <select id="img-target" name="target_country" data-country-picker aria-label="Target country">
               <option value="" disabled selected>Choose a target country...</option>
               <option value="any">Any country (best match)</option>

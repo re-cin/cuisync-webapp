@@ -619,3 +619,84 @@ a {
 html.is-busy, html.is-busy body { cursor: progress; }
 button.is-busy { cursor: progress; }
 @media (prefers-reduced-motion: reduce) { .busy-spinner { animation-duration: 2s; } }
+
+/* Busy screen: seconds counter under the label */
+.busy-words { display: flex; flex-direction: column; line-height: 1.25; }
+.busy-time {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==============================
+   REUSABLE INFO TOOLTIP
+============================== */
+
+.info-tooltip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    margin-left: 5px;
+}
+
+.info-tooltip-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 17px;
+    height: 17px;
+    padding: 0;
+    border: 1px solid #800d12;
+    border-radius: 50%;
+    background: transparent;
+    color: #800d12;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.info-tooltip-content {
+    position: absolute;
+    z-index: 9999;
+    bottom: calc(100% + 9px);
+    left: 50%;
+    width: 230px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #2c1a11;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.5;
+    text-align: left;
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, 5px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.info-tooltip:hover .info-tooltip-content,
+.info-tooltip:focus-within .info-tooltip-content,
+.info-tooltip.is-open .info-tooltip-content {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate(-50%, 0);
+}
+
+@media (max-width: 768px) {
+    .info-tooltip-content {
+        left: 50%;
+        right: auto;
+        width: min(230px, calc(100vw - 50px));
+        transform: translate(-45%, 5px);
+    }
+
+    .info-tooltip:hover .info-tooltip-content,
+    .info-tooltip:focus-within .info-tooltip-content,
+    .info-tooltip.is-open .info-tooltip-content {
+      transform: translate(-45%, 0);
+    }
+}
