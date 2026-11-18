@@ -18,7 +18,7 @@
 
 {% macro culture_body(background, side) -%}
   <section class="rt-info-section" aria-labelledby="background-{{ side }}">
-    <h4 id="background-{{ side }}">History &amp; Culture</h4>
+    <h4 id="background-{{ side }}">Culture &amp; history</h4>
     {% if background.get('status') in ['verified', 'pending', 'unverified'] and (background.get('historical_background') or background.get('cultural_background')) %}
     {# One display paragraph per dish: retained history and culture are not separate UI sections. #}
     {% set combined_text = (background.get('combined_background') or ((background.get('historical_background') or '') ~ ' ' ~ (background.get('cultural_background') or ''))) | trim %}
