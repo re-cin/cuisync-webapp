@@ -2835,3 +2835,147 @@ a.entity-chip:focus-visible { outline: 2px solid var(--gold-accent); outline-off
   #rt-panel-health .rt-allergen-group-caption { flex-basis: 100%; margin-left: 31px; }
   #rt-panel-health .rt-health-heading h4 { font-size: .85rem; }
 }
+
+/* ==========================================================================
+   Culture & history / Health info: easier to read on computers and phones
+   ========================================================================== */
+/* Dish heading of each column */
+.rt-columns--split .rt-column .rt-dish-name { margin-bottom: 10px; }
+
+/* History & culture text: a comfortable size, cut to a few lines with "Read more" */
+.rt-column .rt-background-summary { font-size: 0.9rem; line-height: 1.7; color: var(--text-dark); }
+.rt-background-summary.is-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 7;
+  overflow: hidden;
+}
+.rt-read-more {
+  margin: 6px 0 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--maroon-main);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.rt-read-more:hover { text-decoration: underline; }
+.rt-read-more[hidden] { display: none; }
+
+/* Notes under the text (verification status, AI notice): small and grouped together */
+.rt-column .rt-background-evidence {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  opacity: 1;
+}
+.rt-column .rt-read-more + .rt-background-evidence,
+.rt-column .rt-background-summary + .rt-background-evidence {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--gold-border);
+}
+.rt-column .rt-background-evidence + .rt-background-evidence { margin-top: 2px; }
+.rt-column .rt-ai-disclaimer {
+  margin: 10px 0 0;
+  padding: 9px 11px;
+  border-radius: 7px;
+  background: rgba(128, 13, 18, 0.05);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  white-space: normal;
+}
+.rt-column .rt-ai-disclaimer strong { color: var(--maroon-main); }
+.rt-column .rt-info-sources { margin-top: 12px; }
+
+/* Health: shorter benefit cards */
+#rt-panel-health .rt-benefit-list li { padding: 10px 12px; }
+#rt-panel-health .rt-benefit-list p { font-size: 0.8rem; line-height: 1.55; }
+
+/* Allergens: each finding is a small chip ("Soy · soy sauce") instead of a full-width row */
+#rt-panel-health .rt-allergen-group .rt-allergen-findings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 12px 12px;
+}
+#rt-panel-health .rt-allergen-group .rt-allergen-finding,
+#rt-panel-health .rt-allergen-group .rt-allergen-finding + .rt-allergen-finding {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--gold-border);
+  border-radius: 999px;
+  background: #fffdf8;
+}
+#rt-panel-health .rt-allergen-group .rt-allergen-name { display: inline; font-size: 0.8rem; }
+#rt-panel-health .rt-allergen-group .rt-allergen-from { margin: 0; font-size: 0.7rem; color: var(--text-muted); }
+#rt-panel-health .rt-allergen-finding.is-avoid { border-color: var(--gold-accent); border-left-width: 1px; }
+
+/* Dish switch (phones): only used when the two columns stack */
+.rt-dish-switch { display: none; }
+@media (max-width: 850px) {
+  .rt-dish-switch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    margin: 0 0 18px;
+    padding: 4px;
+    border: 1px solid var(--gold-border);
+    border-radius: 12px;
+    background: var(--pill-bg);
+  }
+  .rt-dish-switch button {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--text-dark);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .rt-dish-switch button small {
+    color: var(--text-muted);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .rt-dish-switch button span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: 'Playfair Display', serif;
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: var(--maroon-main);
+  }
+  .rt-dish-switch button.is-active { background: var(--maroon-main); }
+  .rt-dish-switch button.is-active small { color: rgba(255, 255, 255, 0.75); }
+  .rt-dish-switch button.is-active span { color: #fff; }
+  /* One dish at a time; the switch already names it, so no divider between columns */
+  .rt-columns--split .rt-column.is-switched-away { display: none; }
+  .rt-columns--split .rt-column + .rt-column { border-top: 0; padding-top: 0; }
+  .rt-column .rt-background-summary { font-size: 0.86rem; }
+}
+
+/* Phones: all four tabs visible as a 2 x 2 grid (no sideways scrolling) */
+@media (max-width: 700px) {
+  .rt-tabs { display: grid; grid-template-columns: 1fr 1fr; overflow: visible; }
+  .rt-tab { padding: 12px 8px 11px; font-size: 0.7rem; white-space: normal; }
+  .rt-tabs:not(.is-stuck) .rt-tab:first-child { border-top-left-radius: 10px; }
+  .rt-tabs:not(.is-stuck) .rt-tab:nth-child(2) { border-top-right-radius: 10px; }
+  .rt-tabs:not(.is-stuck) .rt-tab:last-child { border-top-right-radius: 0; }
+}
