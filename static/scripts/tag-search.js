@@ -75,11 +75,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if (key === 'ingredient') loadIngredients();
   }
 
+  // Popup closed without a pick: a "Choose a dish (N)" button inside the search bar reopens it
+  // (same as the text search; replaces the "No dish selected" card)
+  const chooseBtn = document.createElement('button');
+  chooseBtn.type = 'button';
+  chooseBtn.id = 'tag-choose-btn';
+  chooseBtn.className = 'input-choose-btn tag-choose-btn';
+  chooseBtn.hidden = true;
+  chooseBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (typeof reopenPopup === 'function') reopenPopup();
+  });
   // "Your tags" sits right under the search bar of the open tab
   function placeSummary(key) {
     const summary = document.getElementById('tag-summary');
     const bar = panels[key] && panels[key].el.querySelector('.search-dropdown-wrapper');
     if (summary && bar && bar.nextElementSibling !== summary) bar.after(summary);
+    // The "Choose a dish (N)" button follows the active search bar too
+    const chipBox = panels[key] && panels[key].el.querySelector('.tag-chip-input');
+    if (chipBox && chooseBtn.parentElement !== chipBox) chipBox.appendChild(chooseBtn);
   }
   placeSummary((Object.values(panels).find((p) => !p.el.hidden) || {}).key);
   tabButtons.forEach((b) => b.addEventListener('click', () => {
@@ -352,8 +366,9 @@ document.addEventListener('DOMContentLoaded', () => {
     selectedCard.style.display = d ? 'flex' : 'none';
     const popupOpen = !document.getElementById('dish-results-overlay')?.classList.contains('hidden');
     const showPrompt = !d && lastData && lastData.dishes && lastData.dishes.length > 0 && !popupOpen;
-    selectPromptCount.textContent = showPrompt ? `${lastData.total} dishes found \u00b7 Click to choose` : '';
-    selectPrompt.style.display = showPrompt ? 'flex' : 'none';
+    selectPrompt.style.display = 'none';
+    chooseBtn.hidden = !showPrompt;
+    chooseBtn.textContent = showPrompt ? `Choose a dish (${lastData.total}) \u25be` : '';
     const wasHidden = targetGroup.hidden;
     targetGroup.hidden = !d;
     if (d && wasHidden) {

@@ -2017,3 +2017,13 @@ hr {
   }
   .country-picker-option { padding: 12px 12px; font-size: 0.95rem; }
 }
+
+/* Tag search: "Choose a dish (N)" sits at the end of the chip search bar */
+.tag-chip-input .tag-choose-btn {
+  position: static;
+  transform: none;
+  flex: none;
+  margin-left: auto;
+  align-self: center;
+}
+.tag-chip-input .tag-choose-btn[hidden] { display: none; }
