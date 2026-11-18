@@ -2,6 +2,9 @@ import hashlib
 import json
 import os
 import sqlite3
+from contextlib import closing
+
+import supabase_cache
 
 from cuisync_prompts import get_system_prompt
 
@@ -14,7 +17,9 @@ MODEL_NAME = os.environ.get("OPENAI_MODEL", "gpt-4o")
 
 
 def _init_db():
-    with sqlite3.connect(DB_PATH) as conn:
+    if supabase_cache.configured():
+        return
+    with closing(sqlite3.connect(DB_PATH)) as conn, conn:
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS explanations (
@@ -46,7 +51,9 @@ def make_cache_key(evidence: dict) -> str:
 
 def get_cached(evidence: dict):
     key = make_cache_key(evidence)
-    with sqlite3.connect(DB_PATH) as conn:
+    if supabase_cache.configured():
+        return supabase_cache.get("explanations", key, "explanation")
+    with closing(sqlite3.connect(DB_PATH)) as conn:
         row = conn.execute(
             "SELECT explanation FROM explanations WHERE cache_key = ?", (key,)
         ).fetchone()
@@ -55,7 +62,13 @@ def get_cached(evidence: dict):
 
 def save_cached(evidence: dict, explanation: str):
     key = make_cache_key(evidence)
-    with sqlite3.connect(DB_PATH) as conn:
+    if supabase_cache.configured():
+        supabase_cache.save("explanations", {
+            "cache_key": key, "input_dish": evidence.get("input_dish"),
+            "matched_dish": evidence.get("matched_dish"), "explanation": explanation,
+        })
+        return
+    with closing(sqlite3.connect(DB_PATH)) as conn, conn:
         conn.execute(
             "INSERT OR REPLACE INTO explanations "
             "(cache_key, input_dish, matched_dish, explanation) VALUES (?, ?, ?, ?)",

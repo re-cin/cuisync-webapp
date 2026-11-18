@@ -5,7 +5,8 @@ health benefits and allergens.
     depend on GPT. Each allergen shows the ingredients that triggered it.
   - Culture, history and health notes come from, in this order:
       1. notes the admin typed for the dish (admin page)
-      2. GPT (cached in admin_data/cuisync.db), clearly labelled as AI-generated
+      2. GPT (cached in Supabase when configured, otherwise in admin_data/cuisync.db),
+         clearly labelled as AI-generated
       3. a short template built from the dataset (when GPT is off)
 """
 import hashlib
@@ -14,6 +15,8 @@ import os
 import re
 import sqlite3
 from contextlib import closing
+
+import supabase_cache
 
 DEFAULT_PROMPT = """You write short cultural notes for CuiSync, a system that compares Asian dishes.
 You get one JSON object with a dish name, its alternative name, its country, its region and its ingredient list.
@@ -83,9 +86,10 @@ def init(data_dir, get_prompt, client, model):
     global DB_PATH, _get_prompt, _client, _model
     DB_PATH = os.path.join(data_dir, "cuisync.db")
     _get_prompt, _client, _model = get_prompt, client, model
-    with closing(sqlite3.connect(DB_PATH)) as conn, conn:
-        conn.execute("CREATE TABLE IF NOT EXISTS cultural_info (cache_key TEXT PRIMARY KEY, dish TEXT, "
-                     "info TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+    if not supabase_cache.configured():
+        with closing(sqlite3.connect(DB_PATH)) as conn, conn:
+            conn.execute("CREATE TABLE IF NOT EXISTS cultural_info (cache_key TEXT PRIMARY KEY, dish TEXT, "
+                         "info TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
 
 
 def _ingredients(recipe):
@@ -145,10 +149,15 @@ def _cache_key(payload, prompt):
 
 def _ask_gpt(payload, prompt):
     key = _cache_key(payload, prompt)
-    with closing(sqlite3.connect(DB_PATH)) as conn:
-        row = conn.execute("SELECT info FROM cultural_info WHERE cache_key = ?", (key,)).fetchone()
-    if row:
-        return json.loads(row[0])
+    use_supabase = supabase_cache.configured()
+    if use_supabase:
+        cached = supabase_cache.get("cultural_info", key, "info")
+    else:
+        with closing(sqlite3.connect(DB_PATH)) as conn:
+            row = conn.execute("SELECT info FROM cultural_info WHERE cache_key = ?", (key,)).fetchone()
+        cached = row[0] if row else None
+    if cached is not None:
+        return json.loads(cached)
     resp = _client.chat.completions.create(
         model=_model,
         messages=[{"role": "system", "content": prompt},
@@ -164,9 +173,14 @@ def _ask_gpt(payload, prompt):
         "health": [str(h).strip() for h in (info.get("health") or []) if str(h).strip()][:4],
     }
     if info["culture"]:
-        with closing(sqlite3.connect(DB_PATH)) as conn, conn:
-            conn.execute("INSERT OR REPLACE INTO cultural_info (cache_key, dish, info) VALUES (?, ?, ?)",
-                         (key, payload["dish"], json.dumps(info, ensure_ascii=False)))
+        if use_supabase:
+            supabase_cache.save("cultural_info", {
+                "cache_key": key, "dish": payload["dish"], "info": json.dumps(info, ensure_ascii=False),
+            })
+        else:
+            with closing(sqlite3.connect(DB_PATH)) as conn, conn:
+                conn.execute("INSERT OR REPLACE INTO cultural_info (cache_key, dish, info) VALUES (?, ?, ?)",
+                             (key, payload["dish"], json.dumps(info, ensure_ascii=False)))
     return info
 
 

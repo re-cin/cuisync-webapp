@@ -2347,8 +2347,7 @@ a.entity-chip:focus-visible { outline: 2px solid var(--gold-accent); outline-off
   text-transform: uppercase;
 }
 
-/* Allergens in the Health Info tab: every group as a tag. Filled = in this dish,
-   outlined = not in it. Each opens the Dish Dictionary with dishes free from it. */
+/* Ingredient-based allergen findings; unlisted allergens imply no safety claim. */
 .rt-allergens { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 0; padding: 0; list-style: none; }
 .rt-allergen {
   display: inline-flex;
@@ -2376,6 +2375,129 @@ a.entity-chip:focus-visible { outline: 2px solid var(--gold-accent); outline-off
 .rt-allergen:focus-visible { outline: 2px solid var(--gold-accent); outline-offset: 2px; }
 .rt-allergen-from { margin: 8px 0 0; font-size: 0.74rem !important; color: var(--text-muted) !important; }
 .rt-allergen-from strong { color: var(--maroon-main); font-weight: 600; }
+
+/* Source-backed dish information, rendered for both recipes by Flask. */
+.rt-column { min-width: 0; }
+.rt-info-section + .rt-info-section {
+  margin-top: 24px;
+  padding-top: 8px;
+  border-top: 1px solid var(--gold-border);
+}
+.rt-info-section > h4 { line-height: 1.55; letter-spacing: 0.07em; }
+.rt-info-section > p { margin: 6px 0 0; white-space: pre-line; }
+.rt-column .rt-info-status {
+  display: inline-block;
+  margin: 0 0 4px;
+  padding: 4px 9px;
+  border: 1px solid var(--gold-border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 0.69rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.rt-info-status.is-verified {
+  background: var(--pill-bg);
+  color: var(--maroon-main);
+}
+.rt-info-status.is-pending { border-color: var(--gold-accent); }
+.rt-column .rt-info-empty { color: var(--text-muted); }
+.rt-benefit-list,
+.rt-consideration-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
+}
+.rt-benefit-list li + li,
+.rt-consideration-list li + li { margin-top: 12px; }
+.rt-benefit-list strong { color: var(--maroon-main); text-transform: capitalize; }
+.rt-benefit-list p { margin: 2px 0 0; }
+.rt-note-source,
+.rt-info-sources a {
+  color: var(--maroon-main);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+.rt-note-source {
+  display: inline-block;
+  margin: 3px 0 0;
+  font-size: 0.73rem;
+}
+.rt-note-source:focus-visible,
+.rt-info-sources a:focus-visible,
+.rt-info-sources summary:focus-visible {
+  outline: 2px solid var(--gold-accent);
+  outline-offset: 3px;
+}
+.rt-allergen-findings {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.rt-allergen-finding {
+  padding: 12px;
+  border: 1px solid var(--gold-border);
+  border-radius: 6px;
+  background: var(--pill-bg);
+}
+.rt-allergen-finding.is-avoid { border-color: var(--gold-accent); }
+.rt-allergen-finding .rt-allergen { border-radius: 4px; }
+.rt-allergen.is-possible {
+  color: var(--maroon-main);
+  border-color: var(--gold-accent);
+}
+.rt-allergen-certainty {
+  display: block;
+  margin-top: 5px;
+  color: var(--text-muted);
+  font-size: 0.73rem;
+}
+.rt-column .rt-avoid-note {
+  margin: 4px 0 0;
+  color: var(--maroon-main);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+.rt-column .rt-info-caution {
+  margin-top: 16px;
+  padding-left: 11px;
+  border-left: 2px solid var(--gold-accent);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+.rt-info-sources {
+  margin-top: 20px;
+  padding-top: 12px;
+  border-top: 1px solid var(--gold-border);
+}
+.rt-info-sources summary {
+  width: fit-content;
+  color: var(--maroon-main);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rt-info-sources ul { margin: 9px 0 0; padding-left: 18px; }
+.rt-info-sources li { font-size: 0.76rem; }
+.rt-info-sources li + li { margin-top: 6px; }
+.rt-external-note {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 480px) {
+  .rt-info-section > h4 { font-size: 0.7rem; letter-spacing: 0.04em; }
+  .rt-allergen-finding { padding: 10px; }
+}
 
 /* ==========================================================================
    PAGE MARGINS: same as the FAQs page (.faq-container in faqs.css)
@@ -2463,3 +2585,253 @@ a.entity-chip:focus-visible { outline: 2px solid var(--gold-accent); outline-off
 .dish-comparison-section .rank-badge small { letter-spacing: 0.02em; }
 /* Dish names on cards */
 .dish-comparison-section .dish-title { color: var(--maroon-main); }
+
+/* Unified dish background: one flowing text block, including when source text has line breaks. */
+.rt-background-summary { white-space: normal !important; line-height: 1.7; }
+
+/* One combined background paragraph; provenance is small accompanying metadata. */
+.rt-background-evidence {
+  font-size: 0.77rem;
+  line-height: 1.5;
+  opacity: 0.78;
+  margin: 0.5rem 0 0.4rem;
+}
+
+/* Asian market selector. Keep market-only flags distinct from baseline allergens. */
+.rt-market-comparison { margin-top: 16px; padding: 12px 14px; border: 1px solid var(--border, #d6d9df); border-radius: 10px; }
+.rt-market-comparison summary { cursor: pointer; font-weight: 650; }
+.rt-market-comparison > p { margin-top: 10px; }
+.rt-market-label { display: block; margin: 12px 0 5px; font-size: .875rem; font-weight: 650; }
+.rt-market-select { max-width: 100%; min-width: min(100%, 220px); padding: 8px 10px; border: 1px solid #a7acb7; border-radius: 7px; background: var(--panel-bg, #fff); color: var(--text, #1b2430); }
+.rt-market-comparison [hidden] { display: none !important; }
+
+
+/* ========================================================================== 
+   CuiSync allergen UI: clear identified/possible groups and a compact country
+   reference explorer. Scoped to the health tab so other cards are unaffected.
+   ========================================================================== */
+#rt-panel-health .rt-health-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  margin: 0 0 13px;
+}
+#rt-panel-health .rt-health-heading-icon {
+  width: 37px;
+  height: 37px;
+  display: inline-grid;
+  flex: 0 0 37px;
+  place-items: center;
+  color: var(--maroon-main);
+  background: #f7eceb;
+  border-radius: 10px;
+}
+#rt-panel-health .rt-health-heading-icon--allergen {
+  background: #f7e9e4;
+}
+#rt-panel-health .rt-health-heading h4 {
+  margin: 1px 0 3px;
+  color: var(--maroon-main);
+  font-size: .89rem;
+  line-height: 1.35;
+  letter-spacing: .01em;
+  text-transform: none;
+}
+#rt-panel-health .rt-health-subtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: .79rem;
+  line-height: 1.5;
+}
+#rt-panel-health .rt-info-section + .rt-info-section {
+  margin-top: 24px;
+  padding-top: 24px;
+}
+#rt-panel-health .rt-benefit-list {
+  display: grid;
+  gap: 10px;
+  margin: 9px 0 0;
+  padding: 0;
+  list-style: none;
+}
+#rt-panel-health .rt-benefit-list li {
+  margin: 0;
+  padding: 12px 13px;
+  background: var(--pill-bg);
+  border: 1px solid var(--gold-border);
+  border-radius: 9px;
+}
+#rt-panel-health .rt-benefit-list strong { display: block; font-size: .81rem; }
+#rt-panel-health .rt-benefit-list p { margin: 3px 0 0; }
+#rt-panel-health .rt-nutrition-limitation {
+  margin-top: 10px;
+  color: var(--text-muted);
+  font-size: .76rem;
+  line-height: 1.55;
+}
+#rt-panel-health .rt-allergen-groups {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+#rt-panel-health .rt-allergen-group {
+  background: var(--pill-bg);
+  border: 1px solid var(--gold-border);
+  border-radius: 11px;
+  overflow: hidden;
+}
+#rt-panel-health .rt-allergen-group-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px 9px;
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--gold-border);
+}
+#rt-panel-health .rt-allergen-group-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #f2ddd8;
+  color: #842d2d;
+  font-size: .8rem;
+  font-weight: 800;
+}
+#rt-panel-health .rt-allergen-group--possible .rt-allergen-group-icon {
+  background: #f5ebd7;
+  color: #7f5a1a;
+}
+#rt-panel-health .rt-allergen-group-label {
+  color: var(--text-dark);
+  font-size: .84rem;
+  font-weight: 700;
+}
+#rt-panel-health .rt-allergen-group-caption {
+  color: var(--text-muted);
+  font-size: .72rem;
+  line-height: 1.45;
+}
+#rt-panel-health .rt-allergen-group .rt-allergen-findings {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+#rt-panel-health .rt-allergen-group .rt-allergen-finding {
+  margin: 0;
+  padding: 11px 14px 12px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+#rt-panel-health .rt-allergen-group .rt-allergen-finding + .rt-allergen-finding {
+  border-top: 1px solid var(--gold-border);
+}
+#rt-panel-health .rt-allergen-finding.is-avoid {
+  border-left: 3px solid var(--gold-accent);
+}
+#rt-panel-health .rt-allergen-name {
+  display: block;
+  color: var(--maroon-main);
+  font-size: .88rem;
+  font-weight: 700;
+}
+#rt-panel-health .rt-allergen-from,
+#rt-panel-health .rt-allergen-certainty {
+  margin: 3px 0 0;
+  color: var(--text-muted);
+  font-size: .76rem;
+  line-height: 1.5;
+}
+#rt-panel-health .rt-avoid-note {
+  margin-top: 5px;
+  font-size: .74rem;
+}
+#rt-panel-health .rt-allergen-disclaimer,
+#rt-panel-health .rt-unassessed-note {
+  margin: 13px 0 0;
+  color: var(--text-muted);
+  font-size: .76rem;
+  line-height: 1.6;
+}
+#rt-panel-health .rt-unassessed-note {
+  padding-left: 10px;
+  border-left: 2px solid var(--gold-accent);
+}
+#rt-panel-health .rt-allergen-disclaimer {
+  display: block;
+  padding-top: 11px;
+  border-top: 1px solid var(--gold-border);
+}
+#rt-panel-health .rt-market-comparison {
+  margin-top: 17px;
+  padding: 0;
+  border: 1px solid var(--gold-border);
+  border-radius: 11px;
+  background: transparent;
+}
+#rt-panel-health .rt-market-comparison summary {
+  position: relative;
+  display: list-item;
+  margin: 0;
+  padding: 13px 12px 13px 16px;
+  color: var(--maroon-main);
+  font-size: .8rem;
+  line-height: 1.5;
+  font-weight: 700;
+  cursor: pointer;
+}
+#rt-panel-health .rt-market-comparison summary:focus-visible,
+#rt-panel-health .rt-market-select:focus-visible {
+  outline: 2px solid var(--gold-accent);
+  outline-offset: 2px;
+}
+#rt-panel-health .rt-market-content {
+  padding: 0 15px 15px;
+}
+#rt-panel-health .rt-market-intro,
+#rt-panel-health .rt-market-profile,
+#rt-panel-health .rt-market-empty {
+  margin: 7px 0 0;
+  color: var(--text-muted);
+  font-size: .76rem;
+  line-height: 1.55;
+}
+#rt-panel-health .rt-market-label {
+  margin: 13px 0 5px;
+  color: var(--text-dark);
+  font-size: .78rem;
+  font-weight: 650;
+}
+#rt-panel-health .rt-market-select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--gold-border);
+  border-radius: 8px;
+  color: var(--text-dark);
+  background: var(--pill-bg);
+  font: inherit;
+  font-size: .82rem;
+}
+#rt-panel-health .rt-market-profiles {
+  margin-top: 9px;
+}
+#rt-panel-health .rt-market-findings {
+  margin-top: 10px;
+  gap: 8px;
+}
+#rt-panel-health .rt-market-findings .rt-allergen-finding {
+  border: 1px solid var(--gold-border);
+  border-radius: 8px;
+  background: var(--pill-bg);
+}
+#rt-panel-health .rt-market-comparison [hidden] { display: none !important; }
+@media (max-width: 480px) {
+  #rt-panel-health .rt-allergen-group-heading { align-items: flex-start; }
+  #rt-panel-health .rt-allergen-group-caption { flex-basis: 100%; margin-left: 31px; }
+  #rt-panel-health .rt-health-heading h4 { font-size: .85rem; }
+}

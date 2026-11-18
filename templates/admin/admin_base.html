@@ -44,6 +44,7 @@
         </a>
       {% endfor %}
 
+
       <div class="sidebar-footer">
         <a href="{{ url_for('admin_account') }}" class="admin-me{% if nav_active == 'account' %} active{% endif %}" title="Your admin account">
           <span class="avatar avatar-gold">{{ (current_user.name or 'A')[:2] | upper }}</span>

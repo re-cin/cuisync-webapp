@@ -24,6 +24,9 @@ from shapley import compute_shapley, influence_shares
 import accounts
 import ner
 import cultural_info
+import dish_information
+from dish_information_store import DishStoreError, get_store as get_dish_information_store
+from dish_info_common import safe_url
 import cuisync_prompts
 import explainer
 import search_tools
@@ -191,6 +194,7 @@ cultural_info.init(
     explainer._client,
     explainer.MODEL_NAME,
 )
+dish_information.configure(client=explainer._client)
 
 
 def reload_data():
@@ -717,6 +721,10 @@ def get_search_results(dish_name, origin_country, target_country, force=False, r
         "results.html",
         source_dish=source_dish,
         recommended_dish=recommended_dish,
+        dish_information={
+            "source": dish_information.public_information(source_dish, (user or {}).get("avoid_allergens", [])),
+            "recommended": dish_information.public_information(recommended_dish, (user or {}).get("avoid_allergens", [])) if recommended_dish else None,
+        },
         target_country=target_country,
         target_any=target_any,
         ingredient_note=ingredient_note,
@@ -1737,12 +1745,9 @@ def api_dish_info(idx):
     if not 0 <= idx < len(RECIPES):
         return jsonify({"error": "invalid recipe index"}), 404
     recipe = RECIPES[idx]
-    info = cultural_info.dish_info(recipe, STORE.region_of(recipe["country"]), STORE.label_of(recipe["country"]))
-    info["tags"] = search_tools.recipe_tags(recipe, STORE.region_of)
     user = current_user()
-    avoid = set((user or {}).get("avoid_allergens", []))
-    for a in info["allergens"]:
-        a["avoid"] = a["name"] in avoid
+    info = dish_information.api_information(recipe, (user or {}).get("avoid_allergens", []))
+    info["tags"] = search_tools.recipe_tags(recipe, STORE.region_of)
     return jsonify(info)
 
 
@@ -1785,6 +1790,48 @@ def api_dish(idx):
 
 # ---------------- admin (Oab 1, 2, 5; Galang 3) ----------------
 ADMIN_TABS = ("overview", "users", "dishes", "countries", "prompts", "tags", "dataset")
+
+
+@app.route("/admin/dish-information")
+@admin_required
+def dish_information_admin():
+    state = request.args.get("state", "pending")
+    if state not in {"pending", "verified", "unavailable"}:
+        state = "pending"
+    store = get_dish_information_store()
+    rows = []
+    try:
+        if store is not None:
+            rows = store.list("dish_backgrounds", {"verification_status": state})
+    except DishStoreError:
+        flash("Dish information is temporarily unavailable.", "error")
+    # Evidence links are sanitized even in the privileged review UI.
+    for row in rows:
+        row["sources"] = [{**source, "url": safe_url(source.get("url"))}
+                          for source in row.get("sources", []) if isinstance(source, dict)]
+    session.setdefault("dish_information_csrf", secrets.token_urlsafe(32))
+    return render_template("admin/dish_information.html", active="dish-information", state=state,
+                           drafts=rows, csrf_token=session["dish_information_csrf"], configured=store is not None)
+
+
+@app.route("/admin/dish-information/<uuid:record_id>/approve", methods=["POST"])
+@admin_required
+def approve_dish_background(record_id):
+    token = session.get("dish_information_csrf", "")
+    if not token or not secrets.compare_digest(token, request.form.get("csrf_token", "")):
+        abort(400, "Reload the review page and submit again.")
+    if request.form.get("confirm_sources") != "yes":
+        abort(400, "Confirm that you reviewed the linked evidence.")
+    store = get_dish_information_store()
+    try:
+        if store is None:
+            raise DishStoreError("Supabase is not configured.")
+        store.approve_background(str(record_id), current_user()["id"], request.form.get("review_note", ""),
+                                 expected_updated_at=request.form.get("updated_at"))
+        flash("Historical and cultural information marked as reviewed.", "success")
+    except DishStoreError as error:
+        flash(str(error), "error")
+    return redirect(url_for("dish_information_admin"))
 
 
 @app.route("/admin")
