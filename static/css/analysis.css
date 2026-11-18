@@ -708,3 +708,13 @@
     height: 300px;
   }
 }
+
+/* ==========================================================================
+   TEXT RULES (whole system)
+   - Section headers: Playfair Display, ALL CAPS
+   - Everything else (buttons, tabs, labels, badges): sentence case
+   - Dish names on cards: Playfair Display, maroon
+   ========================================================================== */
+.sub-heading { font-family: 'Playfair Display', serif; text-transform: uppercase; letter-spacing: 0.04em; }
+.analysis-hero-content .subtitle,
+.subnav-item { letter-spacing: 0.02em; }

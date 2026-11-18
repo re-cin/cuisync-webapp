@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  {% include "partials/pwa_head.html" %}
+  {% include "partials/head_icons.html" %}
   <meta name="referrer" content="no-referrer">
   <title>CUISYNC - Dish Dictionary</title>
 
@@ -28,27 +28,34 @@
       <span class="current">Dish dictionary</span>
     </nav>
 
-    <header class="dict-header">
-      <h1 class="dict-title">Dish dictionary</h1>
+    <!-- Welcome message -->
+    <header class="dict-intro">
+      <h1 class="dict-title">Welcome to the Dish Dictionary page</h1>
       <p class="dict-lead">
-        Browse every dish in the CuiSync dataset. Search by name, filter by origin country, choose tags to
-        show or leave out (allergens too), and sort the results.
+        Please browse the dishes through the category tiles below. You can also use the
+        drop down and search box located below.
       </p>
     </header>
 
-    <!-- Search + filters -->
-    <form class="dict-toolbar" id="dict-toolbar" role="search" onsubmit="return false">
+    <!-- Dish search -->
+    <form class="dict-hero-search" id="dict-hero-search" role="search" onsubmit="return false">
       <label class="dict-search">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
         <span class="sr-only">Search dishes by name</span>
-        <input type="search" id="dict-q" placeholder="Search dish names" autocomplete="off">
+        <input type="search" id="dict-q" placeholder="Search for a dish" autocomplete="off">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
       </label>
+    </form>
 
+    <!-- Browse by category: Origin, Region, Ingredients, Directions (cooking actions, cookware, utensils), Sort by dish title -->
+    <section class="dict-browse" aria-labelledby="dict-browse-title">
+    <h2 class="dict-section-title" id="dict-browse-title">Browse by category</h2>
+    <form class="dict-toolbar" id="dict-toolbar" onsubmit="return false">
       <!-- Origin (more than one allowed) -->
+      <div class="dict-field">
+        <span class="dict-field-label" id="dict-label-country">Origin</span>
       <div class="dict-dd" data-dd="country">
-        <button type="button" class="dict-dd-btn" aria-haspopup="true" aria-expanded="false">
-          <span class="dict-dd-label">Origin:</span>
-          <span class="dict-dd-value" data-dd-value>All</span>
+        <button type="button" class="dict-dd-btn" aria-haspopup="true" aria-expanded="false" aria-labelledby="dict-label-country dict-value-country">
+          <span class="dict-dd-value" id="dict-value-country" data-dd-value>All</span>
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
         </button>
         <div class="dict-dd-panel" hidden>
@@ -63,80 +70,88 @@
           </div>
         </div>
       </div>
+      </div>
 
-      <!-- Tags (more than one allowed; dishes must have all of them) -->
-      <div class="dict-dd dict-dd--wide" data-dd="tag">
-        <button type="button" class="dict-dd-btn" aria-haspopup="true" aria-expanded="false">
-          <span class="dict-dd-label">Show:</span>
-          <span class="dict-dd-value" data-dd-value>All</span>
+      <!-- Region (more than one allowed), filled in by dictionary.js -->
+      <div class="dict-field">
+        <span class="dict-field-label" id="dict-label-region">Region</span>
+      <div class="dict-dd" data-dd="region">
+        <button type="button" class="dict-dd-btn" aria-haspopup="true" aria-expanded="false" aria-labelledby="dict-label-region dict-value-region">
+          <span class="dict-dd-value" id="dict-value-region" data-dd-value>All</span>
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
         </button>
         <div class="dict-dd-panel" hidden>
-          <p class="dict-dd-hint">Show only dishes that have all of these tags.</p>
-          {% for group, tags in tag_groups.items() %}
-          <p class="dict-dd-group">{{ group }}</p>
-          <div class="dict-dd-options dict-dd-options--chips">
-            {% for t, n in tags %}
-            <label class="dict-check dict-check--chip">
-              <input type="checkbox" name="tag" value="{{ t }}">
-              <span>{{ t }} <small>{{ n }}</small></span>
-            </label>
-            {% endfor %}
-          </div>
-          {% endfor %}
+          <p class="dict-dd-hint">Pick one or more regions</p>
+          <div class="dict-dd-options" id="dict-region-options"></div>
         </div>
       </div>
+      </div>
 
-      <!-- Hide: tags and allergens to leave out (a dish with ANY of them is hidden) -->
-      <div class="dict-dd dict-dd--wide dict-dd--exclude" data-dd="exclude">
-        <button type="button" class="dict-dd-btn" aria-haspopup="true" aria-expanded="false">
-          <span class="dict-dd-label">Hide:</span>
-          <span class="dict-dd-value" data-dd-value>None</span>
+      <!-- Checklists filled in by dictionary.js -->
+      <div class="dict-field">
+        <span class="dict-field-label" id="dict-label-ingredients">Ingredients</span>
+      <div class="dict-dd dict-dd--wide dict-dd--browse" data-dd="ingredients" data-kinds="ingredient">
+        <button type="button" class="dict-dd-btn" aria-haspopup="true" aria-expanded="false" aria-labelledby="dict-label-ingredients dict-value-ingredients">
+          <span class="dict-dd-value" id="dict-value-ingredients" data-dd-value>All</span>
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
         </button>
         <div class="dict-dd-panel" hidden>
-          <p class="dict-dd-hint">Hide dishes that have any of these. Good for allergies and diets.</p>
-          <p class="dict-dd-group">Allergens</p>
-          <div class="dict-dd-options dict-dd-options--chips">
-            {% for a, n in allergen_options %}
-            <label class="dict-check dict-check--chip dict-check--exclude">
-              <input type="checkbox" name="xallergen" value="{{ a }}">
-              <span>{{ a }} <small>{{ n }}</small></span>
-            </label>
-            {% endfor %}
-          </div>
-          {% for group, tags in tag_groups.items() %}
-          <p class="dict-dd-group">{{ group }}</p>
-          <div class="dict-dd-options dict-dd-options--chips">
-            {% for t, n in tags %}
-            <label class="dict-check dict-check--chip dict-check--exclude">
-              <input type="checkbox" name="xtag" value="{{ t }}">
-              <span>{{ t }} <small>{{ n }}</small></span>
-            </label>
-            {% endfor %}
-          </div>
-          {% endfor %}
+          <label class="dict-cat-filter">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <span class="sr-only">Find in ingredients</span>
+            <input type="search" data-cat-q placeholder="Find an ingredient" autocomplete="off">
+          </label>
+          <p class="dict-dd-hint">Tick one or more. Dishes must have all ticked items.</p>
+          <div class="dict-cat-list" data-cat-list role="group" aria-label="Ingredients"></div>
         </div>
       </div>
+      </div>
 
-      <label class="dict-sort">
-        <span class="dict-dd-label">Sort:</span>
-        <select id="dict-sort">
-          <option value="az">Name (A–Z)</option>
-          <option value="za">Name (Z–A)</option>
-          <option value="country">Country (A–Z)</option>
-          <option value="region">Region</option>
-        </select>
-      </label>
+      <div class="dict-field">
+        <span class="dict-field-label" id="dict-label-directions">Directions</span>
+      <div class="dict-dd dict-dd--wide dict-dd--browse" data-dd="directions" data-kinds="action cookware utensil">
+        <button type="button" class="dict-dd-btn" aria-haspopup="true" aria-expanded="false" aria-labelledby="dict-label-directions dict-value-directions">
+          <span class="dict-dd-value" id="dict-value-directions" data-dd-value>All</span>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="dict-dd-panel" hidden>
+          <div class="dict-cat-tabs" data-cat-tabs role="tablist" aria-label="Directions"></div>
+          <label class="dict-cat-filter">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <span class="sr-only">Find in directions</span>
+            <input type="search" data-cat-q placeholder="Find a cooking action" autocomplete="off">
+          </label>
+          <p class="dict-dd-hint">Tick one or more. Dishes must have all ticked items.</p>
+          <div class="dict-cat-list" data-cat-list role="group" aria-label="Directions"></div>
+        </div>
+      </div>
+      </div>
+
+      <div class="dict-field dict-field--sort">
+        <span class="dict-field-label" id="dict-label-sort">Sort by</span>
+        <div class="dict-dd dict-dd--sort" data-dd="sort">
+          <button type="button" class="dict-dd-btn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="dict-label-sort dict-value-sort">
+            <span class="dict-dd-value" id="dict-value-sort" data-dd-value>Dish title (A–Z)</span>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="dict-dd-panel" role="listbox" aria-labelledby="dict-label-sort" hidden>
+            <button type="button" class="dict-sort-opt" role="option" data-sort="az">Dish title (A–Z)</button>
+            <button type="button" class="dict-sort-opt" role="option" data-sort="za">Dish title (Z–A)</button>
+          </div>
+        </div>
+      </div>
     </form>
 
-    <!-- Active filters + result count -->
-    <div class="dict-status">
-      <div class="dict-active" id="dict-active" hidden>
-        <span class="dict-active-label">Active filters:</span>
-        <div class="dict-active-chips" id="dict-active-chips"></div>
-        <button type="button" class="dict-reset" id="dict-reset">Reset all</button>
-      </div>
+    <!-- What's selected: click a chip's x to remove it -->
+    <div class="dict-active" id="dict-active" hidden>
+      <span class="dict-active-label">Selected:</span>
+      <div class="dict-active-chips" id="dict-active-chips"></div>
+      <button type="button" class="dict-reset" id="dict-reset">Remove selected</button>
+    </div>
+    </section>
+
+    <!-- Result count -->
+    <div class="dict-status" id="dict-results">
       <p class="dict-count" aria-live="polite"><strong id="dict-count">{{ dishes | length }}</strong> <span id="dict-count-word">dishes</span> found</p>
     </div>
 
@@ -159,17 +174,60 @@
     <li class="dict-card">
       <div class="dict-card-img">
         <img alt="" loading="lazy" referrerpolicy="no-referrer">
-        <span class="dict-card-country"></span>
       </div>
       <div class="dict-card-body">
         <h2 class="dict-card-title"></h2>
         <p class="dict-card-alt"></p>
-        <div class="dict-card-tags"></div>
+      </div>
+      <!-- Footer: where the dish is from, and a hint that the card opens -->
+      <div class="dict-card-foot">
+        <span class="dict-card-place"></span>
+        <span class="dict-card-view" aria-hidden="true">View dish <span class="dict-card-arrow">&rarr;</span></span>
       </div>
     </li>
   </template>
 
+  <!-- Dish popup: opens when a card is clicked (filled in by dictionary.js from /api/dish/<id>) -->
+  <div class="dp-overlay" id="dp-overlay" hidden>
+    <div class="dp-dialog" role="dialog" aria-modal="true" aria-labelledby="dp-title" tabindex="-1">
+      <button type="button" class="dp-close" id="dp-close" aria-label="Close">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+
+      <!-- Left: the dish -->
+      <aside class="dp-side">
+        <div class="dp-img">
+          <img id="dp-img" alt="" referrerpolicy="no-referrer">
+          <span class="dp-country" id="dp-country"></span>
+        </div>
+        <div class="dp-side-body">
+          <h2 class="dp-title" id="dp-title"></h2>
+          <p class="dp-alt" id="dp-alt"></p>
+          <div class="dp-tags dp-place" id="dp-tags"></div>
+          <a class="dp-similar" id="dp-similar" href="#">
+            Find similar dishes <span class="dp-similar-arrow" aria-hidden="true">&rarr;</span>
+          </a>
+        </div>
+      </aside>
+
+      <!-- Right: recipe breakdown / culture & history / health info -->
+      <section class="dp-main">
+        <div class="dp-tabs" role="tablist" aria-label="Dish details">
+          <button type="button" class="dp-tab is-active" role="tab" id="dp-tab-recipe" data-tab="recipe" aria-controls="dp-panel-recipe" aria-selected="true">Recipe breakdown</button>
+          <button type="button" class="dp-tab" role="tab" id="dp-tab-culture" data-tab="culture" aria-controls="dp-panel-culture" aria-selected="false" tabindex="-1">Culture &amp; history</button>
+          <button type="button" class="dp-tab" role="tab" id="dp-tab-health" data-tab="health" aria-controls="dp-panel-health" aria-selected="false" tabindex="-1">Health info</button>
+        </div>
+        <div class="dp-body" id="dp-body">
+          <div class="dp-panel" id="dp-panel-recipe" role="tabpanel" aria-labelledby="dp-tab-recipe"></div>
+          <div class="dp-panel" id="dp-panel-culture" role="tabpanel" aria-labelledby="dp-tab-culture" hidden></div>
+          <div class="dp-panel" id="dp-panel-health" role="tabpanel" aria-labelledby="dp-tab-health" hidden></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
   <script type="application/json" id="dict-data">{{ dishes | tojson }}</script>
+  <script type="application/json" id="dict-entity-options">{{ entity_options | tojson }}</script>
   <script type="application/json" id="dict-entities">{{ entity_filters | tojson }}</script>
   <script>window.DICT_NO_IMAGE = "{{ url_for('static', filename='assets/no-image.svg') }}";</script>
   <script src="{{ url_for('static', filename='scripts/components.js') }}"></script>

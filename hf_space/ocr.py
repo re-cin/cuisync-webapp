@@ -957,6 +957,61 @@ def menu_candidates(romanized_lines):
     return candidates
 
 
+def candidate_positions(romanized_lines):
+    """Where each menu candidate starts on the menu: {key: line number}, top line = 0.
+    Built the same way as menu_candidates() and loose_candidates(), so every key they
+    make has a position. Used to list the found dishes in the order they are on the menu."""
+    positions = {}
+
+    def note(key, line_no):
+        if key and key not in positions:
+            positions[key] = line_no
+
+    # Normal keys (same steps as menu_candidates)
+    raw = []  # (key, line number)
+    for line_no, line in enumerate(romanized_lines):
+        line_str = clean_menu_line(line)
+        if not line_str:
+            continue
+        key_std = match_key(line_str, mode="standard")
+        if key_std:
+            raw.append((key_std, line_no))
+        if CJK_RANGE.search(line_str) or KANA_RANGE.search(line_str):
+            key_ja = match_key(line_str, mode="japanese")
+            if key_ja and key_ja != key_std:
+                raw.append((key_ja, line_no))
+    raw = raw[:MAX_CANDIDATE_LINES]
+    for start in range(len(raw)):
+        key, line_no = raw[start]
+        note(key, line_no)
+        joined = key
+        for end in range(start + 1, min(start + MAX_JOINED_LINES, len(raw))):
+            joined += raw[end][0]
+            note(joined, line_no)
+
+    # Sounds-alike keys for Thai / Arabic (same steps as loose_candidates), marked with "~"
+    previous = []  # (script, key, line number)
+    for line_no, line in enumerate(list(romanized_lines)[:MAX_CANDIDATE_LINES]):
+        script = getattr(line, "script", None)
+        if script not in LOOSE_MATCH_COUNTRY:
+            previous = []
+            continue
+        key = loose_key(clean_menu_line(line), script)
+        if not key:
+            continue
+        previous = [p for p in previous if p[0] == script][-(MAX_JOINED_LINES - 1):]
+        start_no = line_no
+        joined = key
+        note("~" + key, line_no)
+        for _, earlier, earlier_no in reversed(previous):
+            joined = earlier + joined
+            start_no = earlier_no
+            note("~" + joined, start_no)
+        previous.append((script, key, line_no))
+
+    return positions
+
+
 def loose_key(text, script):
     """A "sounds-alike" version of a Thai or Arabic name.
 
@@ -1231,6 +1286,10 @@ def _find_recipes(romanized_lines, origin_country, recipes):
             "_matched": matched_candidate,
         })
         seen.add(identity)
+
+    # List the dishes in the order they are on the menu (top to bottom), not dataset order
+    positions = candidate_positions(romanized_lines)
+    matches.sort(key=lambda m: positions.get(m["_matched"], len(romanized_lines) + 1))
 
     # If "Chicken" / "Adobo" on two lines matched "Chicken Adobo", drop dishes that only
     # matched a piece of it (like "Chicken"). Only for joined lines: if "Udon" and

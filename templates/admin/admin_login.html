@@ -9,7 +9,7 @@
   <meta name="referrer" content="no-referrer">
   <meta name="robots" content="noindex">
   <title>Admin Login · CUISYNC</title>
-  {% include "partials/pwa_head.html" %}
+  {% include "partials/head_icons.html" %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
@@ -21,7 +21,7 @@
 <div class="login-shell">
 
   <section class="login-brand no-pills">
-    <span class="admin-logo">CUISYNC</span>
+    <a class="admin-logo admin-logo-link" href="{{ url_for('home') }}" title="Back to the CuiSync home page">CUISYNC</a>
     <div class="login-brand-copy">
       <p class="eyebrow eyebrow-gold"><span class="diamond"></span>Admin Console</p>
       <h1>Curate the flavours of Asia.</h1>

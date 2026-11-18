@@ -4,10 +4,11 @@ class AppNav extends HTMLElement {
       <header class="navbar" id="navbar">
         <a href="/home"><div class="logo">CUISYNC</div></a>
 
-        <!-- Phones: login / profile stays at the top (the page links move to the bottom bar) -->
+        <!-- Login / profile pill: at the far right on desktop; on phones it stays at the top
+             (the page links move to the bottom bar) -->
         <a href="/login" class="top-account-btn" id="top-account-btn">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          <span>LOGIN</span>
+          <span>Log in</span>
         </a>
         
         <button class="hamburger-toggle" id="hamburger-btn" aria-label="Toggle Navigation Menu" aria-controls="nav-menu" aria-expanded="false">
@@ -17,11 +18,11 @@ class AppNav extends HTMLElement {
         </button>
 
         <nav class="nav-links" id="nav-menu">
-          <a href="/home">HOME</a>
-          <a href="/analysis">STATISTICS</a>
-          <a href="/dictionary">DISHES</a>
-          <a href="/faqs">FAQS</a>
-          <a href="/login" class="nav-account" id="nav-account">LOGIN</a>
+          <a href="/home">Home</a>
+          <a href="/analysis">Statistics</a>
+          <a href="/dictionary">Dishes</a>
+          <a href="/faqs">FAQs</a>
+          <a href="/login" class="nav-account" id="nav-account">Log in</a>
         </nav>
       </header>
       <div class="nav-overlay" id="nav-overlay"></div>
@@ -74,18 +75,51 @@ class AppNav extends HTMLElement {
         if (!me || !me.logged_in || !account) return;
         if (topAccount) {
           topAccount.href = '/profile';
-          topAccount.querySelector('span').textContent = 'PROFILE';
+          topAccount.querySelector('span').textContent = 'Profile';
           topAccount.classList.toggle('active', path.startsWith('/profile'));
         }
-        account.textContent = 'PROFILE';
+        account.textContent = 'Profile';
         account.href = '/profile';
         if (path.startsWith('/profile')) account.classList.add('active');
-        const out = document.createElement('a');
-        out.href = '/logout';
-        out.textContent = 'LOGOUT';
-        account.after(out);
+        // Logged in: the pill becomes an account menu (avatar + name + arrow).
+        // Search history, Account settings and Log out live inside it.
+        if (topAccount) this.buildAccountMenu(topAccount, me, path);
       })
       .catch(() => {});
+  }
+
+  buildAccountMenu(topAccount, me, path) {
+    const esc = (t) => String(t || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const name = me.name || me.username || 'Account';
+    const wrap = document.createElement('div');
+    wrap.className = 'acct-menu' + (path.startsWith('/profile') ? ' is-current' : '');
+    wrap.innerHTML = `
+      <button type="button" class="acct-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Account menu for ${esc(name)}">
+        <span class="acct-avatar" aria-hidden="true">${esc(name.charAt(0).toUpperCase())}</span>
+        <span class="acct-name">${esc(name)}</span>
+        <svg class="acct-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="acct-panel" role="menu" hidden>
+        <div class="acct-who">
+          <span class="acct-who-name">${esc(name)}</span>
+          ${me.username ? `<span class="acct-who-user">@${esc(me.username)}</span>` : ''}
+        </div>
+        <a role="menuitem" href="/profile#history">Search history</a>
+        <a role="menuitem" href="/profile#account">Account settings</a>
+        <a role="menuitem" href="/logout" class="acct-logout">Log out</a>
+      </div>`;
+    topAccount.replaceWith(wrap);
+    const btn = wrap.querySelector('.acct-btn');
+    const panel = wrap.querySelector('.acct-panel');
+    const setOpen = (open) => {
+      panel.hidden = !open;
+      btn.setAttribute('aria-expanded', String(open));
+      wrap.classList.toggle('is-open', open);
+    };
+    btn.addEventListener('click', (e) => { e.stopPropagation(); setOpen(panel.hidden); });
+    document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) setOpen(false); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !panel.hidden) { setOpen(false); btn.focus(); } });
+    panel.querySelectorAll('a').forEach(a => a.addEventListener('click', () => setOpen(false)));
   }
 
   initNavigation() {
@@ -154,7 +188,7 @@ class AppFooter extends HTMLElement {
               <li><a href="/home">Home</a></li>
               <li><a href="/analysis">Statistics</a></li>
               <li><a href="/dictionary">Dishes</a></li>
-              <li><a href="/faqs">FAQS</a></li>
+              <li><a href="/faqs">FAQs</a></li>
             </ul>
           </div>
 

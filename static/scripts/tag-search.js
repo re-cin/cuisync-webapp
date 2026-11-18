@@ -1,9 +1,9 @@
 /* "Search by tag" tab on the home page.
-   Four sub-tabs: REGION (regions and countries of origin), INGREDIENT, COOKING METHOD, DISH TYPE. Each has a search bar that
+   Three sub-tabs: REGION (regions and countries of origin), INGREDIENT, COOKING METHOD. Each has a search bar that
    takes several picks (like the old ingredient search) and quick picks below it.
    Picks from every sub-tab are combined and listed under "Your tags":
-     - region / cooking method / dish type are tags: a dish must have all of them
-     - countries (Region tab): the dish is from any of the picked countries
+     - Region tab (regions and countries): the dish is from ANY of the picked places
+     - cooking methods are tags: a dish must have all of them
      - ingredients are any ingredient in the dataset: dishes using more of them come first
    FIND DISHES -> popup with the matching dishes (from text-search.js, window.CuiSyncPopup)
    -> pick one -> compared with the target country.
@@ -71,8 +71,31 @@ document.addEventListener('DOMContentLoaded', () => {
       b.setAttribute('aria-selected', String(on));
     });
     Object.values(panels).forEach((p) => { p.el.hidden = p.key !== key; hideDropdown(p); });
+    placeSummary(key);
     if (key === 'ingredient') loadIngredients();
   }
+
+  // Popup closed without a pick: a "Choose a dish (N)" button inside the search bar reopens it
+  // (same as the text search; replaces the "No dish selected" card)
+  const chooseBtn = document.createElement('button');
+  chooseBtn.type = 'button';
+  chooseBtn.id = 'tag-choose-btn';
+  chooseBtn.className = 'input-choose-btn tag-choose-btn';
+  chooseBtn.hidden = true;
+  chooseBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (typeof reopenPopup === 'function') reopenPopup();
+  });
+  // "Your tags" sits right under the search bar of the open tab
+  function placeSummary(key) {
+    const summary = document.getElementById('tag-summary');
+    const bar = panels[key] && panels[key].el.querySelector('.search-dropdown-wrapper');
+    if (summary && bar && bar.nextElementSibling !== summary) bar.after(summary);
+    // The "Choose a dish (N)" button follows the active search bar too
+    const chipBox = panels[key] && panels[key].el.querySelector('.tag-chip-input');
+    if (chipBox && chooseBtn.parentElement !== chipBox) chipBox.appendChild(chooseBtn);
+  }
+  placeSummary((Object.values(panels).find((p) => !p.el.hidden) || {}).key);
   tabButtons.forEach((b) => b.addEventListener('click', () => {
     showPanel(b.dataset.panel);
     panels[b.dataset.panel].input.focus();
@@ -99,6 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function changed() {
     pendingDish = null;
+    lastData = null;      // the tags changed: the old popup results no longer apply
     renderAll();
   }
 
@@ -127,23 +151,26 @@ document.addEventListener('DOMContentLoaded', () => {
     Object.values(panels).forEach((p) => {
       // Chips inside this tab's search bar
       p.chips.replaceChildren(...keysOf(p.key).flatMap((k) =>
-        picks[k].map((v) => chip(display(k, v), () => remove(k, v)))));
+        picks[k].map((v) => chip(display(k, v), () => remove(k, v), 'tag-kind-' + k))));
       // Quick picks follow the picks
       p.quick.forEach((q) => {
         const on = has(q.dataset.kind || p.key, q.dataset.value);
+        q.classList.add('tag-kind-' + (q.dataset.kind || p.key));
         q.classList.toggle('is-active', on);
         q.setAttribute('aria-pressed', String(on));
       });
       // "Your tags" box: everything from every tab
       keysOf(p.key).forEach((k) => picks[k].forEach((v) => {
-        summaryChips.appendChild(chip(display(k, v), () => remove(k, v), 'tag-summary-chip tag-summary-' + k, GROUP_LABELS[k]));
+        summaryChips.appendChild(chip(display(k, v), () => remove(k, v), 'tag-summary-chip tag-summary-' + k + ' tag-kind-' + k, GROUP_LABELS[k]));
         total += 1;
       }));
     });
     summaryEmpty.hidden = total > 0;
+    document.getElementById('tag-summary').classList.toggle('is-empty', total === 0);
     summaryClear.hidden = total === 0;
     summaryCount.textContent = total ? `(${total})` : '';
     submitButton.textContent = pendingDish ? 'SEARCH THE DISH' : 'FIND DISHES';
+    if (typeof renderPick === 'function') renderPick();
   }
 
   Object.values(panels).forEach((p) => {
@@ -306,6 +333,59 @@ document.addEventListener('DOMContentLoaded', () => {
   // ------------------------------------------------------------------
   const tagPicks = () => [...picks.region, ...picks.method, ...picks.type];
 
+  // ---------------- selected dish card + target country (same as the text search) ----------------
+  const NO_IMAGE = '/static/assets/no-image.svg';
+  const selectedCard = document.getElementById('tag-selected-dish');
+  const selectedName = document.getElementById('tag-selected-name');
+  const selectedAlt = document.getElementById('tag-selected-alt');
+  const selectedCountry = document.getElementById('tag-selected-country');
+  const selectedImage = document.getElementById('tag-selected-image');
+  const selectPrompt = document.getElementById('tag-select-prompt');
+  const selectPromptCount = document.getElementById('tag-select-prompt-count');
+  const targetGroup = document.getElementById('tag-target-group');
+  let lastData = null;   // the last popup results, so the card / prompt can reopen it
+
+  function renderPick() {
+    const d = pendingDish;
+    if (d) {
+      selectedName.textContent = d.title;
+      const alt = d.alternative_title && lower(d.alternative_title) !== lower(d.title) ? d.alternative_title : '';
+      selectedAlt.textContent = alt;
+      selectedAlt.style.display = alt ? '' : 'none';
+      selectedCountry.textContent = d.country_label || d.country || '';
+      selectedImage.onerror = () => { selectedImage.onerror = null; selectedImage.src = NO_IMAGE; };
+      selectedImage.src = d.image_link || NO_IMAGE;
+      selectedImage.alt = d.title;
+      const several = Boolean(lastData && lastData.dishes && lastData.dishes.length > 1);
+      const change = selectedCard.querySelector('.selected-dish-change');
+      if (change) change.style.display = several ? '' : 'none';
+      // Only one dish: nothing to change, so the card isn't clickable
+      selectedCard.classList.toggle('is-static', !several);
+      selectedCard.tabIndex = several ? 0 : -1;
+    }
+    selectedCard.style.display = d ? 'flex' : 'none';
+    const popupOpen = !document.getElementById('dish-results-overlay')?.classList.contains('hidden');
+    const showPrompt = !d && lastData && lastData.dishes && lastData.dishes.length > 0 && !popupOpen;
+    selectPrompt.style.display = 'none';
+    chooseBtn.hidden = !showPrompt;
+    chooseBtn.textContent = showPrompt ? `Choose a dish (${lastData.total}) \u25be` : '';
+    const wasHidden = targetGroup.hidden;
+    targetGroup.hidden = !d;
+    if (d && wasHidden) {
+      targetGroup.classList.remove('is-revealed');
+      void targetGroup.offsetWidth;
+      targetGroup.classList.add('is-revealed');
+    }
+  }
+
+  function reopenPopup() {
+    if (lastData) window.CuiSyncPopup.show(lastData, choose, renderPick);
+  }
+  selectedCard.addEventListener('click', () => {
+    if (lastData && lastData.dishes && lastData.dishes.length > 1) reopenPopup();
+  });
+  selectPrompt.addEventListener('click', reopenPopup);
+
   function sendForm(d) {
     dishName.value = d.title;
     recipeId.value = d.recipe_id ?? '';
@@ -314,24 +394,19 @@ document.addEventListener('DOMContentLoaded', () => {
     HTMLFormElement.prototype.submit.call(form);
   }
 
-  // Picking a dish sends it right away (or waits for the target country)
+  // Picking a dish shows it as a card next to the target country (like the text search)
   function choose(d) {
+    pendingDish = d;
     window.CuiSyncPopup.close();
+    renderAll();
     if (!target.value) {
-      pendingDish = d;
-      renderAll();
       target.classList.add('needs-attention');
-      target.focus();
-      showErrorModal('Choose a Target Country',
-        `You picked ${d.title}. Now select the target country (or "Any country") to compare it with.`);
-      return;
+      target.dispatchEvent(new CustomEvent('picker:open'));
     }
-    sendForm(d);
   }
 
   target.addEventListener('change', () => {
     target.classList.remove('needs-attention');
-    if (pendingDish) sendForm(pendingDish);
   });
 
   async function findDishes() {
@@ -353,7 +428,10 @@ document.addEventListener('DOMContentLoaded', () => {
         showErrorModal('No Dishes Found', 'No dish matches all of these picks. Try removing one.');
         return;
       }
-      window.CuiSyncPopup.show(data, choose);
+      lastData = data;
+      pendingDish = null;
+      window.CuiSyncPopup.show(data, choose, renderPick);
+      renderPick();
     } finally {
       submitButton.disabled = false;
       renderAll();
@@ -362,12 +440,57 @@ document.addEventListener('DOMContentLoaded', () => {
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    if (pendingDish && target.value) {
-      sendForm(pendingDish);
+    if (pendingDish) {
+      if (target.value) { sendForm(pendingDish); return; }
+      target.classList.add('needs-attention');
+      target.dispatchEvent(new CustomEvent('picker:open'));
       return;
     }
     findDishes();
   });
+
+  // ------------------------------------------------------------------
+  // Long rows of quick picks show their first lines, with "View more" for the rest:
+  // 2 lines on phones, and on computers only for rows with data-desktop-lines (Countries: 1 line)
+  // ------------------------------------------------------------------
+  const phone = window.matchMedia('(max-width: 600px)');
+  const quickRows = Array.from(form.querySelectorAll('.tag-quick-options')).map((options) => {
+    const more = document.createElement('button');
+    more.type = 'button';
+    more.className = 'tag-quick-more';
+    more.hidden = true;
+    options.after(more);
+    const row = { options, more, open: false };
+    more.addEventListener('click', () => { row.open = !row.open; layoutQuickRow(row); });
+    return row;
+  });
+  function layoutQuickRow(row) {
+    const { options, more } = row;
+    const lines = phone.matches ? 2 : Number(options.dataset.desktopLines || 0);
+    options.style.maxHeight = '';
+    options.classList.remove('is-collapsed');
+    if (!lines || options.offsetParent === null) { more.hidden = true; return; }
+    // The top of each line of buttons
+    const buttons = Array.from(options.children);
+    const tops = [...new Set(buttons.map((b) => b.offsetTop))].sort((x, y) => x - y);
+    if (tops.length <= lines) { more.hidden = true; return; }
+    const hiddenCount = buttons.filter((b) => b.offsetTop >= tops[lines]).length;
+    if (!row.open) {
+      options.classList.add('is-collapsed');
+      options.style.maxHeight = `${tops[lines] - tops[0] - 2}px`;
+    }
+    more.hidden = false;
+    more.textContent = row.open ? 'View less \u25b4' : `View more (${hiddenCount}) \u25be`;
+  }
+  const layoutQuickRows = () => quickRows.forEach(layoutQuickRow);
+  phone.addEventListener('change', layoutQuickRows);
+  window.addEventListener('resize', layoutQuickRows);
+  tabButtons.forEach((b) => b.addEventListener('click', () => requestAnimationFrame(layoutQuickRows)));
+  document.querySelectorAll('.tab-btn').forEach((b) => b.addEventListener('click', () => requestAnimationFrame(layoutQuickRows)));
+  requestAnimationFrame(layoutQuickRows);
+  // Also when the Search by Tags tab is opened from code (e.g. a history link)
+  new MutationObserver(() => requestAnimationFrame(layoutQuickRows))
+    .observe(form, { attributes: true, attributeFilter: ['class'] });
 
   // ------------------------------------------------------------------
   // Opened from search history or an old link

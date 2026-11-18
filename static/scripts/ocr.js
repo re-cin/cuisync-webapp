@@ -25,6 +25,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const pickerClose = document.getElementById('dish-picker-close');
   const selectDishPrompt = document.getElementById('select-dish-prompt');
   const selectDishPromptCount = document.getElementById('select-dish-prompt-count');
+  const selectedDishLabel = document.getElementById('selected-dish-label');
+  const targetGroup = document.getElementById('img-target-group');
+  const NO_IMAGE = '/static/assets/no-image.svg';
+
+  // The target country only shows once there is a dish (same as the text search)
+  function updateTargetVisibility() {
+    const show = Boolean(hiddenDishInput.value);
+    if (targetGroup.hidden === !show) return;
+    targetGroup.hidden = !show;
+    if (show) {
+      targetGroup.classList.remove('is-revealed');
+      void targetGroup.offsetWidth;
+      targetGroup.classList.add('is-revealed');
+    }
+  }
 
   // State
   let activeScanController = null;
@@ -74,12 +89,13 @@ document.addEventListener('DOMContentLoaded', () => {
       || (newPopup && !newPopup.classList.contains('hidden') && usingCardPopup);
     const needsChoice = detectedMatches.length >= 2 && !hiddenDishInput.value;
 
-    if (needsChoice && !pickerOpen) {
-      selectDishPromptCount.textContent =
-        `${detectedMatches.length} dishes found · Click to choose`;
-      selectDishPrompt.style.display = 'flex';
-    } else {
-      selectDishPrompt.style.display = 'none';
+    // Popup closed without a pick: a "Choose a dish" button inside the upload area reopens it
+    selectDishPrompt.style.display = 'none';
+    const chooseBtn = document.getElementById('img-choose-btn');
+    if (chooseBtn) {
+      const show = needsChoice && !pickerOpen;
+      chooseBtn.hidden = !show;
+      chooseBtn.textContent = show ? `Choose a dish (${detectedMatches.length})` : '';
     }
   }
 
@@ -88,6 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // No dish picked, so no country yet
     if (!hiddenDishInput.value) setOrigin('');
     updateSelectDishPrompt();
+    updateTargetVisibility();
   }
 
   function stopOcrTimer() {
@@ -121,7 +138,6 @@ document.addEventListener('DOMContentLoaded', () => {
     isScanning = isLoading;
     updateOriginDisplay();
     ocrLoading.style.display = isLoading ? 'block' : 'none';
-    targetSelect.disabled = isLoading;
     imageSearchButton.disabled = isLoading;
     imageForm.classList.toggle('is-ocr-loading', isLoading);
   }
@@ -138,25 +154,34 @@ document.addEventListener('DOMContentLoaded', () => {
       selectedDishAltName.textContent = '';
       selectedDishAltName.style.display = 'none';
     }
-    selectedDishCountry.textContent = match.country;
-    if (match.image_link) {
-      selectedDishImage.src = match.image_link;
-      selectedDishImage.alt = match.title;
-      selectedDishImage.style.display = '';
-    } else {
-      selectedDishImage.removeAttribute('src');
-      selectedDishImage.style.display = 'none';
-    }
+    selectedDishCountry.textContent = match.country_label
+      || String(match.country || '').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+    // "THE DISH" when the photo had one dish, "SELECTED DISH" when it was picked from several
+    selectedDishLabel.textContent = canChange ? 'SELECTED DISH' : 'THE DISH';
+    // Same "no image" placeholder as the popup cards when a dish has no photo
+    selectedDishImage.onerror = () => { selectedDishImage.onerror = null; selectedDishImage.src = NO_IMAGE; };
+    selectedDishImage.src = match.image_link || NO_IMAGE;
+    selectedDishImage.alt = match.title;
+    selectedDishImage.style.display = '';
     selectedDishCard.style.display = showCard ? 'flex' : 'none';
     selectedDishCard.querySelector('.selected-dish-change').style.display = canChange ? 'inline' : 'none';
     selectedDishCard.setAttribute(
       'aria-label',
       canChange ? 'Change selected dish' : 'Selected dish'
     );
+    // Only one dish: nothing to change, so the card isn't clickable
+    selectedDishCard.classList.toggle('is-static', !canChange);
+    selectedDishCard.tabIndex = canChange ? 0 : -1;
     if (usingCardPopup && window.CuiSyncPopup) {
       window.CuiSyncPopup.close();   // runs closeDishPicker() through the popup's onClose
     } else {
       closeDishPicker();
+    }
+    updateTargetVisibility();
+    // No target yet: open the target country list next to the card
+    if (!targetSelect.value) {
+      targetSelect.classList.add('needs-attention');
+      targetSelect.dispatchEvent(new CustomEvent('picker:open'));
     }
   }
 
@@ -338,7 +363,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (
       event.target.closest('#remove-img-btn') ||
       event.target.closest('#selected-dish-card') ||
-      event.target.closest('#select-dish-prompt')
+      event.target.closest('#select-dish-prompt') ||
+      event.target.closest('#img-choose-btn')
     ) {
       return;
     }
@@ -550,6 +576,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  document.getElementById('img-choose-btn').addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (detectedMatches.length >= 2) showDishPicker(detectedMatches);
+  });
+
   selectDishPrompt.addEventListener('click', (event) => {
     event.stopPropagation();
     if (detectedMatches.length >= 2) {
@@ -585,6 +616,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!hiddenDishInput.value || !originSelect.value) {
       event.preventDefault();
       showErrorModal('Choose a Dish', 'Select one of the detected menu dishes before starting the comparison.');
+      return;
+    }
+    // No target yet: open the target country list instead of an error popup
+    if (!targetSelect.value) {
+      event.preventDefault();
+      targetSelect.classList.add('needs-attention');
+      targetSelect.dispatchEvent(new CustomEvent('picker:open'));
     }
   });
+  targetSelect.addEventListener('change', () => targetSelect.classList.remove('needs-attention'));
 });

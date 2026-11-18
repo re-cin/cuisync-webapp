@@ -17,8 +17,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const originDisplay = document.getElementById('text-origin-display');
   const targetSelect = document.getElementById('text-target');
   const submitButton = form.querySelector('button[type="submit"]');
-  const changeBtn = document.getElementById('dish-change-btn');
-  const clearBtn = document.getElementById('dish-clear-btn');
+  const selectPrompt = document.getElementById('text-select-prompt');
+  const selectPromptCount = document.getElementById('text-select-prompt-count');
 
   const selectedCard = document.getElementById('text-selected-dish');
   const selectedName = document.getElementById('text-selected-name');
@@ -60,6 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
   originSelect.addEventListener('change', () => {
     updateOriginDisplay();
     if (typeof updateInputActions === 'function') updateInputActions();
+    updateTargetVisibility();
   });
 
   // ---------------- chosen dish ----------------
@@ -72,59 +73,76 @@ document.addEventListener('DOMContentLoaded', () => {
     setOrigin('');
     selectedCard.style.display = 'none';
     updateButton();
+    updateTargetVisibility();
+  }
+
+  // The target country only shows once a dish is chosen (less confusing for first-time users)
+  const targetGroup = document.getElementById('text-target-group');
+  function updateTargetVisibility() {
+    const show = Boolean(originSelect.value);
+    if (targetGroup.hidden === !show) return;
+    targetGroup.hidden = !show;
+    if (show) {
+      targetGroup.classList.remove('is-revealed');
+      void targetGroup.offsetWidth;
+      targetGroup.classList.add('is-revealed');
+    }
   }
 
   function pickDish(dish, showCard) {
     recipeIdInput.value = dish.recipe_id ?? '';
     dishInput.value = dish.title;
+    updateClearBtn();
     setOrigin(dish.country_value || dish.country);
     if (showCard) {
       selectedName.textContent = dish.title;
       selectedAlt.textContent = dish.alternative_title || '';
       selectedAlt.style.display = dish.alternative_title ? '' : 'none';
       selectedCountry.textContent = dish.country_label || dish.country;
-      if (dish.image_link) {
-        selectedImage.src = dish.image_link;
-        selectedImage.alt = dish.title;
-        selectedImage.style.display = '';
-        selectedImage.onerror = () => { selectedImage.style.display = 'none'; };
-      } else {
-        selectedImage.removeAttribute('src');
-        selectedImage.style.display = 'none';
-      }
+      // Same "no image" placeholder as the popup cards when a dish has no photo
+      selectedImage.onerror = () => { selectedImage.onerror = null; selectedImage.src = NO_IMAGE; };
+      selectedImage.src = dish.image_link || NO_IMAGE;
+      selectedImage.alt = dish.title;
+      selectedImage.style.display = '';
       selectedCard.style.display = 'flex';
     }
     updateButton();
+    updateTargetVisibility();
   }
 
   function hasPick() {
     return Boolean(dishInput.value.trim() && originSelect.value);
   }
 
-  // Dish mode: "Click to change" (when the dish came from the popup) and the clear button
-  // "Click to choose" when the popup was closed without picking a dish (same spot)
+  // Same as the image search: a "Selected dish" card after picking from the popup, and a
+  // "Select a dish" card when the popup was closed without picking one.
   function updateInputActions() {
-    const hasResults = mode === 'dish' && Boolean(lastResults && lastResults.dishes.length > 1);
-    const picked = hasResults && Boolean(originSelect.value);
-    const notPicked = hasResults && !originSelect.value;
-    changeBtn.hidden = !(picked || notPicked);
-    changeBtn.textContent = notPicked ? 'Click to choose' : 'Click to change';
-    changeBtn.classList.toggle('needs-choice', notPicked);
-    clearBtn.hidden = !dishInput.value;
-    dishInput.classList.toggle('has-change', picked || notPicked);
-    dishInput.classList.toggle('has-clear', Boolean(dishInput.value));
+    const several = Boolean(lastResults && lastResults.dishes.length > 1);
+    const popupOpen = !popup.classList.contains('hidden');
+    const notPicked = several && !originSelect.value;
+    // Popup closed without a pick: a "Choose a dish" button inside the search bar reopens it
+    const chooseBtn = document.getElementById('dish-choose-btn');
+    selectPrompt.style.display = 'none';
+    if (chooseBtn) {
+      const showChoose = notPicked && !popupOpen;
+      chooseBtn.hidden = !showChoose;
+      chooseBtn.textContent = showChoose ? `Choose a dish (${lastResults.dishes.length}) \u25be` : '';
+      dishInput.classList.toggle('has-choose-btn', showChoose);
+    }
+    // "Click to change" only makes sense when there were other dishes to choose from
+    const changeLabel = selectedCard.querySelector('.selected-dish-change');
+    if (changeLabel) changeLabel.style.display = several ? '' : 'none';
+    selectedCard.setAttribute('aria-label', several ? 'Change selected dish' : 'Selected dish');
+    // Only one dish: nothing to change, so the card isn't clickable
+    selectedCard.classList.toggle('is-static', !several);
+    selectedCard.tabIndex = several ? 0 : -1;
   }
 
-  changeBtn.addEventListener('click', () => {
+  selectPrompt.addEventListener('click', () => {
     if (lastResults) showPopup(lastResults);
   });
-  clearBtn.addEventListener('click', () => {
-    dishInput.value = '';
-    lastResults = null;
-    clearPick();
-    hideDropdown();
-    updateInputActions();
-    dishInput.focus();
+  document.getElementById('dish-choose-btn').addEventListener('click', () => {
+    if (lastResults) showPopup(lastResults);
   });
 
   // ---------------- dish name autocomplete ----------------
@@ -194,20 +212,59 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Picking a row picks that exact recipe, so its country is the origin
+  // Picking a row also shows the "Selected dish" card (photo filled in from the server)
+  let detailRequest = 0;
   function chooseMatch(match) {
-    pickDish({
+    const dish = {
       title: match.label.trim(),
       recipe_id: match.record.id,
       country_value: match.record.country.toLowerCase(),
-    }, false);
+      country_label: titleCase(match.record.country),
+      alternative_title: match.isAlt ? match.record.title : (match.record.alternatives[0] || ''),
+      image_link: '',
+    };
+    pickDish(dish, true);
     hideDropdown();
     updateInputActions();
-    dishInput.focus();
+    loadDishDetails(dish);
   }
 
+  async function loadDishDetails(dish) {
+    const ticket = ++detailRequest;
+    try {
+      const r = await fetch(`/api/find-dishes?mode=dish&q=${encodeURIComponent(dish.title)}`,
+        { credentials: 'same-origin' });
+      const data = await r.json();
+      // Ignore the answer if the user picked or typed something else meanwhile
+      if (ticket !== detailRequest || recipeIdInput.value !== String(dish.recipe_id ?? '')) return;
+      const full = (data.dishes || []).find((d) => String(d.recipe_id) === String(dish.recipe_id));
+      if (full) pickDish(full, true);
+    } catch (e) { /* keep the card without a photo */ }
+  }
+
+  // × inside the search bar: clears the dish name (and the picked dish and target country)
+  const clearInputBtn = document.getElementById('dish-clear-input');
+  function updateClearBtn() {
+    const btn = document.getElementById('dish-clear-input');
+    if (btn) btn.hidden = !dishInput.value;
+  }
+  clearInputBtn.addEventListener('click', () => {
+    dishInput.value = '';
+    dishInput.dispatchEvent(new Event('input'));
+    hideDropdown();
+    dishInput.focus();
+  });
+
   dishInput.addEventListener('input', () => {
+    updateClearBtn();
     lastResults = null;
     clearPick();
+    // Search bar cleared: start over, so the target country is reset too
+    if (!dishInput.value.trim() && targetSelect.value) {
+      targetSelect.value = '';
+      targetSelect.classList.remove('needs-attention');
+      targetSelect.dispatchEvent(new Event('change'));
+    }
     renderDropdown(getTopMatches(dishInput.value));
     // No auto-pick while typing: "sushi" matches one record exactly, but the search should
     // still show every sushi dish in the popup. Picking a row from the dropdown still picks it.
@@ -255,23 +312,35 @@ document.addEventListener('DOMContentLoaded', () => {
   function dishButton(d, onPick) {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'dish-card popup-dish-card';
+    // Same card as the Dish Dictionary ("Dishes" page): photo, name, other name, then a
+    // footer with the region and "Select →"
+    button.className = 'dish-card popup-dish-card pdc';
     const found = (d.found || []).length
       ? `<p class="dish-card-found">Uses: ${d.found.map(([want, have]) => `<span title="you typed ${esc(want)}">${esc(have)}</span>`).join(', ')}</p>`
-      : `<p class="dish-card-ings">${esc((d.ingredients || []).join(', '))}</p>`;
+      : ((d.ingredients || []).length ? `<p class="dish-card-ings pdc-ings">${esc(d.ingredients.join(', '))}</p>` : '');
+    const region = (d.region || '').toLowerCase();
+    const tagList = (d.tags || []).filter((t) => !region || t.toLowerCase() !== region);
+    const tags = tagList.length
+      ? `<div class="dish-card-tags pdc-tags">${tagList.slice(0, 4).map((t) => `<span class="tag-chip small">${esc(t)}</span>`).join('')}</div>` : '';
+    const alt = d.alternative_title && d.alternative_title.toLowerCase() !== d.title.toLowerCase()
+      ? `<p class="pdc-alt">${esc(d.alternative_title)}</p>` : '';
+    // Country sits on the photo; the footer shows the region (so no region tag chip)
+    const place = esc(d.region || '');
     button.innerHTML = `
       <div class="dish-card-img">
         <img src="${esc(d.image_link || NO_IMAGE)}" alt="${esc(d.title)}" loading="lazy">
-        <span class="dish-card-country">${esc(d.country_label)}</span>
+        ${d.country_label || d.country ? `<span class="dish-card-country">${esc(d.country_label || d.country)}</span>` : ''}
         ${d.score != null ? `<span class="dish-card-score">${d.score}% match</span>` : ''}
       </div>
-      <div class="dish-card-body">
-        <h3>${esc(d.title)}</h3>
-        ${d.alternative_title && d.alternative_title.toLowerCase() !== d.title.toLowerCase()
-          ? `<p class="dish-card-alt"><i>${esc(d.alternative_title)}</i></p>` : ''}
+      <div class="pdc-body">
+        <h3 class="pdc-title">${esc(d.title)}</h3>
+        ${alt}
         ${found}
-        <div class="dish-card-tags">${(d.tags || []).slice(0, 4).map((t) => `<span class="tag-chip small">${esc(t)}</span>`).join('')}</div>
-        <span class="popup-select">SELECT THIS DISH</span>
+        ${tags}
+      </div>
+      <div class="pdc-foot">
+        <span class="pdc-place">${place}</span>
+        <span class="pdc-select">Select <span class="pdc-arrow" aria-hidden="true">&rarr;</span></span>
       </div>`;
     const img = button.querySelector('img');
     img.addEventListener('error', () => { img.onerror = null; img.src = NO_IMAGE; }, { once: true });
@@ -333,6 +402,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     popupGrid.replaceChildren(...data.dishes.map((d) => dishButton(d, onPick)));
     popup.classList.remove('hidden');
+    updateInputActions();
     popup.querySelector('.dish-results-box').scrollTop = 0;
     popupClose.focus();
   }
@@ -340,12 +410,13 @@ document.addEventListener('DOMContentLoaded', () => {
   function choose(d) {
     const wantSubmit = submitAfterPick;
     closePopup();
-    // The name goes in the search bar (with "Click to change"), no preview card
-    pickDish(d, false);
+    // Like the image search: the dish shows as a "Selected dish" card under the search bar
+    pickDish(d, true);
     updateInputActions();
     if (!targetSelect.value) {
+      // Open the target country picker so the user can finish the search
       targetSelect.classList.add('needs-attention');
-      targetSelect.focus();
+      targetSelect.dispatchEvent(new CustomEvent('picker:open', { detail: { submitAfter: wantSubmit } }));
       return;
     }
     if (wantSubmit) sendForm();
@@ -360,8 +431,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (lastResults && lastResults.dishes.length > 1) showPopup(lastResults);
     else dishInput.focus();
   });
-  targetSelect.addEventListener('change', () => {
+  targetSelect.addEventListener('change', (e) => {
     targetSelect.classList.remove('needs-attention');
+    // Picked from the picker right after choosing a dish: run the search
+    if (e.detail && e.detail.submitAfter && hasPick()) sendForm();
   });
 
   // The tag tab (tag-search.js) uses the same popup
@@ -412,9 +485,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // A dish is already chosen: go straight to the comparison
     if (hasPick()) {
       if (!targetSelect.value) {
-        showErrorModal('Choose a Target Country',
-          'Select the target country (or "Any country") to compare the dish with.');
+        // Open the target country picker instead of an error popup
         targetSelect.classList.add('needs-attention');
+        targetSelect.dispatchEvent(new CustomEvent('picker:open'));
         return;
       }
       sendForm();

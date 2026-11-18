@@ -226,7 +226,7 @@ def dish_info(recipe, region_label, country_label):
 
 
 # ---------------- Country connection (overview page) ----------------
-# TEMPLATE VERSION. The overview page shows a "Historical & Cultural Connection" note
+# TEMPLATE VERSION. The overview page shows a "Historical & cultural connection" note
 # between the origin country and the target country (or only the origin country when the
 # target is "Any"). It will be written by GPT with the prompt below; until that is wired
 # up, country_connection() builds a neutral note from the dataset instead, and the page
@@ -286,7 +286,7 @@ def country_connection(recipes, origin, target, label_of, region_of, parse_items
              f"This section will describe the history and heritage of {a_label}'s cuisine "
              f"once it is generated from the AI prompt."),
         ]
-        return {"title": a_label, "subtitle": "Culinary Origin & Heritage",
+        return {"title": a_label, "subtitle": "Culinary origin & heritage",
                 "paragraphs": paragraphs, "source": "template", "prompt": CONNECTION_PROMPT}
 
     target = target.upper()
@@ -312,7 +312,7 @@ def country_connection(recipes, origin, target, label_of, region_of, parse_items
                f"{_join(only_b)}. ")
     p2 += (f"This section will describe the historical and cultural connection between the two "
            f"countries once it is generated from the AI prompt.")
-    return {"title": f"{a_label} & {b_label}", "subtitle": "Historical & Cultural Connection",
+    return {"title": f"{a_label} & {b_label}", "subtitle": "Historical & cultural connection",
             "paragraphs": [p1, p2], "source": "template", "prompt": CONNECTION_PROMPT}
 
 

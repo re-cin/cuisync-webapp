@@ -1,0 +1,289 @@
+/* ==========================================================================
+   COMPARISON PAGE: interactive map of the most similar dishes (bottom of the page)
+   - The top 10 panel sits over the left side of the map (collapsible); on phones it
+     goes under the map
+   - Pins open their dish's comparison; your dish has a gold ring
+   ========================================================================== */
+.section-dark.rmap-section { padding: 8px 0 64px; }
+.rmap-intro {
+  margin: -6px 0 18px;
+  max-width: 760px;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--text-sub);
+}
+
+.rmap {
+  position: relative;
+  height: 620px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #5c0a0e;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+/* ---------- map (the stage holds the map and its controls) ---------- */
+.rmap-stage { position: absolute; inset: 0; }
+.rmap-map {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+.rmap-map:active { cursor: grabbing; }
+.rmap-svg { display: block; width: 100%; height: 100%; }
+.rmap-map.is-offline::after {
+  content: 'Map unavailable offline';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+  color: var(--text-sub);
+}
+.rmap-pins { position: absolute; inset: 0; pointer-events: none; }
+
+/* Pins: dish photo in a circle with its rank; your dish has a gold ring */
+.rmap-pin {
+  position: absolute;
+  z-index: 1;
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--maroon-dark);
+  border-radius: 50%;
+  background: var(--input-bg);
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  transition: width 0.15s ease, height 0.15s ease;
+}
+.rmap-pin img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
+.rmap-pin:hover { width: 40px; height: 40px; z-index: 6; }
+.rmap-pin:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; z-index: 6; }
+.rmap-pin--source {
+  width: 42px;
+  height: 42px;
+  border: 3px solid var(--gold-accent);
+  z-index: 4;
+  cursor: default;
+}
+.rmap-pin--source:hover { width: 42px; height: 42px; }
+.rmap-pin.is-current {
+  width: 44px;
+  height: 44px;
+  border: 3px solid #ffffff;
+  z-index: 5;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.35), 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+.rmap-pin-rank {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--maroon-dark);
+  border: 1px solid var(--gold-accent);
+  color: #ffffff;
+  font-size: 0.58rem;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+/* Dishes from the target country: gold rank badge */
+.rmap-pin--target .rmap-pin-rank { background: var(--gold-accent); border-color: var(--maroon-dark); color: #1a1a1a; }
+
+.rmap-tooltip {
+  position: absolute;
+  z-index: 8;
+  display: grid;
+  gap: 1px;
+  max-width: 230px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--maroon-dark);
+  border: 1px solid rgba(220, 179, 73, 0.3);
+  color: #ffffff;
+  font-size: 0.7rem;
+  pointer-events: none;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+.rmap-tooltip strong { color: var(--gold-accent); font-size: 0.78rem; }
+.rmap-tooltip[hidden] { display: none; }
+
+/* ---------- controls (gold, black text) ---------- */
+.rmap-zoom {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 7;
+  display: flex;
+  gap: 6px;
+}
+.rmap-zoom button {
+  display: grid;
+  place-items: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--gold-accent);
+  color: #1a1a1a;
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  transition: background-color 0.15s ease;
+}
+.rmap-zoom .rmap-focus { padding: 0; }
+.rmap-zoom .rmap-zoom-reset { font-size: 0.7rem; letter-spacing: 0.02em; }
+.rmap-zoom button:hover { background: #c79f37; }
+.rmap-zoom button:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
+
+.rmap-legend {
+  position: absolute;
+  left: 356px;
+  bottom: 16px;
+  z-index: 7;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: rgba(60, 6, 9, 0.85);
+  color: #ffffff;
+  font-size: 0.7rem;
+  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.rmap.panel-collapsed .rmap-legend { left: 16px; }
+.rmap-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.rmap-legend .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.rmap-legend .sw-origin { background: #dcb349; }
+.rmap-legend .sw-target { background: #b52a24; }
+.rmap-legend .sw-other { background: #f2bfa8; }
+
+/* ---------- side panel: top 10 ---------- */
+.rmap-side {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 9;
+  width: 340px;
+  background: var(--pill-bg);
+  box-shadow: 4px 0 18px rgba(0, 0, 0, 0.35);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.rmap-side.is-collapsed { transform: translateX(-100%); }
+.rmap-panel { height: 100%; overflow-y: auto; padding: 20px 18px 24px; }
+.rmap-toggle {
+  position: absolute;
+  top: 50%;
+  right: -17px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin-top: -17px;
+  border: 1px solid var(--gold-border);
+  border-radius: 50%;
+  background: var(--pill-bg);
+  color: var(--maroon-main);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+.rmap-toggle svg { transition: transform 0.3s ease; }
+.rmap-side.is-collapsed .rmap-toggle { right: -40px; }
+.rmap-side.is-collapsed .rmap-toggle svg { transform: rotate(180deg); }
+.rmap-toggle:focus-visible { outline: 2px solid var(--gold-accent); outline-offset: 2px; }
+
+.rmap-list-title {
+  margin: 0 0 12px;
+  font-family: 'Playfair Display', serif;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--maroon-main);
+}
+.rmap-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.rmap-item {
+  display: grid;
+  grid-template-columns: 24px 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 8px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-dark);
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+.rmap-item:hover { background: var(--input-bg); }
+.rmap-item:focus-visible { outline: 2px solid var(--gold-accent); outline-offset: 1px; }
+.rmap-item.is-current { background: var(--input-bg); border-color: var(--gold-accent); }
+.rmap-item-rank {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--maroon-main);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.rmap-item img { width: 48px; height: 48px; border-radius: 6px; object-fit: cover; background: var(--input-bg); }
+.rmap-item-text { display: grid; min-width: 0; }
+.rmap-item-title {
+  overflow: hidden;
+  font-family: 'Playfair Display', serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--maroon-main);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rmap-item-meta { font-size: 0.72rem; color: var(--text-muted); }
+.rmap-item-score {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--maroon-main);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+/* ---------- phones: map on top, the list under it ---------- */
+@media (max-width: 768px) {
+  .rmap { display: flex; flex-direction: column; height: auto; overflow: visible; background: none; box-shadow: none; }
+  .rmap-side { order: 2; }
+  .rmap-stage { position: relative; height: 440px; border-radius: 10px; overflow: hidden; background: #5c0a0e; }
+  .rmap-side {
+    position: static;
+    width: auto;
+    margin-top: 14px;
+    border-radius: 10px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  }
+  .rmap-side.is-collapsed { transform: none; }
+  .rmap-toggle { display: none; }
+  .rmap-panel { height: auto; overflow: visible; padding: 16px 12px 18px; }
+  .rmap-zoom { top: 12px; right: 12px; bottom: auto; flex-direction: column; }
+  .rmap-legend { left: 12px; bottom: 12px; right: auto; max-width: calc(100% - 24px); gap: 4px 10px; padding: 6px 10px; font-size: 0.64rem; }
+  .rmap.panel-collapsed .rmap-legend { left: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rmap-side, .rmap-legend, .rmap-toggle svg { transition: none; }
+}
+.rmap-hint { display: block; margin-top: 2px; font-size: 0.78rem; opacity: 0.8; }

@@ -22,11 +22,15 @@ import re
 
 import requests
 
+# Always read the .env next to this file (not whichever folder the app was started from).
+# override=True: an empty SUPABASE_... variable already set in Windows can't hide the .env value.
+ENV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(ENV_PATH, override=True)
 except ImportError:
-    pass
+    print("[CuiSync] python-dotenv is not installed in this Python, so .env is not read. "
+          "Activate the venv or run: pip install python-dotenv")
 
 ROLES = ("user", "admin")
 COOKING_ROLES = ("Home cook", "Chef", "Student", "Food researcher", "Other")
@@ -52,8 +56,13 @@ def init(_data_dir=None):
     ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "").strip()
     SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
     if not configured():
-        print("[CuiSync] Supabase is not set up: put SUPABASE_URL, SUPABASE_ANON_KEY and "
-              "SUPABASE_SERVICE_ROLE_KEY in .env. Log in / accounts won't work until then.")
+        missing = [name for name, value in (("SUPABASE_URL", URL), ("SUPABASE_ANON_KEY", ANON_KEY),
+                                            ("SUPABASE_SERVICE_ROLE_KEY", SERVICE_KEY)) if not value]
+        print(f"[CuiSync] Supabase is not set up: missing {', '.join(missing)} "
+              f"(looked in {ENV_PATH}{'' if os.path.exists(ENV_PATH) else ', which does not exist'}). "
+              "Log in / accounts won't work until then.")
+    else:
+        print(f"[CuiSync] Supabase settings found ({URL}).")
 
 
 def configured():
@@ -74,6 +83,14 @@ def _headers(key, extra=None):
 
 def _call(method, path, key=None, params=None, json=None, prefer=None, ok=(200, 201, 204)):
     if not configured():
+        # Read .env again before giving up (in case the settings were added after the app started)
+        try:
+            from dotenv import load_dotenv
+            load_dotenv(ENV_PATH, override=True)
+        except ImportError:
+            pass
+        init()
+    if not configured():
         raise SupabaseError("Accounts are not set up yet (Supabase settings are missing in .env).")
     extra = {"Prefer": prefer} if prefer else None
     try:
@@ -90,6 +107,8 @@ def _error_from(response):
     try:
         data = response.json()
     except ValueError:
+        data = {}
+    if not isinstance(data, dict):   # some replies are a list, not an error object
         data = {}
     text = " ".join(str(data.get(k, "")) for k in ("msg", "message", "error_description", "error", "code", "details"))
     lowered = text.lower()
@@ -116,7 +135,9 @@ def _rpc(name, **args):
 
 
 def _count(table, params=None):
-    response = _rest("GET", table, params=dict(params or {}, select="id", limit="1"), prefer="count=exact")
+    # With "count=exact" and a limit, Supabase answers 206 (Partial Content) once there are more rows than the limit
+    response = _rest("GET", table, params=dict(params or {}, select="id", limit="1"), prefer="count=exact",
+                     ok=(200, 206))
     total = response.headers.get("Content-Range", "*/0").split("/")[-1]
     return int(total) if total.isdigit() else 0
 

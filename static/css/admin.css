@@ -546,7 +546,28 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 0.85em; }
 .tag-count { border-radius: 4px; }
 /* Colour key above the NER chips (the chips themselves have buttons, so they stay rounded) */
 .legend .chip { border-radius: 4px; }
-=======
 /* Admin log in without the pills: logo at the top, text centred in the remaining space */
 .login-brand.no-pills { justify-content: flex-start; }
 .login-brand.no-pills .login-brand-copy { margin: auto 0; }
+
+
+/* ==========================================================================
+   TEXT RULES (whole system)
+   - Section headers: Playfair Display, ALL CAPS
+   - Everything else (buttons, tabs, labels, badges): sentence case
+   ========================================================================== */
+.card-head h2,
+.country-top h3,
+.tag-cat,
+.health-title { font-family: 'Playfair Display', serif; text-transform: uppercase; letter-spacing: 0.04em; }
+.admin-brand-sub,
+.nav-group,
+.eyebrow,
+.btn,
+.field label, .label-row label,
+.table th,
+.kpi-label { text-transform: none; letter-spacing: 0.02em; }
+/* Admin log in: the CUISYNC logo goes back to the home page */
+a.admin-logo-link { text-decoration: none; cursor: pointer; transition: opacity 0.2s; }
+a.admin-logo-link:hover { opacity: 0.8; }
+a.admin-logo-link:focus-visible { outline: 2px solid var(--gold-accent); outline-offset: 4px; border-radius: 4px; }
