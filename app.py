@@ -1512,12 +1512,20 @@ def reset_password():
                 session.pop("password_reset", None)
                 session.pop("pending_reset", None)
                 session.pop("user_id", None)   # log in again with the new password
-                flash("Your password was changed. Log in with your new password.", "success")
-                return redirect(url_for("login"))
+                session["password_changed"] = True
+                return redirect(url_for("reset_password_done"))
     except ValueError as error:
         flash(str(error), "error")
     # No session yet: the page may still have #access_token=... in the address (its script checks)
     return render_template("auth_reset.html", mode="new" if allowed else "invalid")
+
+
+@app.route("/reset-password/done")
+def reset_password_done():
+    """Step 3: "Password changed" (only right after a reset; otherwise go to Log in)."""
+    if not session.pop("password_changed", None):
+        return redirect(url_for("login"))
+    return render_template("auth_reset.html", mode="changed")
 
 
 @app.route("/reset-password/link", methods=["POST"])

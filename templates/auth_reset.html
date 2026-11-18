@@ -2,6 +2,7 @@
    mode "request": type your email
    mode "sent":    check your email (click the link, or type the code)
    mode "new":     choose a new password (after the link / code checked out)
+   mode "changed": the new password was saved
    mode "invalid": the link expired or was used; also where Supabase's default link lands
                    (#access_token=... in the address, which the script below sends to the server) #}
 {% from "admin/admin_icons.html" import icon %}
@@ -11,7 +12,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="referrer" content="no-referrer">
-  <title>CUISYNC - {{ 'New password' if mode == 'new' else 'Forgot password' }}</title>
+  <title>CUISYNC - {{ 'New password' if mode == 'new' else 'Password changed' if mode == 'changed' else 'Forgot password' }}</title>
   {% include "partials/head_icons.html" %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -28,8 +29,9 @@
     <a href="{{ url_for('home') }}" class="admin-logo">CUISYNC</a>
     <div class="login-brand-copy">
       <p class="eyebrow eyebrow-gold"><span class="diamond"></span>Discover Asian cuisines</p>
-      <h1>{{ 'Almost back in.' if mode == 'new' else 'Forgot your password?' }}</h1>
+      <h1>{{ 'Almost back in.' if mode == 'new' else 'You’re back in.' if mode == 'changed' else 'Forgot your password?' }}</h1>
       <p>{{ 'Choose a new password for your CuiSync account.' if mode == 'new'
+            else 'Your new password is saved. Use it the next time you log in.' if mode == 'changed'
             else 'It happens. We’ll email you a link to choose a new one.' }}</p>
     </div>
   </section>
@@ -103,6 +105,19 @@
       </div>
       <button type="submit" class="btn btn-maroon btn-block">Save new password</button>
     </form>
+
+    {% elif mode == 'changed' %}
+    <div class="login-form confirm-card">
+      <span class="confirm-icon is-done" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+      </span>
+      <div class="login-heading">
+        <h2>Password changed</h2>
+        <p>Your password has been reset successfully. Log in with your new password to continue.</p>
+      </div>
+      <a class="btn btn-maroon btn-block" href="{{ url_for('login') }}">Log in</a>
+      <p class="auth-switch"><a href="{{ url_for('home') }}">Back to CuiSync</a></p>
+    </div>
 
     {% else %}
     <div class="login-form confirm-card">
