@@ -884,7 +884,10 @@
     }
     // The short message next to the Search button is always shown
     document.querySelectorAll('[data-guide-note]').forEach((n) => { n.hidden = false; });
-    Object.keys(FORMS).forEach((name) => show(name, seen(name)));
+    // Coming from "Find similar dishes" on the Dishes page (/?dish=<id>): the dish is filled in
+    // for them, so the Search by text box doesn't block it
+    const fromDishes = /^\d+$/.test(new URLSearchParams(location.search).get('dish') || '');
+    Object.keys(FORMS).forEach((name) => show(name, seen(name) || (fromDishes && name === 'text')));
     document.querySelectorAll('[data-guide-ok]').forEach((btn) => {
       const name = btn.closest('[data-guide]').dataset.guide;
       btn.addEventListener('click', () => {

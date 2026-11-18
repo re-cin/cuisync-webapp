@@ -503,6 +503,35 @@ document.addEventListener('DOMContentLoaded', () => {
     dishInput.value = params.get('q');
     runSearch(false);
   }
+
+  // ---------------- "Find similar dishes" on the Dishes page: /?dish=<index> ----------------
+  // Puts that exact dish in the search bar as the selected dish, then the user picks a country
+  const dishIdx = params.get('dish');
+  if (dishIdx && /^\d+$/.test(dishIdx)) {
+    if (typeof window.switchTab === 'function') window.switchTab('text');
+    // Go straight to the search section (the browser's own #search-section jump can be undone
+    // by the page still loading)
+    const goToSearch = () => document.getElementById('search-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    (async () => {
+      try {
+        const info = await fetch(`/api/dish/${dishIdx}`, { credentials: 'same-origin' }).then((r) => r.json());
+        if (!info || !info.title) return;
+        dishInput.value = info.title;
+        updateClearBtn();
+        const data = await fetch(`/api/find-dishes?mode=dish&q=${encodeURIComponent(info.title)}`,
+          { credentials: 'same-origin' }).then((r) => r.json());
+        const match = (data.dishes || []).find((d) => String(d.recipe_id) === String(info.recipe_id))
+          || ((data.dishes || []).length === 1 ? data.dishes[0] : null);
+        if (!match) { goToSearch(); runSearch(false); return; }
+        lastResults = data;
+        pickDish(match, true);
+        updateInputActions();
+        goToSearch();
+        // Clean the address so a refresh doesn't pick it again
+        history.replaceState(null, '', location.pathname + location.hash);
+      } catch (e) { /* leave the search bar as it is */ }
+    })();
+  }
   updateOriginDisplay();
   updateInputActions();
 });
