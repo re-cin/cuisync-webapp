@@ -70,7 +70,7 @@
         <h2>Extract cooking process</h2>
         {% set dstat = ner_status.directions %}
         <span class="pill {{ 'pill-active' if dstat.ready else 'pill-pending' }}" title="{{ dstat.text }}">
-          {{ 'BERT NER · local' if dstat.mode else 'From dataset vocabulary' }}
+          {{ 'BERT NER · Space' if dstat.mode == 'remote' else 'BERT NER · local' if dstat.mode else 'From dataset vocabulary' }}
         </span>
       </div>
       <p class="hint card-hint">Paste the directions. {{ 'The directions model tags the cooking actions, cookware and utensils, and each one is checked against the dataset' if dstat.mode else 'Cooking actions, cookware and utensils that the dataset already knows are picked out' }} ("simmered" → simmer, "frying pan" → fry pan). Review them, then add them to the fields below.</p>
