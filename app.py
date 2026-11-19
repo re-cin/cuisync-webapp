@@ -2430,13 +2430,6 @@ def admin_extract_ingredients():
         return jsonify({"error": "ner_failed", "message": f"Ingredient extraction failed: {error}"}), 500
 
 
-@app.route("/admin/api/ner-space")
-@admin_required
-def admin_ner_space():
-    """Running / sleeping / paused / preparing state of the NER Space (admin dish page badges)."""
-    return jsonify(ner.space_state())
-
-
 @app.route("/admin/api/extract-directions", methods=["POST"])
 @admin_required
 def admin_extract_directions():
