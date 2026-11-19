@@ -91,3 +91,22 @@
   .country-picker--compact .country-picker-card,
   .country-picker--compact .country-picker-arrow { transition: none; }
 }
+
+/* Health info: the closed picker keeps the old dropdown bar look (country name + arrow);
+   only the list that opens looks like the search's country list */
+.country-picker--compact .country-picker-card {
+  gap: 8px; padding: 10px 14px; border-radius: 8px;
+  background: var(--pill-bg, #f4eddd); font-size: .82rem;
+}
+.country-picker--compact .selected-dish-label,
+.country-picker--compact .country-picker-hint,
+.country-picker--compact .country-picker-icon { display: none; }
+.country-picker--compact .country-picker-name {
+  margin: 0; color: var(--text-dark); font-family: inherit; font-size: .82rem; font-weight: 400; line-height: 1.4;
+}
+.country-picker--compact .country-picker-arrow {
+  width: 8px; height: 8px; margin: -4px 4px 0 0; font-size: 0; line-height: 0;
+  border-right: 2px solid var(--maroon-main); border-bottom: 2px solid var(--maroon-main);
+  transform: rotate(45deg);
+}
+.country-picker--compact.is-open .country-picker-arrow { transform: rotate(-135deg); margin-top: 4px; }
