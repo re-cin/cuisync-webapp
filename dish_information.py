@@ -9,7 +9,7 @@ from dish_info_common import DATA_VERSION, country_key, fresh, ingredient_hash, 
 from dish_information_store import DishStoreError, get_store
 from dish_health import HEALTH_ENRICHMENT_VERSION, health_cache_valid
 from nutritional_benefits import select_important_benefits
-from regional_allergens import regional_allergen_alerts, regional_market_catalog, REGIONAL_DISCLAIMER
+from regional_allergens import regional_allergen_alerts, regional_market_catalog, REGIONAL_DISCLAIMER, user_allergen_of
 from urllib.parse import urlsplit
 
 log = logging.getLogger(__name__)
@@ -251,8 +251,6 @@ def public_information(recipe, avoid_allergens=(), schedule=True, store=None):
     if health_displayable and health.get("verification_status") == "verified":
         allergens = []
         avoid = set(avoid_allergens)
-        aliases = {"Wheat": "Wheat/Gluten", "Cereals containing gluten": "Wheat/Gluten",
-                   "Crustaceans": "Shellfish", "Molluscs": "Shellfish"}
         for item in health.get("potential_allergens") or []:
             if not isinstance(item, dict) or item.get("classification") not in {"identified", "possible", "assessed_none", "unknown"}:
                 continue
@@ -260,7 +258,7 @@ def public_information(recipe, avoid_allergens=(), schedule=True, store=None):
             allergens.append({"name": name, "classification": item["classification"],
                               "from": [str(x) for x in (item.get("from") or [])],
                               "source_url": safe_url(item.get("source_url")),
-                              "avoid": name in avoid or aliases.get(name) in avoid})
+                              "avoid": name in avoid or user_allergen_of(name) in avoid})
         matched, total = health.get("matched_ingredient_count", 0), health.get("ingredient_count", 0)
         nutrition_status = health.get("nutrition_status", "unavailable")
         coverage = next((note for note in health.get("health_considerations", [])

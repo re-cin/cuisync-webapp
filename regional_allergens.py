@@ -203,6 +203,15 @@ ALLERGEN_PLAIN = {
 }
 
 
+# The allergies a user can pick on their profile (accounts.ALLERGEN_CHOICES), built from the
+# categories in COUNTRY_SPECS above: the common groups first, then every other category that
+# at least one country lists. Each country category belongs to one choice (USER_ALLERGEN_OF).
+USER_ALLERGEN_MAIN = ('Peanuts', 'Tree nuts', 'Milk', 'Egg', 'Fish', 'Shellfish', 'Soy',
+                      'Wheat/Gluten', 'Sesame')
+USER_ALLERGEN_OTHER = ('Buckwheat', 'Celery', 'Mustard', 'Lupin', 'Sulphites', 'Beef', 'Chicken',
+                       'Pork', 'Tomato', 'Peach', 'Apple', 'Banana', 'Kiwi', 'Orange',
+                       'Japanese yam', 'Gelatin')
+
 # Which of the profile's allergen choices (accounts.ALLERGEN_CHOICES) a country category
 # belongs to, so the user's own allergies can be highlighted in the country comparison too.
 USER_ALLERGEN_OF = {
@@ -215,7 +224,11 @@ USER_ALLERGEN_OF = {
     'Molluscs': 'Shellfish', 'Squid': 'Shellfish', 'Abalone': 'Shellfish', 'Clams': 'Shellfish',
     'Soy': 'Soy', 'Sesame': 'Sesame',
     'Wheat': 'Wheat/Gluten', 'Cereals containing gluten': 'Wheat/Gluten',
+    **{name: name for name in USER_ALLERGEN_OTHER},
 }
+# Every country category must belong to one of the profile choices
+assert {cat for spec in COUNTRY_SPECS.values() for cat in spec.get('categories', ())} <= set(USER_ALLERGEN_OF)
+assert set(USER_ALLERGEN_OF.values()) <= set(USER_ALLERGEN_MAIN + USER_ALLERGEN_OTHER)
 _CATEGORY_OF_PLAIN = {plain: category for category, plain in ALLERGEN_PLAIN.items()}
 
 

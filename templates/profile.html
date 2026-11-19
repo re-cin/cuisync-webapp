@@ -128,7 +128,14 @@
   <form method="POST" action="{{ url_for('profile') }}" class="panel-form two-col pf-account-form">
     <fieldset class="span-2 pf-chips">
       <legend>I am allergic to <span>We’ll point these out in a dish’s Health info</span></legend>
-      {% for a in allergen_choices %}
+      {% for a in allergen_main %}
+      <label class="pf-chip pf-chip-allergen"><input type="checkbox" name="avoid_allergens" value="{{ a }}" {{ 'checked' if a in user.avoid_allergens }}><span>{{ a }}</span></label>
+      {% endfor %}
+    </fieldset>
+
+    <fieldset class="span-2 pf-chips">
+      <legend>Others <span>Also on food labels in some countries</span></legend>
+      {% for a in allergen_other %}
       <label class="pf-chip pf-chip-allergen"><input type="checkbox" name="avoid_allergens" value="{{ a }}" {{ 'checked' if a in user.avoid_allergens }}><span>{{ a }}</span></label>
       {% endfor %}
     </fieldset>

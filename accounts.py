@@ -34,7 +34,9 @@ except ImportError:
 
 ROLES = ("user", "admin")
 COOKING_ROLES = ("Home cook", "Chef", "Student", "Food researcher", "Other")
-ALLERGEN_CHOICES = ("Peanuts", "Tree nuts", "Milk", "Egg", "Fish", "Shellfish", "Soy", "Wheat/Gluten", "Sesame")
+# Allergen choices on the profile come from the country labeling rules in regional_allergens.py
+from regional_allergens import USER_ALLERGEN_MAIN as ALLERGEN_MAIN, USER_ALLERGEN_OTHER as ALLERGEN_OTHER
+ALLERGEN_CHOICES = ALLERGEN_MAIN + ALLERGEN_OTHER
 
 USERNAME_RE = re.compile(r"^[A-Za-z0-9._]{3,30}$")
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")

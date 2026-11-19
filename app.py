@@ -1785,7 +1785,7 @@ def profile():
         # Only dish similarity searches (text / image: dish -> best match) are shown
         history=_history_with_images([h for h in accounts.get_history(user["id"])
                                       if h.get("search_type") in ("text", "image")]),
-        allergen_choices=accounts.ALLERGEN_CHOICES,
+        allergen_main=accounts.ALLERGEN_MAIN, allergen_other=accounts.ALLERGEN_OTHER,
         all_countries=STORE.countries,
         sign_in_methods=_sign_in_methods(user["id"]),
         password_rule=accounts.PASSWORD_RULE,
