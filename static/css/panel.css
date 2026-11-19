@@ -1771,3 +1771,5 @@ html.pf-about-popup-open { overflow: hidden; }
 /* Allergies under the name and username: just the tags and the Edit link (no card) */
 .pf-allergy-line { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; max-width: 720px; }
 @media (max-width: 600px) { .pf-allergy-line { align-items: center; } .pf-allergy-line .pf-tagrow { justify-content: center; } .pf-allergy-line .pf-about-edit { align-self: center; } }
+/* "I am allergic to" on its own line, the tags under it */
+.pf-allergy-line .pf-tagrow-label { flex-basis: 100%; margin-bottom: 2px; }
