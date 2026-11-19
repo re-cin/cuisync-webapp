@@ -727,3 +727,7 @@ select:not([multiple]):not([size]) {
 }
 .select-sm:not([multiple]) { padding-right: 36px !important; background-position: right 12px center; }
 select::-ms-expand { display: none; }
+
+/* Admin login: the CUISYNC logo goes back to the home page */
+a.admin-logo-link { color: var(--gold-accent); text-decoration: none; cursor: pointer; }
+a.admin-logo-link:hover, a.admin-logo-link:focus-visible { opacity: .85; }
