@@ -101,6 +101,75 @@ def status():
     return out
 
 
+# ---------------------------------------------------------------------------
+# State of the Hugging Face Space (shown on the admin page)
+# ---------------------------------------------------------------------------
+
+# Optional: the Space's id ("owner/name") gives the exact stage (sleeping, paused, building)
+# without waking it. HF_TOKEN is only needed if the Space is private.
+NER_SPACE_ID = os.environ.get("NER_SPACE_ID", "").strip().strip("/")
+HF_TOKEN = os.environ.get("HF_TOKEN", "").strip()
+
+_STAGES = {
+    "RUNNING": "running", "RUNNING_BUILDING": "running", "APP_STARTING": "starting",
+    "BUILDING": "building", "SLEEPING": "sleeping", "PAUSED": "paused", "STOPPED": "paused",
+    "BUILD_ERROR": "error", "RUNTIME_ERROR": "error", "CONFIG_ERROR": "error", "NO_APP_FILE": "error",
+}
+_LABELS = {
+    "running": "Running", "loading": "Loading models", "starting": "Preparing", "building": "Building",
+    "waking": "Waking up", "sleeping": "Sleeping", "paused": "Paused", "error": "Error",
+    "unreachable": "Not reachable",
+}
+_space_cache = {"at": 0.0, "value": None}
+
+
+def _space_stage():
+    """The Space's stage from the Hugging Face API, or None when unknown."""
+    if not NER_SPACE_ID:
+        return None
+    import requests
+    try:
+        headers = {"Authorization": f"Bearer {HF_TOKEN}"} if HF_TOKEN else {}
+        response = requests.get(f"https://huggingface.co/api/spaces/{NER_SPACE_ID}/runtime",
+                                headers=headers, timeout=5)
+        if response.status_code == 200:
+            return _STAGES.get(str(response.json().get("stage", "")).upper())
+    except Exception:
+        pass
+    return None
+
+
+def space_state():
+    """{"state", "label", "ingredients", "directions"} for the NER Space. Cached for 10 seconds."""
+    if not NER_API_URL:
+        return {"state": None, "label": "", "ingredients": False, "directions": False}
+    now = time.monotonic()
+    if _space_cache["value"] and now - _space_cache["at"] < 10:
+        return _space_cache["value"]
+    out = {"state": "unreachable", "ingredients": False, "directions": False}
+    stage = _space_stage()
+    if stage in ("sleeping", "paused", "building", "error", "starting"):
+        out["state"] = stage   # don't wake a sleeping Space just to show its state
+    else:
+        import requests
+        try:
+            response = requests.get(NER_API_URL + "/health", timeout=6)
+            if response.status_code == 200:
+                data = response.json()
+                out["ingredients"] = bool(data.get("model_ready"))
+                out["directions"] = bool(data.get("directions_ready"))
+                out["state"] = "running" if out["ingredients"] else "loading"
+            elif response.status_code in (502, 503, 504):
+                out["state"] = "waking"
+        except requests.Timeout:
+            out["state"] = "waking"
+        except Exception:
+            pass
+    out["label"] = _LABELS[out["state"]]
+    _space_cache.update(at=now, value=out)
+    return out
+
+
 def _ingredient_status():
     m = mode()
     if m == "local":

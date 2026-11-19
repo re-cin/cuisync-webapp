@@ -38,7 +38,7 @@
     <section class="card ner-card">
       <div class="card-head">
         <h2>Extract ingredients</h2>
-        <span class="pill {{ 'pill-active' if ner_status.mode and ner_status.ready else ('pill-pending' if ner_status.mode else 'pill-hidden') }}" title="{{ ner_status.text }}">
+        <span class="pill {{ 'pill-active' if ner_status.mode and ner_status.ready else ('pill-pending' if ner_status.mode else 'pill-hidden') }}" title="{{ ner_status.text }}"{% if ner_status.mode == 'remote' %} data-space-pill="ingredients" data-space-url="{{ url_for('admin_ner_space') }}"{% endif %}>
           {{ 'BERT NER · ' ~ ('local' if ner_status.mode == 'local' else 'Space') if ner_status.mode else 'NER not set up' }}
         </span>
       </div>
@@ -69,7 +69,7 @@
       <div class="card-head">
         <h2>Extract cooking process</h2>
         {% set dstat = ner_status.directions %}
-        <span class="pill {{ 'pill-active' if dstat.ready else 'pill-pending' }}" title="{{ dstat.text }}">
+        <span class="pill {{ 'pill-active' if dstat.ready else 'pill-pending' }}" title="{{ dstat.text }}"{% if dstat.mode == 'remote' %} data-space-pill="directions" data-space-url="{{ url_for('admin_ner_space') }}"{% endif %}>
           {{ 'BERT NER · Space' if dstat.mode == 'remote' else 'BERT NER · local' if dstat.mode else 'From dataset vocabulary' }}
         </span>
       </div>
