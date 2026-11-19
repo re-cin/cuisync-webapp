@@ -14,8 +14,11 @@ import numpy as np
 
 FEATURES = ("ingredients", "actions", "cookware", "utensils")
 
-# Similarities at or below FLOOR count as 0, the rest get stretched to 0..1
-FLOOR = 0.35
+# Similarities at or below FLOOR count as 0, the rest get stretched to 0..1.
+# 0.1 because the item vectors are centered (CUISYNC_VECTORIZER.ipynb v2, CENTER_VECTORS):
+# unrelated items sit near 0 instead of 0.4-0.5, so the old 0.35 cut off real matches
+# (chicken vs pork is 0.19, chicken breast vs chicken thigh 0.51). The notebook says "try 0.1".
+FLOOR = 0.10
 
 # 0 = every item counts the same. Higher = items listed first count more.
 POSITION_DECAY = 0.0

@@ -197,9 +197,13 @@ background_prompts.configure(PROMPTS.get_prompt)
 dish_information.configure(client=explainer._client)
 
 
-def reload_data():
-    """Rebuild everything that depends on the dataset after the admin changes it."""
+def reload_data(vectorize=True):
+    """Rebuild everything that depends on the dataset after the admin changes it.
+    vectorize=True first gives new items a vector (item_vectors.py: the NER Space's /embed),
+    so they count in similarity right away."""
     global RECIPES, MATCHER, INGREDIENT_SEARCH
+    if vectorize and STORE.uses_admin_data:
+        STORE.vectorize_new_items()
     with STORE.lock:
         RECIPES = STORE.recipes
         MATCHER = build_matcher()
@@ -207,7 +211,53 @@ def reload_data():
         ner.init(app.root_path, MATCHER.items["ingredients"], MATCHER.items, RECIPES)
         feature_scores_for_source.cache_clear()
         init_explainer(RECIPES, parse_items)
+    _remember_fingerprint()
     return STORE.missing_vectors
+
+
+# ---- Keeping copies of the app in step -------------------------------------------------------
+# Your laptop and Render both read the dishes from Supabase, but each one only when it starts.
+# So every SYNC_SECONDS each copy checks whether Supabase changed (a dish, country or region
+# added / edited / deleted by the OTHER copy, or a new item vector) and reloads if it did.
+SYNC_SECONDS = int(os.environ.get("CUISYNC_SYNC_SECONDS", "30"))
+_last_fingerprint = None
+
+
+def _remember_fingerprint():
+    """Note what Supabase looks like now, so this copy's own saves don't count as changes."""
+    global _last_fingerprint
+    _last_fingerprint = STORE.db_fingerprint()
+
+
+def _sync_with_supabase():
+    global _last_fingerprint
+    _remember_fingerprint()
+    while True:
+        time.sleep(SYNC_SECONDS)
+        try:
+            current = STORE.db_fingerprint()
+            if current is None or current == _last_fingerprint:
+                continue
+            if _last_fingerprint is None:       # Supabase couldn't be reached before
+                _last_fingerprint = current
+                continue
+            print("[CuiSync] The dataset changed in Supabase (another copy of the app), reloading.")
+            with STORE.lock:
+                STORE.reload_from_disk()
+                STORE._load_new_vectors()
+                reload_data(vectorize=False)    # also remembers the new fingerprint
+        except Exception as error:  # never let this stop the app
+            print(f"[CuiSync] Checking Supabase for changes failed: {error}")
+
+
+def _vectorize_at_startup():
+    """Items still without a vector when the app started (e.g. the Space was asleep during an
+    earlier edit): vectorize them in the background, then rebuild the matcher."""
+    try:
+        if STORE.vectorize_new_items():
+            reload_data(vectorize=False)
+    except Exception as error:  # never let this stop the app
+        print(f"[CuiSync] Vectorizing new items at startup failed: {error}")
 
 
 def current_user():
@@ -2002,7 +2052,7 @@ def api_dish_information(idx):
 
 
 # ---------------- admin (Oab 1, 2, 5; Galang 3) ----------------
-ADMIN_TABS = ("overview", "users", "dishes", "countries", "prompts", "tags", "dataset")
+ADMIN_TABS = ("overview", "users", "dishes", "countries", "prompts", "dataset")
 
 
 @app.route("/admin/dish-information")
@@ -2053,7 +2103,7 @@ def admin_page():
     tab = request.args.get("tab", "overview")
     if tab not in ADMIN_TABS:
         tab = "overview"
-    ctx = {"tab": tab, "store": STORE, "regions": REGION_CHOICES}
+    ctx = {"tab": tab, "store": STORE, "regions": STORE.regions}
     if tab == "overview":
         per_country = {}
         for r in RECIPES:
@@ -2090,7 +2140,7 @@ def admin_page():
         counts = {}
         for r in RECIPES:
             counts[r["country"]] = counts.get(r["country"], 0) + 1
-        ctx.update(counts=counts)
+        ctx.update(counts=counts, region_counts=STORE.region_counts())
     elif tab == "prompts":
         ctx.update(prompt_admin.context(PROMPTS, RECIPES))
     elif tab == "users":
@@ -2106,20 +2156,8 @@ def admin_page():
                  and (not role or u["role"] == role)]
         selected = next((dict(u) for u in all_users if u["id"] == request.args.get("user")), None)
         if selected:
-            selected["history"] = accounts.get_history(selected["id"], limit=5)
+            selected["history"] = accounts.get_history(selected["id"], limit=50)
         ctx.update(users=users, me=current_user(), q=q, role=role, selected=selected)
-    elif tab == "tags":
-        groups, _ = search_tools.all_tags(RECIPES, STORE.region_of)
-        custom = STORE.custom_tags()
-        q = request.args.get("q", "").strip().lower()
-        ctx.update(
-            q=q,
-            custom_tags=sorted(((t, n) for t, n in custom.items() if not q or q in t.lower()),
-                               key=lambda x: (-x[1], x[0])),
-            auto_groups={g: [(t, n) for t, n in ts if not q or q in t.lower()]
-                         for g, ts in groups.items() if g != "Custom"},
-            editing=request.args.get("edit", ""),
-        )
     return render_template("admin/admin.html", **ctx)
 
 
@@ -2156,35 +2194,14 @@ def admin_logout():
     return redirect(url_for("admin_login"))
 
 
-@app.route("/admin/tags/rename", methods=["POST"])
-@admin_required
-def admin_tag_rename():
-    try:
-        n = STORE.rename_tag(request.form.get("old"), request.form.get("new"))
-        flash(f'Tag renamed on {n} dish(es).', "success")
-    except ValueError as error:
-        flash(str(error), "error")
-    return redirect(url_for("admin_page", tab="tags"))
-
-
-@app.route("/admin/tags/delete", methods=["POST"])
-@admin_required
-def admin_tag_delete():
-    try:
-        n = STORE.delete_tag(request.form.get("name"))
-        flash(f'Tag removed from {n} dish(es).', "success")
-    except ValueError as error:
-        flash(str(error), "error")
-    return redirect(url_for("admin_page", tab="tags"))
-
-
 def _after_data_change(message):
     missing = reload_data()
     if missing:
         sample = ", ".join(item for _, item in missing[:6])
-        flash(f"{message} Note: {len(missing)} new item(s) had no close match in the vectors "
-              f"({sample}{'...' if len(missing) > 6 else ''}), so they can't add to similarity until "
-              "the vectorizer is run again.", "info")
+        reason = f" Reason: {STORE.vector_error}" if STORE.vector_error else ""
+        flash(f"{message} Note: {len(missing)} new item(s) could not be vectorized "
+              f"({sample}{'...' if len(missing) > 6 else ''}), so they don't add to similarity yet. "
+              f"They are tried again on the next save or restart.{reason}", "info")
     else:
         flash(message, "success")
 
@@ -2212,7 +2229,7 @@ def admin_dish_form(recipe_id=None):
             flash(str(error), "error")
             dish = dict(request.form.items())
     return render_template("admin/admin_dish.html", dish=dish, recipe_id=recipe_id, fields=DISH_FIELDS,
-                           all_countries=STORE.countries, store=STORE, regions=REGION_CHOICES,
+                           all_countries=STORE.countries, store=STORE, regions=STORE.regions,
                            ner_status=ner.status())
 
 
@@ -2252,6 +2269,12 @@ def admin_dish_delete(recipe_id):
     return redirect(request.referrer or url_for("admin_page", tab="dishes"))
 
 
+def _country_view():
+    """Country Management layout ("cards" or "list"), so a save goes back to the same layout."""
+    view = request.form.get("view") or request.args.get("view") or ""
+    return view if view == "list" else None
+
+
 @app.route("/admin/countries/add", methods=["POST"])
 @admin_required
 def admin_country_add():
@@ -2260,7 +2283,7 @@ def admin_country_add():
         flash(f"Added {request.form.get('label')}. It shows in the dropdowns once it has a dish.", "success")
     except ValueError as error:
         flash(str(error), "error")
-    return redirect(url_for("admin_page", tab="countries"))
+    return redirect(url_for("admin_page", tab="countries", view=_country_view()))
 
 
 @app.route("/admin/countries/<name>/update", methods=["POST"])
@@ -2273,7 +2296,7 @@ def admin_country_update(name):
         flash("Country saved.", "success")
     except ValueError as error:
         flash(str(error), "error")
-    return redirect(url_for("admin_page", tab="countries"))
+    return redirect(url_for("admin_page", tab="countries", view=_country_view()))
 
 
 @app.route("/admin/countries/<name>/delete", methods=["POST"])
@@ -2284,32 +2307,52 @@ def admin_country_delete(name):
         flash("Country removed.", "success")
     except ValueError as error:
         flash(str(error), "error")
-    return redirect(url_for("admin_page", tab="countries"))
+    return redirect(url_for("admin_page", tab="countries", view=_country_view()))
 
 
-@app.route("/admin/dataset/upload", methods=["POST"])
+@app.route("/admin/regions/add", methods=["POST"])
 @admin_required
-def admin_dataset_upload():
-    file = request.files.get("dataset")
-    mode = "replace" if request.form.get("mode") == "replace" else "append"
-    if not file or not file.filename:
-        flash("Choose a .json or .csv file first.", "error")
-        return redirect(url_for("admin_page", tab="dataset"))
+def admin_region_add():
     try:
-        raw = file.read().decode("utf-8-sig")
-        if file.filename.lower().endswith(".csv"):
-            records = list(csv.DictReader(io.StringIO(raw)))
-        else:
-            records = json.loads(raw)
-            if isinstance(records, dict):
-                records = records.get("recipes") or [records]
-        if not isinstance(records, list):
-            raise ValueError("The file must contain a list of dishes.")
-        count = STORE.import_dataset(records, mode)
-        _after_data_change(f"{'Replaced the dataset with' if mode == 'replace' else 'Added'} {count} dishes.")
-    except (ValueError, UnicodeDecodeError, csv.Error) as error:
-        flash(f"Upload failed: {error}", "error")
-    return redirect(url_for("admin_page", tab="dataset"))
+        name = STORE.add_region(request.form.get("name"))
+        flash(f"Added the region {name}. Pick it on a country to use it.", "success")
+    except ValueError as error:
+        flash(str(error), "error")
+    return redirect(url_for("admin_page", tab="countries", view=_country_view()))
+
+
+@app.route("/admin/regions/rename", methods=["POST"])
+@admin_required
+def admin_region_rename():
+    try:
+        moved = STORE.rename_region(request.form.get("region"), request.form.get("name"))
+        if moved:
+            reload_data()
+        flash("Region saved.", "success")
+    except ValueError as error:
+        flash(str(error), "error")
+    return redirect(url_for("admin_page", tab="countries", view=_country_view()))
+
+
+@app.route("/admin/regions/move", methods=["POST"])
+@admin_required
+def admin_region_move():
+    try:
+        STORE.move_region(request.form.get("region"), -1 if request.form.get("direction") == "up" else 1)
+    except ValueError as error:
+        flash(str(error), "error")
+    return redirect(url_for("admin_page", tab="countries", view=_country_view()))
+
+
+@app.route("/admin/regions/delete", methods=["POST"])
+@admin_required
+def admin_region_delete():
+    try:
+        STORE.delete_region(request.form.get("region"))
+        flash("Region deleted.", "success")
+    except ValueError as error:
+        flash(str(error), "error")
+    return redirect(url_for("admin_page", tab="countries", view=_country_view()))
 
 
 @app.route("/admin/dataset/download")
@@ -2328,21 +2371,6 @@ def admin_dataset_download():
                     headers={"Content-Disposition": "attachment; filename=cuisync_dataset.json"})
 
 
-@app.route("/admin/dataset/reset", methods=["POST"])
-@admin_required
-def admin_dataset_reset():
-    try:
-        STORE.reset_to_original()
-    except ValueError as error:
-        flash(str(error), "error")
-        return redirect(url_for("admin_page", tab="dataset"))
-    reload_data()
-    flash("The dataset is back to the original recipes.json." if STORE.db else
-          "The dataset is back to the original recipes.json (your edited copy was kept as a .bak file).",
-          "success")
-    return redirect(url_for("admin_page", tab="dataset"))
-
-
 @app.route("/admin/prompts", methods=["POST"])
 @admin_required
 def admin_prompts():
@@ -2358,11 +2386,8 @@ def admin_prompt_test():
 @app.route("/admin/users/<user_id>/role", methods=["POST"])
 @admin_required
 def admin_user_role(user_id):
-    try:
-        accounts.set_role(user_id, request.form.get("role"))
-        flash("Role updated.", "success")
-    except ValueError as error:
-        flash(str(error), "error")
+    # Roles are fixed: users sign up as "user", the admin comes from .env. Not changeable here.
+    flash("Roles can't be changed.", "error")
     return redirect(url_for("admin_page", tab="users", user=user_id))
 
 
@@ -2450,6 +2475,13 @@ def old_service_worker_cleanup():
     response = app.response_class(OLD_SW_CLEANUP, mimetype="application/javascript")
     response.headers["Cache-Control"] = "no-cache"
     return response
+
+
+# Started here, at the end, so every function reload_data() needs is defined already
+if STORE.missing_vectors:
+    threading.Thread(target=_vectorize_at_startup, daemon=True).start()
+if STORE.db and SYNC_SECONDS > 0:
+    threading.Thread(target=_sync_with_supabase, daemon=True).start()
 
 
 if __name__ == "__main__":

@@ -37,6 +37,10 @@ services:
         sync: false
       - key: OCR_API_TOKEN     # same password you set on the Space
         sync: false
+      - key: NER_API_URL       # e.g. https://your-username-cuisync-ner.hf.space (NER + /embed)
+        sync: false
+      - key: NER_API_TOKEN     # same password you set on the NER Space
+        sync: false
       - key: HF_DATA_REPO      # e.g. your-username/cuisync-data
         sync: false
       - key: HF_TOKEN          # Hugging Face read token (the data repo is private)

@@ -3,19 +3,18 @@
 Holds everything the admin page can change without touching the original files:
   - the recipe dataset (add / edit / delete dishes, upload a new dataset)
   - the list of countries shown in the dropdowns (add / rename / hide / remove)
+  - the regions the countries are grouped in (add / rename / reorder / delete)
   - legacy GPT prompt JSON (retained for migration; active prompts use prompt_store.py)
 
 The original recipes.json and the .npy files are never overwritten. Changes are saved
-in Supabase (the dishes: table recipes, see supabase_dataset.sql and dataset_db.py; the
-countries stay in admin_data/; active prompt versions use prompt_store.py), or all in admin_data/ when Supabase is not set up. The soft matcher is rebuilt from them:
+in Supabase (tables recipes, regions and countries, see supabase_dataset.sql and dataset_db.py;
+active prompt versions use prompt_store.py), or all in admin_data/ when Supabase is not set up. The soft matcher is rebuilt from them:
   - dishes that were not changed keep their original item lists and vectors
   - a new ingredient (or action, cookware, utensil) that is already in the vocabulary
     reuses its vector
-  - a brand-new item borrows the vector of the closest known item (by spelling or by
-    shared words). Items with no close match get no vector, and the admin page says so,
-    because a full update needs the vectorizer to be run again.
+  - a brand-new item gets no vector (it does not count towards similarity yet), and the
+    admin page lists it, because it needs the vectorizer to be run again.
 """
-import difflib
 import json
 import os
 import re
@@ -24,6 +23,7 @@ import threading
 import numpy as np
 
 import dataset_db
+import item_vectors
 
 FEATURES = ("ingredients", "actions", "cookware", "utensils")
 TEXT_FIELD = {
@@ -37,7 +37,6 @@ TEXT_FIELD = {
 DISH_FIELDS = (
     "title", "alternative_title", "country", "region", "recipe_link", "image_link",
     "ingredient_text", "action_text", "cookware_text", "utensil_text",
-    "tags", "culture_notes", "history_notes",
 )
 
 DEFAULT_REGIONS = {
@@ -48,7 +47,10 @@ DEFAULT_REGIONS = {
     "SAUDI ARABIA": "West Asia", "TURKIYE": "West Asia",
 }
 DEFAULT_LABELS = {"TURKIYE": "Turkey"}
+# The starting regions (the admin can add more on the Countries page)
 REGION_CHOICES = ("East Asia", "Southeast Asia", "South Asia", "Central Asia", "West Asia", "Other Asia")
+# Region for countries that have none. It always exists and can't be renamed or deleted.
+FALLBACK_REGION = "Other Asia"
 
 
 def _split(text):
@@ -100,6 +102,7 @@ class DatasetStore:
         os.makedirs(self.runtime_dir, exist_ok=True)
         self.recipes_path = os.path.join(self.data_dir, "recipes.json")
         self.countries_path = os.path.join(self.data_dir, "countries.json")
+        self.regions_path = os.path.join(self.data_dir, "regions.json")
         self.prompts_path = os.path.join(self.data_dir, "prompts.json")
         self.lock = threading.RLock()
 
@@ -118,6 +121,10 @@ class DatasetStore:
                 "normal": {_normal_item(item.lower()): i for i, item in enumerate(data["items"])},
                 "recipes": data["recipes"],
                 "df": np.array(data.get("df") or [0] * len(data["items"]), dtype=np.float64),
+                # Only the notebook's v2 vectorizer writes df_exact; item_vectors.py needs it to
+                # give new items the same centering as the saved vectors.
+                "df_exact": data.get("df_exact"),
+                "v2_index": {item_vectors.normalize_item(item): i for i, item in enumerate(data["items"])},
             }
         # Original item lists by recipe, so untouched dishes keep exactly what the vectorizer made
         self.base_by_key = {}
@@ -125,7 +132,14 @@ class DatasetStore:
             self.base_by_key[self._key(recipe)] = r
 
         self.missing_vectors = []
-        # Where admin changes are saved: Supabase if it is set up, else the admin_data/ folder
+        # Vectors for items the notebook never saw, made later by item_vectors.py:
+        # {feature: {item: vector}}, loaded from Supabase (public.item_vectors).
+        self.new_vecs = {feature: {} for feature in FEATURES}
+        self.vector_error = None   # why the last vectorize_new_items() failed (shown to the admin)
+        self._load_new_vectors()
+        # Where admin changes are saved: Supabase if it is set up, else the admin_data/ folder.
+        # self.geo_db: the regions and countries are in Supabase too (None = not checked yet).
+        self.geo_db = None
         self.db = dataset_db.available()
         if self.db:
             try:
@@ -137,27 +151,129 @@ class DatasetStore:
         if not self.db:
             self.uses_admin_data = os.path.exists(self.recipes_path)
             self.recipes = self._load_recipes()
-            self.countries = self._load_countries()
+            self._load_geo()
             self.prompts = self._load_json(self.prompts_path, {})
 
     # ---------------- Supabase ----------------
     def _load_from_db(self):
-        """Read the dishes from Supabase (countries and prompts stay in admin_data/). On the very
+        """Read the dishes, regions and countries from Supabase (prompts stay in admin_data/). On the very
         first start the table is empty, so it is filled from this folder (admin_data/recipes.json
         if the admin already edited the dataset, otherwise the original recipes.json)."""
         recipes = dataset_db.load_recipes()
-        if not recipes:
+        upload = not recipes
+        if upload:
             recipes = self._load_recipes()
-            print(f"[CuiSync] Uploading {len(recipes)} dishes to Supabase (first start)...")
-            dataset_db.replace_all_recipes(recipes)
-            print("[CuiSync] Dataset uploaded to Supabase.")
         for r in recipes:
             r["country"] = (r.get("country") or "").strip().upper()
         self.recipes = recipes
+        # Countries first: recipes.country points to countries.name (foreign key), so every
+        # country must be in Supabase before a dish that uses it.
+        self._load_geo()
+        if upload:
+            print(f"[CuiSync] Uploading {len(recipes)} dishes to Supabase (first start)...")
+            dataset_db.replace_all_recipes(recipes)
+            print("[CuiSync] Dataset uploaded to Supabase.")
         self._next_position = dataset_db.max_position() + 1
         self.uses_admin_data = not self._same_as_base()
-        self.countries = self._load_countries()
         self.prompts = self._load_json(self.prompts_path, {})
+
+    def _load_geo(self):
+        """Load self.regions (names in display order) and self.countries.
+
+        From Supabase when the regions / countries tables exist, else from admin_data/. On the
+        first start with Supabase the tables are filled from admin_data/ (or the defaults), and
+        any country a dish uses but the table does not have yet is added.
+        """
+        if self.db and self.geo_db is None:
+            self.geo_db = dataset_db.geo_available()
+        if self.db and self.geo_db:
+            try:
+                regions = dataset_db.load_regions()
+                countries = dataset_db.load_countries()
+                if not regions:
+                    regions = self._file_regions()
+                    print(f"[CuiSync] Uploading {len(regions)} regions to Supabase (first start)...")
+                    dataset_db.save_regions(regions)
+                if FALLBACK_REGION not in regions:
+                    regions.append(FALLBACK_REGION)
+                    dataset_db.save_regions(regions)
+                self.regions = regions
+                if not countries:
+                    countries = self._load_countries()
+                    extra = [c["region"] for c in countries if c["region"] not in self.regions]
+                    if extra:  # regions only the saved country list knows
+                        for region in dict.fromkeys(extra):
+                            self.regions.insert(self._before_fallback(), region)
+                        dataset_db.save_regions(self.regions)
+                    print(f"[CuiSync] Uploading {len(countries)} countries to Supabase (first start)...")
+                    dataset_db.save_countries(countries)
+                self.countries = countries
+                added = self._add_missing_countries()
+                if added:
+                    dataset_db.save_countries(added)
+                return
+            except dataset_db.SupabaseError as error:
+                if getattr(self, "regions", None) is not None:
+                    raise  # already running: keep using Supabase, the caller tells the admin
+                print(f"[CuiSync] Could not load the regions / countries from Supabase ({error}). "
+                      "Using admin_data/ for now (local only).")
+                self.geo_db = False
+        self.regions = self._file_regions()
+        self.countries = self._load_countries()
+        for c in self.countries:  # a region only the saved country list knows
+            if c["region"] not in self.regions:
+                self.regions.insert(self._before_fallback(), c["region"])
+        self._add_missing_countries()
+
+    def _file_regions(self):
+        """Regions from admin_data/regions.json, else the default list. Always has the fallback."""
+        regions = list(self._load_json(self.regions_path, None) or REGION_CHOICES)
+        if FALLBACK_REGION not in regions:
+            regions.append(FALLBACK_REGION)
+        return regions
+
+    def _before_fallback(self):
+        """Index to insert a new region at, so the fallback region stays last."""
+        if self.regions and self.regions[-1] == FALLBACK_REGION:
+            return len(self.regions) - 1
+        return len(self.regions)
+
+    def _add_missing_countries(self):
+        """Add every country a dish uses that is not in the list yet (in memory). Returns them."""
+        known = {c["name"] for c in self.countries}
+        added = []
+        for name in sorted({r["country"] for r in self.recipes if r.get("country")} - known):
+            added.append({"name": name, "label": DEFAULT_LABELS.get(name, name.title()),
+                          "region": self._default_region(name), "visible": True})
+        if added:
+            self.countries.extend(added)
+            self.countries.sort(key=lambda c: c["name"])
+        return added
+
+    def _default_region(self, name):
+        """Region for a country that has none yet: the one most of its dishes use, else the
+        default for that country, else the fallback. Always one of self.regions."""
+        used = [r.get("country_region") for r in self.recipes
+                if r.get("country") == name and r.get("country_region") in self.regions]
+        if used:
+            return max(set(used), key=used.count)
+        region = DEFAULT_REGIONS.get(name)
+        return region if region in self.regions else FALLBACK_REGION
+
+    def _geo_save(self, action):
+        """Run one Supabase save for the regions / countries. If it fails, go back to what
+        Supabase has and tell the admin."""
+        try:
+            action()
+        except dataset_db.SupabaseError as error:
+            try:
+                self.regions = dataset_db.load_regions() or self.regions
+                self.countries = dataset_db.load_countries() or self.countries
+            except dataset_db.SupabaseError:
+                pass
+            print(f"[CuiSync] Saving the regions / countries to Supabase failed: {error}")
+            raise ValueError("Could not save to Supabase, so nothing was changed. "
+                             "Check your internet connection and try again.")
 
     def _same_as_base(self):
         """True when the dataset is still the original one (same dishes, order and item lists),
@@ -194,12 +310,21 @@ class DatasetStore:
         program edited admin_data/ and the data should be reloaded. Only used in file mode.
         """
         out = []
-        for path in (self.recipes_path, self.countries_path, self.prompts_path):
+        for path in (self.recipes_path, self.countries_path, self.regions_path, self.prompts_path):
             try:
                 out.append(os.stat(path).st_mtime_ns)
             except OSError:
                 out.append(None)
         return tuple(out)
+
+    def db_fingerprint(self):
+        """dataset_db.fingerprint() in Supabase mode, else None (also when Supabase can't be reached)."""
+        if not self.db:
+            return None
+        try:
+            return dataset_db.fingerprint()
+        except dataset_db.SupabaseError:
+            return None
 
     def reload_from_disk(self):
         """Read the dataset again from where it is saved (Supabase or admin_data/)."""
@@ -208,7 +333,7 @@ class DatasetStore:
                 return self._load_from_db()
             self.uses_admin_data = os.path.exists(self.recipes_path)
             self.recipes = self._load_recipes()
-            self.countries = self._load_countries()
+            self._load_geo()
             self.prompts = self._load_json(self.prompts_path, {})
 
     # ---------------- helpers ----------------
@@ -260,7 +385,7 @@ class DatasetStore:
             {
                 "name": name,
                 "label": DEFAULT_LABELS.get(name, name.title()),
-                "region": DEFAULT_REGIONS.get(name, "Other Asia"),
+                "region": self._default_region(name),
                 "visible": True,
             }
             for name in names
@@ -296,7 +421,7 @@ class DatasetStore:
     def clean_dish(self, form):
         """Check and tidy the admin form (or an uploaded row) into a dish dict.
 
-        - trims every field; ingredient/action/cookware/utensil/tag lists become "a, b, c"
+        - trims every field; ingredient/action/cookware/utensil lists become "a, b, c"
           (one comma list, no repeats)
         - country in upper case; title, country and at least one ingredient are required
           (raises ValueError with a message the admin sees)
@@ -305,7 +430,7 @@ class DatasetStore:
         dish = {}
         for field in DISH_FIELDS:
             value = (form.get(field) or "").strip()
-            if field.endswith("_text") or field == "tags":
+            if field.endswith("_text"):
                 value = ", ".join(_dedupe(t.strip() for t in value.replace("\n", ",").split(",") if t.strip()))
             dish[field] = value
         dish["country"] = dish["country"].upper()
@@ -330,10 +455,10 @@ class DatasetStore:
         with self.lock:
             dish = self.clean_dish(form)
             dish["recipe_id"] = self.next_recipe_id()
+            self._ensure_country(dish["country"])  # before the dish (foreign key in Supabase)
             if self.db:
                 self._db_save(lambda: dataset_db.upsert_recipes([(dish, self._next_position)]))
                 self._next_position += 1
-            self._ensure_country(dish["country"])
             self.recipes.append(dish)
             if not self.db:
                 self.save_recipes()
@@ -350,10 +475,10 @@ class DatasetStore:
                 raise ValueError("Dish not found.")
             dish = self.clean_dish(form)
             dish["recipe_id"] = self.recipes[idx]["recipe_id"]
+            self._ensure_country(dish["country"])  # before the dish (foreign key in Supabase)
             if self.db:
                 updated = dict(self.recipes[idx], **dish)
                 self._db_save(lambda: dataset_db.update_recipes([updated]))
-            self._ensure_country(dish["country"])
             self.recipes[idx].update(dish)
             if not self.db:
                 self.save_recipes()
@@ -391,6 +516,7 @@ class DatasetStore:
                 cleaned.append(dish)
             if not cleaned:
                 raise ValueError("The uploaded file has no dishes.")
+            self._ensure_countries(d["country"] for d in cleaned)  # before the dishes (foreign key)
             if self.db:
                 if mode == "replace":
                     self._db_save(lambda: dataset_db.replace_all_recipes(cleaned))
@@ -404,8 +530,6 @@ class DatasetStore:
                 self.recipes = cleaned
             else:
                 self.recipes.extend(cleaned)
-            for dish in cleaned:
-                self._ensure_country(dish["country"])
             if not self.db:
                 self.save_recipes()
             self.uses_admin_data = True
@@ -413,86 +537,46 @@ class DatasetStore:
 
     def reset_to_original(self):
         """Go back to the original recipes.json: the dishes in Supabase are replaced by the
-        original 900, and the edited country list is kept as admin_data/countries.json.bak.
+        original 900. The country list and regions in Supabase are kept (countries that only the
+        original dishes use are added); without Supabase the edited country list is kept as
+        admin_data/countries.json.bak.
         """
         with self.lock:
             if self.db:
                 originals = [dict(r) for r in self.base_recipes]
+                for r in originals:
+                    r["country"] = (r.get("country") or "").strip().upper()
+                if self.geo_db:  # countries before the dishes (foreign key)
+                    self._ensure_countries(r["country"] for r in originals)
                 self._db_save(lambda: dataset_db.replace_all_recipes(originals))
                 self.recipes = originals
                 for r in self.recipes:
                     r["country"] = (r.get("country") or "").strip().upper()
                 self._next_position = len(self.recipes)
                 self.uses_admin_data = False
+                if self.geo_db:
+                    return
                 if os.path.exists(self.countries_path):
                     os.replace(self.countries_path, self.countries_path + ".bak")
-                self.countries = self._load_countries()
+                self._load_geo()
                 return
             self.recipes = [dict(r) for r in self.base_recipes]
             for path in (self.recipes_path, self.countries_path):
                 if os.path.exists(path):
                     os.replace(path, path + ".bak")
             self.uses_admin_data = False
-            self.countries = self._load_countries()
-
-    # ---------------- custom tags (admin Tag Management) ----------------
-    def custom_tags(self):
-        """Custom tags typed on dishes (the "tags" field), as {Tag Label: number of dishes}."""
-        counts = {}
-        for r in self.recipes:
-            for t in _dedupe(_split(r.get("tags"))):
-                label = t.title()
-                counts[label] = counts.get(label, 0) + 1
-        return counts
-
-    def rename_tag(self, old, new):
-        """Rename (or merge) a custom tag on every dish that has it. Returns the number of dishes changed."""
-        old_key, new_label = (old or "").strip().lower(), (new or "").strip()
-        if not old_key or not new_label:
-            raise ValueError("Type the new tag name.")
-        if "," in new_label:
-            raise ValueError("A tag name can't contain a comma.")
-        return self._change_tag(old_key, new_label)
-
-    def delete_tag(self, name):
-        """Remove a custom tag from every dish. Returns the number of dishes changed."""
-        return self._change_tag((name or "").strip().lower(), None)
-
-    def _change_tag(self, old_key, new_label):
-        """Shared code for rename_tag and delete_tag. new_label=None removes the tag.
-        Only the dishes that had the tag are saved. Returns how many dishes changed.
-        """
-        with self.lock:
-            changed = 0
-            edited = []
-            for r in self.recipes:
-                tags = [t.strip() for t in str(r.get("tags") or "").split(",") if t.strip()]
-                if not any(t.lower() == old_key for t in tags):
-                    continue
-                out = []
-                for t in tags:
-                    if t.lower() == old_key:
-                        t = new_label  # None = delete
-                    if t and t.lower() not in {o.lower() for o in out}:
-                        out.append(t)
-                edited.append(dict(r, tags=", ".join(out)))
-                changed += 1
-            if edited:
-                if self.db:
-                    self._db_save(lambda: dataset_db.update_recipes(edited))
-                by_id = {e["recipe_id"]: e["tags"] for e in edited}
-                for r in self.recipes:
-                    if r["recipe_id"] in by_id:
-                        r["tags"] = by_id[r["recipe_id"]]
-                if not self.db:
-                    self.save_recipes()
-            return changed
+            self._load_geo()
 
     # ---------------- countries ----------------
-    def save_countries(self):
-        """Save the country list to admin_data/countries.json."""
+    def save_countries(self, changed=None):
+        """Save the country list. changed = the countries that were added or edited (Supabase
+        saves only those); None = save all. Without Supabase: admin_data/countries.json."""
         with self.lock:
-            self._save_json(self.countries_path, self.countries)
+            if self.geo_db:
+                rows = self.countries if changed is None else changed
+                self._geo_save(lambda: dataset_db.save_countries(rows))
+            else:
+                self._save_json(self.countries_path, self.countries)
 
     def country(self, name):
         """The saved entry for a country name (any case), or None."""
@@ -504,7 +588,8 @@ class DatasetStore:
         c = self.country(name)
         if c:
             return c["region"]
-        return DEFAULT_REGIONS.get((name or "").upper(), "Other Asia")
+        region = DEFAULT_REGIONS.get((name or "").upper())
+        return region if region in (getattr(self, "regions", None) or REGION_CHOICES) else FALLBACK_REGION
 
     def label_of(self, name):
         """How a country is shown to users ("TURKIYE" -> "Turkey")."""
@@ -513,11 +598,26 @@ class DatasetStore:
 
     def _ensure_country(self, name):
         """Add a country to the list when a dish uses one that is not there yet."""
-        if not self.country(name):
-            self.countries.append({"name": name, "label": name.title(),
-                                   "region": DEFAULT_REGIONS.get(name, "Other Asia"), "visible": True})
+        self._ensure_countries([name])
+
+    def _ensure_countries(self, names):
+        """Add (and save, in one go) every country in names that is not in the list yet."""
+        added = []
+        for name in dict.fromkeys(n for n in names if n):
+            if not self.country(name):
+                c = {"name": name, "label": DEFAULT_LABELS.get(name, name.title()),
+                     "region": self._default_region(name), "visible": True}
+                self.countries.append(c)
+                added.append(c)
+        if added:
             self.countries.sort(key=lambda c: c["name"])
-            self.save_countries()
+            try:
+                self.save_countries(added)
+            except ValueError:
+                for c in added:
+                    if c in self.countries:
+                        self.countries.remove(c)
+                raise
 
     def add_country(self, label, region):
         """Add a country from the Countries page. It shows in the dropdowns once it has a dish."""
@@ -525,11 +625,13 @@ class DatasetStore:
         if not label:
             raise ValueError("Enter a country name.")
         name = label.upper()
-        if self.country(name):
+        if self.country(name) or any(c["label"].lower() == label.lower() for c in self.countries):
             raise ValueError(f"{label} is already in the list.")
-        self.countries.append({"name": name, "label": label, "region": region or "Other Asia", "visible": True})
-        self.countries.sort(key=lambda c: c["name"])
-        self.save_countries()
+        with self.lock:
+            c = {"name": name, "label": label, "region": self._region_or_new(region), "visible": True}
+            self.countries.append(c)
+            self.countries.sort(key=lambda c: c["name"])
+            self.save_countries([c])
 
     def update_country(self, name, label, region, visible):
         """Change how a country is shown (name in the dropdown, region, shown or hidden).
@@ -542,11 +644,12 @@ class DatasetStore:
             label = (label or "").strip() or c["label"]
             if any(o is not c and o["label"].lower() == label.lower() for o in self.countries):
                 raise ValueError(f"{label} is already in the list.")
-            region_changed = bool(region) and region != c["region"]
+            region = self._region_or_new(region) if (region or "").strip() else c["region"]
+            region_changed = region != c["region"]
             c["label"] = label
-            c["region"] = region or c["region"]
+            c["region"] = region
             c["visible"] = bool(visible)
-            self.save_countries()
+            self.save_countries([c])
             if region_changed:
                 moved = []
                 for r in self.recipes:
@@ -565,8 +668,12 @@ class DatasetStore:
         if count:
             raise ValueError(f"{c['label']} still has {count} dishes. Delete or move them first, "
                              "or untick 'Show in dropdown' to hide it.")
-        self.countries.remove(c)
-        self.save_countries()
+        with self.lock:
+            if self.geo_db:
+                self._geo_save(lambda: dataset_db.delete_country(c["name"]))
+            self.countries.remove(c)
+            if not self.geo_db:
+                self.save_countries()
 
     def dropdown_countries(self):
         """Countries for the search dropdowns: visible and with at least one dish."""
@@ -576,6 +683,129 @@ class DatasetStore:
             for c in sorted(self.countries, key=lambda c: c["label"])
             if c.get("visible", True) and c["name"] in with_dishes
         ]
+
+    # ---------------- regions ----------------
+    def region(self, name):
+        """The saved spelling of a region name (any case), or None."""
+        key = " ".join((name or "").split()).lower()
+        return next((r for r in self.regions if r.lower() == key), None)
+
+    def _check_region(self, name):
+        """The region name as saved, or ValueError if there is no such region."""
+        found = self.region(name)
+        if not found:
+            raise ValueError(f"There is no region called {name}. Add it under Regions first.")
+        return found
+
+    def _region_or_new(self, name):
+        """The region the admin typed: an existing one (any case), or a new one that is added
+        to the list (and saved) right away. Empty = the fallback region."""
+        if not " ".join((name or "").split()):
+            return FALLBACK_REGION
+        return self.region(name) or self.add_region(name)
+
+    def region_counts(self):
+        """{region: number of countries in it}."""
+        counts = {r: 0 for r in self.regions}
+        for c in self.countries:
+            counts[c["region"]] = counts.get(c["region"], 0) + 1
+        return counts
+
+    def save_regions(self):
+        """Save the regions in their current order (Supabase or admin_data/regions.json)."""
+        with self.lock:
+            if self.geo_db:
+                self._geo_save(lambda: dataset_db.save_regions(self.regions))
+            else:
+                self._save_json(self.regions_path, self.regions)
+
+    @staticmethod
+    def _clean_region_name(name):
+        name = " ".join((name or "").split())
+        if not name:
+            raise ValueError("Enter a region name.")
+        if len(name) > 40:
+            raise ValueError("Keep the region name under 40 characters.")
+        return name
+
+    def add_region(self, name):
+        """Add a region (shown before the fallback region). Returns its name."""
+        name = self._clean_region_name(name)
+        with self.lock:
+            if self.region(name):
+                raise ValueError(f"{name} is already a region.")
+            self.regions.insert(self._before_fallback(), name)
+            try:
+                self.save_regions()
+            except ValueError:
+                if name in self.regions:
+                    self.regions.remove(name)
+                raise
+            return name
+
+    def rename_region(self, old, new):
+        """Rename a region. Its countries and their dishes move with it.
+        Returns the number of dishes whose region was changed."""
+        new = self._clean_region_name(new)
+        with self.lock:
+            old = self._check_region(old)
+            if old == FALLBACK_REGION:
+                raise ValueError(f"{FALLBACK_REGION} is used for countries without a region, "
+                                 "so it can't be renamed.")
+            if new == old:
+                return 0
+            other = self.region(new)
+            if other and other != old:
+                raise ValueError(f"{new} is already a region.")
+            if self.geo_db:  # Supabase moves the countries too (ON UPDATE CASCADE)
+                self._geo_save(lambda: dataset_db.rename_region(old, new))
+            self.regions[self.regions.index(old)] = new
+            for c in self.countries:
+                if c["region"] == old:
+                    c["region"] = new
+            if not self.geo_db:
+                self.save_regions()
+                self.save_countries()
+            moved = [r for r in self.recipes if r.get("country_region") == old]
+            for r in moved:
+                r["country_region"] = new
+            if moved:
+                self.save_recipes(changed=moved)
+            return len(moved)
+
+    def delete_region(self, name):
+        """Delete a region that no country uses."""
+        with self.lock:
+            name = self._check_region(name)
+            if name == FALLBACK_REGION:
+                raise ValueError(f"{FALLBACK_REGION} is used for countries without a region, "
+                                 "so it can't be deleted.")
+            used = [c["label"] for c in self.countries if c["region"] == name]
+            if used:
+                raise ValueError(f"{name} still has {len(used)} "
+                                 f"{'country' if len(used) == 1 else 'countries'} ({', '.join(used[:5])}). "
+                                 f"Move {'it' if len(used) == 1 else 'them'} to another region first.")
+            if self.geo_db:
+                self._geo_save(lambda: dataset_db.delete_region(name))
+            self.regions.remove(name)
+            if not self.geo_db:
+                self.save_regions()
+
+    def move_region(self, name, step):
+        """Move a region up (step -1) or down (step +1) in the display order."""
+        with self.lock:
+            name = self._check_region(name)
+            i = self.regions.index(name)
+            j = i + (1 if step > 0 else -1)
+            if not 0 <= j < len(self.regions):
+                return
+            before = list(self.regions)
+            self.regions[i], self.regions[j] = self.regions[j], self.regions[i]
+            try:
+                self.save_regions()
+            except ValueError:
+                self.regions = before
+                raise
 
     # ---------------- prompts ----------------
     def get_prompt(self, name, default):
@@ -595,29 +825,79 @@ class DatasetStore:
 
     # ---------------- matcher files ----------------
     def _vector_for(self, feature, item, new_items, new_vecs):
-        """Vector for one item: known, borrowed from the closest known item, or None."""
+        """Vector for one item: an item the vectorizer already knows (the same item, or its
+        singular/plural form), else one that item_vectors.py vectorized before. Anything else
+        gets None until vectorize_new_items() (or the notebook) gives it a vector."""
         base = self.base[feature]
         if item in base["index"]:
             return base["vecs"][base["index"][item]]
         norm = _normal_item(item)
         if norm in base["normal"]:
             return base["vecs"][base["normal"][norm]]
-        close = difflib.get_close_matches(item, list(base["index"]), n=1, cutoff=0.85)
-        if close:
-            return base["vecs"][base["index"][close[0]]]
-        # Shared words: "smoked duck breast" borrows from "duck breast", "duck"...
-        words = [w for w in re.findall(r"[a-z]+", norm) if len(w) > 2]
-        picks = [base["normal"][w] for w in words if w in base["normal"]]
-        if not picks:
-            for known, i in base["normal"].items():
-                if words and known.split()[-1:] == words[-1:]:
-                    picks.append(i)
-                    break
-        if picks:
-            v = base["vecs"][picks].mean(axis=0)
-            n = np.linalg.norm(v)
-            return v / n if n else None
-        return None
+        # The notebook's own clean-up: 'chopped fresh garlic' -> 'garlic', 'scallion' -> 'spring onion'
+        v2 = item_vectors.normalize_item(item)
+        if v2 in base["v2_index"]:
+            return base["vecs"][base["v2_index"][v2]]
+        return self.new_vecs[feature].get(item)
+
+    def _vector_style(self):
+        """Which kind of vectors the dataset files hold: the v2 vectorizer, or the plain model."""
+        return item_vectors.V2_STYLE if all(self.base[f]["df_exact"] for f in FEATURES) else item_vectors.MODEL_NAME
+
+    # ---------------- vectors for new items ----------------
+    def _load_new_vectors(self):
+        """Read the items vectorized earlier from Supabase (if the table is set up)."""
+        try:
+            if item_vectors.table_available():
+                for feature, vecs in item_vectors.load_all(self._vector_style()).items():
+                    if feature in self.new_vecs:
+                        self.new_vecs[feature].update(vecs)
+        except dataset_db.SupabaseError as error:
+            print(f"[CuiSync] Could not load the new item vectors from Supabase ({error}).")
+
+    def vectorize_new_items(self):
+        """Give every item in self.missing_vectors a vector, made with the notebook's model
+        (item_vectors.py), and save it in Supabase. Returns how many items got one.
+
+        The model call happens outside self.lock (the Space can take a while to wake up), so
+        the rest of the app keeps working meanwhile. If it fails, the error is printed and the
+        items simply stay missing (zero vector), like before."""
+        self.vector_error = None
+        with self.lock:
+            self.write_matcher_files(write=False)          # works out self.missing_vectors
+            todo = {}
+            for feature, item in self.missing_vectors:
+                todo.setdefault(feature, []).append(item)
+        done = 0
+        for feature, items in todo.items():
+            base = self.base[feature]
+            probe = None
+            if len(base["items"]):
+                i = int(np.argmax(base["df"]))               # the most common item, e.g. "salt"
+                probe = (base["items"][i], base["vecs"][i])
+            style = self._vector_style()
+            try:
+                if style == item_vectors.V2_STYLE:
+                    vecs = item_vectors.embed(items, probe, feature=feature,
+                                              vocab=base["items"], df_exact=base["df_exact"])
+                else:
+                    vecs = item_vectors.embed(items, probe)
+            except Exception as error:  # EmbedError, or anything else from the model: never break a save
+                self.vector_error = str(error) or type(error).__name__
+                print(f"[CuiSync] Could not vectorize {len(items)} new {feature}: {self.vector_error}")
+                continue
+            with self.lock:
+                for item, vec in zip(items, vecs):
+                    self.new_vecs[feature][item] = vec
+            done += len(items)
+            if item_vectors.table_available():
+                try:
+                    item_vectors.save(feature, items, vecs, style)
+                except dataset_db.SupabaseError as error:
+                    print(f"[CuiSync] New {feature} vectors are used but not saved in Supabase ({error}).")
+        if done:
+            print(f"[CuiSync] Vectorized {done} new item(s).")
+        return done
 
     def write_matcher_files(self, write=True):
         """Write <feature>_items.json and <feature>_item_vecs.npy for the current dataset.
