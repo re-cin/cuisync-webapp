@@ -9,11 +9,7 @@
 ALTER TABLE public.profiles
     ADD COLUMN IF NOT EXISTS username          TEXT,
     ADD COLUMN IF NOT EXISTS email             TEXT,
-    ADD COLUMN IF NOT EXISTS cooking_role      TEXT   NOT NULL DEFAULT '',
-    ADD COLUMN IF NOT EXISTS home_country      TEXT   NOT NULL DEFAULT '',
-    ADD COLUMN IF NOT EXISTS favorite_cuisines TEXT[] NOT NULL DEFAULT '{}',
-    ADD COLUMN IF NOT EXISTS avoid_allergens   TEXT[] NOT NULL DEFAULT '{}',
-    ADD COLUMN IF NOT EXISTS bio               TEXT   NOT NULL DEFAULT '';
+    ADD COLUMN IF NOT EXISTS avoid_allergens   TEXT[] NOT NULL DEFAULT '{}';
 
 -- Usernames are stored in lower case and must be unique (login accepts email or username)
 DO $$

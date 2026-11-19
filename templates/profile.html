@@ -17,37 +17,12 @@
       </p>
 
       <!-- Food preferences, shown under the name -->
-      {% set favs = user.favorite_cuisines or [] %}
       {% set watch = user.avoid_allergens or [] %}
-      {% if user.cooking_role or user.home_country or user.bio or favs or watch %}
+      {% if watch %}
       <div class="pf-about" id="pf-about">
         <button type="button" class="pf-about-close" id="pf-about-close" aria-label="Hide my food preferences" title="Hide">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
-        {% if user.cooking_role or user.home_country %}
-        <p class="pf-meta">
-          {% if user.cooking_role %}
-          <span class="pf-meta-item">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/><path d="M6 17h12"/></svg>
-            {{ user.cooking_role }}
-          </span>
-          {% endif %}
-          {% if user.home_country %}
-          <span class="pf-meta-item">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12Z"/><circle cx="12" cy="10" r="2.5"/></svg>
-            {{ user.home_country }}
-          </span>
-          {% endif %}
-        </p>
-        {% endif %}
-        {% if user.bio %}<p class="pf-bio">“{{ user.bio }}”</p>{% endif %}
-        {% if favs %}
-        <div class="pf-tagrow">
-          <span class="pf-tagrow-label">My Favorite Cuisine</span>
-          {% for c in favs[:6] %}<span class="pf-tag">{{ c }}</span>{% endfor %}
-          {% if favs | length > 6 %}<span class="pf-tag pf-tag-more" title="{{ favs[6:] | join(', ') }}">+{{ favs | length - 6 }} more</span>{% endif %}
-        </div>
-        {% endif %}
         {% if watch %}
         <div class="pf-tagrow">
           <span class="pf-tagrow-label">I am allergic to</span>
@@ -144,39 +119,19 @@
   {% endif %}
 </section>
 
-<!-- PREFERENCES: cooking role, home country, favourite cuisines, allergens to watch for, bio
-     (the cooking_role / home_country / favorite_cuisines / avoid_allergens / bio columns of profiles) -->
-{% set countries = (all_countries or []) | selectattr('visible') | sort(attribute='label') | list %}
+<!-- PREFERENCES: allergens to watch for (the avoid_allergens column of profiles) -->
 <details class="panel-card pf-card pf-account pf-prefs" id="preferences">
   <summary>
     <span>Food preferences</span>
     <span class="pf-account-cta pf-account-arrow" aria-hidden="true"><span>&rsaquo;</span></span>
   </summary>
   <form method="POST" action="{{ url_for('profile') }}" class="panel-form two-col pf-account-form">
-    <label>I am a
-      <input type="text" name="cooking_role" maxlength="60" value="{{ user.cooking_role }}" placeholder="e.g. Home cook, Chef, Student" autocomplete="off">
-    </label>
-    <label>Home country
-      <input type="text" name="home_country" maxlength="60" value="{{ user.home_country }}" placeholder="e.g. Philippines" autocomplete="country-name">
-    </label>
-
-    <fieldset class="span-2 pf-chips">
-      <legend>Favourite cuisines <span>Pick any</span></legend>
-      {% for c in countries %}
-      <label class="pf-chip"><input type="checkbox" name="favorite_cuisines" value="{{ c.label }}" {{ 'checked' if c.label in user.favorite_cuisines }}><span>{{ c.label }}</span></label>
-      {% endfor %}
-    </fieldset>
-
     <fieldset class="span-2 pf-chips">
       <legend>Allergens to watch for <span>We’ll point these out in a dish’s Health info</span></legend>
       {% for a in allergen_choices %}
       <label class="pf-chip pf-chip-allergen"><input type="checkbox" name="avoid_allergens" value="{{ a }}" {{ 'checked' if a in user.avoid_allergens }}><span>{{ a }}</span></label>
       {% endfor %}
     </fieldset>
-
-    <label class="span-2"><span>About me <span class="pf-optional-dark">(optional, up to 500 characters)</span></span>
-      <textarea name="bio" rows="3" maxlength="500" placeholder="e.g. Home cook from Manila who loves trying Southeast Asian dishes">{{ user.bio }}</textarea>
-    </label>
 
     <div class="span-2 pf-account-actions"><button class="pf-btn" type="submit">Save preferences</button></div>
   </form>

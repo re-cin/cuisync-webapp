@@ -1785,7 +1785,6 @@ def profile():
         # Only dish similarity searches (text / image: dish -> best match) are shown
         history=_history_with_images([h for h in accounts.get_history(user["id"])
                                       if h.get("search_type") in ("text", "image")]),
-        cooking_roles=accounts.COOKING_ROLES,
         allergen_choices=accounts.ALLERGEN_CHOICES,
         all_countries=STORE.countries,
         sign_in_methods=_sign_in_methods(user["id"]),
@@ -2618,11 +2617,9 @@ def admin_account():
                 except ValueError as error:
                     flash(str(error), "error")
         else:
-            keep = {"favorite_cuisines": user.get("favorite_cuisines", []),
-                    "avoid_allergens": user.get("avoid_allergens", [])}
+            keep = {"avoid_allergens": user.get("avoid_allergens", [])}
             form = type("Form", (dict,), {"getlist": lambda self, k: keep.get(k, [])})(
-                display_name=request.form.get("display_name", ""), cooking_role=user.get("cooking_role", ""),
-                home_country=user.get("home_country", ""), bio=user.get("bio", ""))
+                display_name=request.form.get("display_name", ""))
             accounts.update_profile(user["id"], form)
             flash("Name saved.", "success")
         return redirect(url_for("admin_account"))

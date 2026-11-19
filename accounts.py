@@ -181,10 +181,7 @@ def _user_dict(row):
     user["username"] = user.get("username") or (user.get("email") or "user").split("@")[0]
     user["display_name"] = user.get("name") or ""
     user["name"] = user["display_name"] or user["username"]
-    user["favorite_cuisines"] = list(user.get("favorite_cuisines") or [])
     user["avoid_allergens"] = list(user.get("avoid_allergens") or [])
-    for key in ("cooking_role", "home_country", "bio"):
-        user[key] = user.get(key) or ""
     user["is_admin"] = user.get("role") == "admin"
     user["is_active"] = (user.get("status") or "active") == "active"
     user["created_at"] = _utc_text(user.get("created_at"))
@@ -481,16 +478,9 @@ def list_users():
 def update_profile(user_id, form):
     if not _valid_id(user_id):
         return
-    favorite = [c for c in form.getlist("favorite_cuisines") if c][:13]
+    # Food preferences: only the allergens (avoid_allergens column of profiles)
     allergens = [a for a in form.getlist("avoid_allergens") if a in ALLERGEN_CHOICES]
-    cooking_role = form.get("cooking_role", "").strip()[:60]   # typed freely on the profile page
-    changes = {
-        "cooking_role": cooking_role,
-        "home_country": form.get("home_country", "").strip()[:60],
-        "favorite_cuisines": favorite,
-        "avoid_allergens": allergens,
-        "bio": form.get("bio", "").strip()[:500],
-    }
+    changes = {"avoid_allergens": allergens}
     # The profile page's preferences form has no name box: only change the name when it's sent
     if "display_name" in form:
         changes["name"] = form.get("display_name", "").strip()[:60]
