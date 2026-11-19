@@ -117,12 +117,14 @@ class KeyBenefitsTests(unittest.TestCase):
         self.assertEqual([("condensed milk", "calcium")], [(n["ingredient"], n["nutrient"]) for n in dairy])
         self.assertEqual([], select_important_benefits({"ingredient_text": "coconut milk, coffee"}, []))
 
-    def test_combines_background_fields_into_one_normalized_paragraph(self):
+    def test_combines_background_fields_without_losing_paragraphs(self):
         self.assertEqual(
-            "Dishes were preserved with vinegar. Families prepare this dish for celebrations.",
+            "Dishes were preserved with vinegar.\n\nFamilies prepare this dish for celebrations.",
             _combined_background("Historical Background: Dishes were preserved\nwith vinegar.",
                                  "Cultural Background: Families prepare this dish for celebrations."),
         )
+        self.assertEqual("First history.\n\nSecond history.\n\nCulture.",
+                         _combined_background("First history.\n\nSecond history.", "Culture."))
         self.assertEqual("One explanation.", _combined_background("One explanation.", "One explanation."))
         self.assertEqual("", _combined_background(None, ""))
 

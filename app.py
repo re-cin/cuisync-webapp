@@ -2301,6 +2301,7 @@ def admin_page():
         most = max([n for _, n in per_day] + [1])
         ctx.update(stats=stats, per_country=per_country, total=len(RECIPES),
                    missing=STORE.missing_vectors, gpt_on=explainer._client is not None,
+                   explanation_prompt_custom=(PROMPTS.get_prompt("explanation") != cuisync_prompts.DEFAULT_SYSTEM_PROMPT),
                    per_day=[{"label": d.strftime("%a"), "value": n, "height": round(100 * n / most)}
                             for d, n in per_day],
                    recent=recent, ner_status=ner.status(),

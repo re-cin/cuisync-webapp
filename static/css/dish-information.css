@@ -38,7 +38,7 @@
   .rt-info-section > h4 {font-size: 0.7rem; letter-spacing: 0.04em; }
   .rt-allergen-finding {padding: 10px; }
 }
-.rt-background-summary {white-space: normal !important; line-height: 1.7; }
+.rt-background-summary {white-space: pre-line !important; line-height: 1.7; }
 .rt-background-evidence {font-size: 0.77rem; line-height: 1.5; opacity: 0.78; margin: 0.5rem 0 0.4rem; }
 .rt-market-comparison {margin-top: 16px; padding: 12px 14px; border: 1px solid var(--border, #d6d9df); border-radius: 10px; }
 .rt-market-comparison summary {cursor: pointer; font-weight: 650; }

@@ -48,6 +48,40 @@
     selectFromHash();
 
     prompts.querySelectorAll('[data-prompt-form]').forEach((form) => {
+      const dishSearch = form.querySelector('[data-dish-search]');
+      if (dishSearch) {
+        const picker = dishSearch.closest('[data-dish-picker]');
+        const results = picker.querySelector('.prompt-dish-results');
+        const options = Array.from(results.querySelectorAll('[data-index]'));
+        const index = form.querySelector('[data-sample-index]');
+        const closeResults = () => { results.hidden = true; dishSearch.setAttribute('aria-expanded', 'false'); };
+        const updateDish = (open = true) => {
+          const query = dishSearch.value.trim().toLocaleLowerCase();
+          let shown = 0;
+          options.forEach((option) => {
+            const match = !query || option.dataset.label.toLocaleLowerCase().includes(query);
+            option.hidden = !match || shown >= 8;
+            if (match && shown < 8) shown += 1;
+          });
+          if (open) {
+            results.hidden = shown === 0;
+            dishSearch.setAttribute('aria-expanded', String(!results.hidden));
+          }
+        };
+        const chooseDish = (option) => {
+          dishSearch.value = option.dataset.label;
+          index.value = option.dataset.index;
+          closeResults();
+        };
+        dishSearch.addEventListener('focus', () => updateDish());
+        dishSearch.addEventListener('input', () => {
+          const exact = options.find((option) => option.dataset.label === dishSearch.value);
+          if (exact) index.value = exact.dataset.index;
+          updateDish();
+        });
+        options.forEach((option) => option.addEventListener('click', () => chooseDish(option)));
+        document.addEventListener('click', (event) => { if (!picker.contains(event.target)) closeResults(); });
+      }
       const feedback = form.querySelector('[data-prompt-feedback]');
       const preview = form.querySelector('[data-prompt-preview]');
       const showPreview = (data) => {
@@ -60,19 +94,41 @@
           preview.append(heading, body);
         };
         if (data.explanation) {
-          add('GPT explanation preview', data.explanation);
-          add('Precomputed similarity score', `${data.similarity_score}%`);
-          add('Shapley contributions', Object.entries(data.shapley_contributions).map(([name, value]) => `${name}: ${value}%`).join('; '));
-          add('Reference evidence', JSON.stringify(data.evidence, null, 2));
-          add('Sample', data.sample_note);
+          const evidence = data.evidence;
+          const items = (values) => values?.length ? values.join(', ') : 'none listed';
+          const scoreLabels = { ingredients: 'Ingredients', actions: 'Cooking steps', cookware: 'Cookware', utensils: 'Utensils' };
+          add('Preview: similarity explanation', data.explanation);
+          add('Similarity score (unchanged by this prompt)', `${data.similarity_score}%`);
+          add('What contributed to the score', Object.entries(data.shapley_contributions).map(([name, value]) => `${scoreLabels[name] || name}: ${value}%`).join('; '));
+          add('Dish details used for this preview',
+            `${evidence.input_dish} (${evidence.input_cuisine}) and ${evidence.matched_dish} (${evidence.matched_cuisine}).\n` +
+            `Shared ingredients: ${items(evidence.shared_ingredients)}.\n` +
+            `Only in ${evidence.input_dish}: ${items(evidence.unique_to_input)}.\n` +
+            `Only in ${evidence.matched_dish}: ${items(evidence.unique_to_match)}.\n` +
+            `Shared cooking steps: ${items(evidence.shared_actions)}.\n` +
+            `Shared cookware: ${items(evidence.shared_cookware)}. Shared utensils: ${items(evidence.shared_utensils)}.`);
+          add('About this preview', data.sample_note);
         } else {
-          add('Historical background', data.historical_background || 'No supported history returned.');
-          add('Cultural background', data.cultural_background || 'No supported culture returned.');
-          add('Retrieved sources supplied', data.sources_provided ? 'Yes' : 'No — general-knowledge fallback test.');
-          (data.sources || []).forEach((source) => add(source.title, `${source.url}\n${source.excerpt}`));
-          add('AI-generated information', data.disclaimer);
+          const history = data.historical_background || 'No supported history returned.';
+          const culture = data.cultural_background || 'No supported culture returned.';
+          add('History & culture preview', `${history}\n\n${culture}`);
+          if (data.source_links?.length) {
+            const heading = document.createElement('h4');
+            heading.textContent = 'Source links';
+            const links = document.createElement('p');
+            data.source_links.forEach((source, index) => {
+              if (index) links.append(document.createTextNode(' · '));
+              const link = document.createElement('a');
+              link.href = source.url;
+              link.target = '_blank';
+              link.rel = 'noopener noreferrer';
+              link.textContent = source.title || source.url;
+              links.append(link);
+            });
+            preview.append(heading, links);
+          }
+          if (data.source_status) feedback.textContent = data.source_status;
         }
-        add('Validation', data.validation);
         preview.hidden = false;
       };
       const send = async (action, restoreVersion) => {
@@ -82,7 +138,7 @@
         if (restoreVersion) body.set('restore_version', restoreVersion);
         const buttons = Array.from(form.querySelectorAll('button'));
         buttons.forEach((button) => { button.disabled = true; });
-        feedback.textContent = action === 'test' ? 'Testing with GPT…' : 'Saving version…';
+        feedback.textContent = action === 'test' ? 'Creating a preview…' : 'Saving your instructions…';
         if (action === 'test') preview.hidden = true;
         try {
           const response = await fetch(action === 'test' ? form.dataset.previewUrl : form.getAttribute('action'), {
@@ -93,7 +149,7 @@
           if (!response.ok) throw new Error(data.error || 'Request failed. Reload and try again.');
           if (action === 'test') {
             showPreview(data);
-            feedback.textContent = 'Preview only. The active prompt and production records have not changed.';
+            feedback.textContent = 'Preview only. Click Save and use now to make these the active instructions.';
           } else {
             form.elements.expected_version.value = data.version;
             form.elements.prompt.value = data.instructions;
@@ -104,7 +160,7 @@
             status.classList.toggle('pill-active', data.custom);
             status.classList.toggle('pill-hidden', !data.custom);
             const versions = form.querySelector('[data-version-list]');
-            versions.querySelectorAll('[data-version-status]').forEach((item) => { item.textContent = 'Inactive'; });
+            versions.querySelectorAll('[data-version-status]').forEach((item) => { item.textContent = 'Past'; });
             versions.querySelectorAll('[data-restore-version]').forEach((button) => { button.hidden = false; });
             const entry = document.createElement('details');
             entry.className = 'prompt-version';
@@ -112,7 +168,7 @@
             summary.append(`Version ${data.version} · `);
             const active = document.createElement('span');
             active.dataset.versionStatus = '';
-            active.textContent = 'Active';
+            active.textContent = 'In use';
             summary.append(active, ` · ${data.administrator} · ${data.modified_at} (UTC)`);
             const text = document.createElement('pre');
             text.className = 'mono';
@@ -121,7 +177,7 @@
             restore.type = 'button';
             restore.className = 'btn btn-outline';
             restore.dataset.restoreVersion = data.version;
-            restore.textContent = `Restore version ${data.version}`;
+            restore.textContent = `Use version ${data.version}`;
             restore.hidden = true;
             entry.append(summary, text, restore);
             versions.prepend(entry);
@@ -150,7 +206,7 @@
       form.addEventListener('click', (event) => {
         const button = event.target.closest('[data-restore-version]');
         if (button) {
-          if (window.confirm(`Activate the writing instructions from version ${button.dataset.restoreVersion}?`)) {
+          if (window.confirm(`Use the instructions from version ${button.dataset.restoreVersion} again?`)) {
             send('restore', button.dataset.restoreVersion);
           }
         }

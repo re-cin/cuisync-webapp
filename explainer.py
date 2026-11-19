@@ -12,7 +12,7 @@ except ImportError:
     pass
 
 from cuisync_cache import explain_with_cache, save_cached, MODEL_NAME
-from cuisync_prompts import build_messages, ungrounded_terms, HIGH_MIN, MODERATE_MIN, prompt_snapshot
+from cuisync_prompts import build_messages, ungrounded_terms, writing_format_issue, get_system_prompt, HIGH_MIN, MODERATE_MIN, prompt_snapshot
 
 try:
     from openai import OpenAI
@@ -229,7 +229,7 @@ def build_evidence(source_dish, recommended_dish, similarity_pct, influence):
     return evidence
 
 
-def _call_gpt(evidence, avoid=None):
+def _call_gpt(evidence, avoid=None, correction=None):
     try:
         messages = build_messages(evidence)
         if avoid:
@@ -238,6 +238,8 @@ def _call_gpt(evidence, avoid=None):
                 + ", ".join(avoid)
                 + ". Write the paragraph again using ONLY the ingredients, cooking actions and utensils"
                   "in the JSON above, and do not mention those items.")})
+        if correction:
+            messages.append({"role": "user", "content": correction + " Rewrite the explanation using the same evidence."})
         resp = _client.chat.completions.create(
             model=MODEL_NAME,
             messages=messages,
@@ -305,10 +307,14 @@ def preview_explanation(evidence, instructions):
         raise ValueError("GPT is unavailable.")
     with prompt_snapshot(instructions):
         for attempt in range(2):
-            text = _call_gpt(evidence, avoid=bad if attempt else None)
+            text = _call_gpt(evidence, avoid=bad if attempt and bad else None,
+                             correction=issue if attempt and issue else None)
             bad = ungrounded_terms(text, evidence, _VOCAB)
-            if not bad and text:
+            issue = writing_format_issue(text, get_system_prompt())
+            if not bad and not issue and text:
                 return text
+    if issue:
+        raise ValueError("Preview did not follow the requested writing format or length. Try again or revise the writing instructions.")
     raise ValueError("Preview rejected by the existing evidence-grounding check; unsupported culinary items were mentioned.")
 
 
@@ -319,10 +325,13 @@ def _get_explanation(evidence):
 
     def grounded(text, ev):
         bad = ungrounded_terms(text, ev, _VOCAB)
+        issue = writing_format_issue(text, get_system_prompt())
 
-        if bad:
+        if bad or issue:
             print("[CuiSync] GROUNDING FAILED")
             print("[CuiSync] Unsupported terms:", bad)
+            if issue:
+                print("[CuiSync] Writing format failed:", issue)
             return False
 
         print("[CuiSync] GROUNDING PASSED")
@@ -333,14 +342,15 @@ def _get_explanation(evidence):
 
         bad = ungrounded_terms(text, evidence, _VOCAB)
 
-        if not bad:
+        issue = writing_format_issue(text, get_system_prompt())
+        if not bad and not issue and text:
             print("[CuiSync] GPT ACCEPTED")
             return text, "ai"
 
         print("[CuiSync] GPT REJECTED -> retrying once without:", bad)
 
-        retry = _call_gpt(evidence, avoid=bad)
-        if not ungrounded_terms(retry, evidence, _VOCAB):
+        retry = _call_gpt(evidence, avoid=bad or None, correction=issue or None)
+        if retry and not ungrounded_terms(retry, evidence, _VOCAB) and not writing_format_issue(retry, get_system_prompt()):
             save_cached(evidence, retry)
             print("[CuiSync] GPT ACCEPTED (retry)")
             return retry, "ai"

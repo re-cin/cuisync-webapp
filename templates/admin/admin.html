@@ -5,7 +5,7 @@
   'users':     ('', 'User Profile Management', 'User accounts, their profiles and search activity. Disable or remove accounts.'),
   'dishes':    ('', 'Dish Management', 'Add, edit and remove dishes. Changes are used for search and similarity right away.'),
   'countries': ('', 'Country Management', 'Choose which countries show in the "Country of origin" and "Target country" dropdowns.'),
-  'prompts':   ('', 'Prompt Management', 'Edit the GPT prompts for the similarity explanation and the cultural information.'),
+  'prompts':   ('', 'Prompt Management', 'Choose how GPT writes dish comparisons, history and culture.'),
   'dataset':   ('', 'Dataset', 'Download a copy of the recipe dataset as a backup.'),
 }[tab] %}
 {% block title %}{{ meta[1] }}{% endblock %}
@@ -98,7 +98,7 @@
         <div><dt>GPT</dt><dd class="{{ 'ok' if gpt_on else 'off' }}">{{ 'On' if gpt_on else 'Off' }}</dd></div>
         {% set ner_short = 'Not set up' if not ner_status.mode else ('Ready' if ner_status.ready else ('Loading…' if ner_status.text.endswith('loading…') else 'Error')) %}
         <div><dt>Ingredient NER</dt><dd class="{{ 'ok' if ner_status.ready else 'off' }}">{{ ner_short }}</dd></div>
-        <div><dt>Explanation prompt</dt><dd>{{ 'Custom' if store.prompts.get('explanation') else 'Default' }}</dd></div>
+        <div><dt>Explanation prompt</dt><dd>{{ 'Custom' if explanation_prompt_custom else 'Default' }}</dd></div>
         <div><dt>Vectors</dt><dd class="{{ 'off' if missing else 'ok' }}">{{ (missing | length ~ ' item(s) missing') if missing else 'Complete' }}</dd></div>
       </dl>
       {% if missing %}<p class="muted small mt">Could not be vectorized yet (tried again on the next save or restart): {{ missing[:8] | map('last') | join(', ') }}{{ '…' if missing | length > 8 }}</p>{% endif %}
@@ -572,25 +572,25 @@
    ====================================================================== #}
 {% elif tab == 'prompts' %}
 {% from 'admin/prompt_editor.html' import editor with context %}
-{% if not gpt_on %}<div class="flash flash-info inline-flash">GPT is off right now (no OPENAI_API_KEY), so these prompts are saved but only used once GPT is on.</div>{% endif %}
-{% if prompt_storage_warning %}<div class="flash flash-error inline-flash">Prompt database unavailable. Showing the last known configuration with protected backend rules. Saving requires the database to recover; reload before editing. History may be incomplete.</div>{% endif %}
-{% if not prompt_remote %}<div class="flash flash-info inline-flash">Local development: version history is stored in SQLite under admin_data. Configure Supabase for persistence across deployments.</div>{% endif %}
-{% if legacy_pending %}<div class="flash flash-info inline-flash">Local legacy instructions differ from the active configuration for {{ legacy_pending | join(', ') }}. The original prompts.json is preserved. Use the documented migration command to review and import them safely.</div>{% endif %}
+{% if not gpt_on %}<div class="flash flash-info inline-flash">AI writing is unavailable right now. You can save changes, but testing and new AI writing will work only when the service is available again. Ask the site maintainer for help.</div>{% endif %}
+{% if prompt_storage_warning %}<div class="flash flash-error inline-flash">We cannot reach the saved prompts right now. This page shows the last available copy. Saving may fail, and past versions may be missing until the connection returns.</div>{% endif %}
+{% if not prompt_remote %}<div class="flash flash-info inline-flash">Past versions are saved only on this computer and may disappear when the site is updated. Ask the site maintainer to set up shared storage.</div>{% endif %}
+{% if legacy_pending %}<div class="flash flash-info inline-flash">Older saved instructions were found for {{ legacy_pending | join(', ') }}. They are different from the active instructions. Ask the site maintainer to review them before using them.</div>{% endif %}
 <div class="row align-start" data-prompt-management>
   <section class="card grow-1 side-card">
     <div class="card-head"><h2>Prompts</h2></div>
     <div class="prompt-list" role="tablist" aria-label="Prompt category" aria-orientation="vertical">
       <a href="#prompt-explanation" id="prompt-tab-explanation" class="prompt-item selected" role="tab" aria-controls="prompt-explanation" aria-selected="true">
         <span class="prompt-item-top"><span class="strong">Similarity explanation</span><span class="pill {{ 'pill-active' if explanation_custom else 'pill-hidden' }}">{{ 'Custom' if explanation_custom else 'Default' }}</span></span>
-        <span class="muted small">Explains why two dishes are similar, using the Shapley contributions.</span>
+        <span class="muted small">Choose the wording of the dish comparison. The score stays the same.</span>
       </a>
       <a href="#prompt-cultural" id="prompt-tab-cultural" class="prompt-item" role="tab" aria-controls="prompt-cultural" aria-selected="false" tabindex="-1">
         <span class="prompt-item-top"><span class="strong">Historical and Cultural Information</span><span class="pill {{ 'pill-active' if cultural_custom else 'pill-hidden' }}">{{ 'Custom' if cultural_custom else 'Default' }}</span></span>
-        <span class="muted small">Source-based descriptions and cautious general-knowledge fallback.</span>
+        <span class="muted small">Choose how dish history and culture are written, with or without sources.</span>
       </a>
     </div>
-    <p class="hint mt">Saved prompts apply to future generations. Existing historical and cultural descriptions and references stay unchanged. Reset to default restores the prompt in the code.</p>
-    <p class="hint">You can switch categories without losing unsaved edits. Save each prompt separately.</p>
+    <p class="hint mt">Test shows a preview only. Save and use now makes your changes the instructions GPT uses. When someone opens a dish, older AI text is updated if its instructions have changed. If rewriting fails, the old text stays visible.</p>
+    <p class="hint">Each prompt is saved separately. You can choose a past version below any editor.</p>
   </section>
 
   <div class="grow-3 stack">
@@ -600,7 +600,7 @@
 
     <section class="card" id="prompt-cultural" role="tabpanel" aria-labelledby="prompt-tab-cultural">
       <div class="card-head"><h2>Historical and Cultural Information</h2></div>
-      <p class="hint card-hint">Manage the two generation modes used for dish history and culture. Both return <code>historical_background</code> and <code>cultural_background</code>. Mandatory evidence and output rules are added by the backend and cannot be removed here. Saving does not regenerate stored descriptions.</p>
+      <p class="hint card-hint">There are two instructions below. The first is used when useful sources are available. The second is used when they are not. Edit and save each one separately. Existing history and culture text is rewritten when a dish is opened after its instructions change.</p>
       {% for card in prompt_cards[1:] %}
       {{ editor(card) }}
       {% endfor %}

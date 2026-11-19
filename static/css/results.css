@@ -564,6 +564,7 @@
 .quote-text {
   font-size: 0.95rem;
   line-height: 1.55;
+  white-space: pre-line;
   color: var(--text-dark);
   position: relative;
   z-index: 1;
@@ -2586,8 +2587,8 @@ a.entity-chip:focus-visible { outline: 2px solid var(--gold-accent); outline-off
 /* Dish names on cards */
 .dish-comparison-section .dish-title { color: var(--maroon-main); }
 
-/* Unified dish background: one flowing text block, including when source text has line breaks. */
-.rt-background-summary { white-space: normal !important; line-height: 1.7; }
+/* Keep paragraph breaks requested by the active history and culture prompts. */
+.rt-background-summary { white-space: pre-line !important; line-height: 1.7; }
 
 /* One combined background paragraph; provenance is small accompanying metadata. */
 .rt-background-evidence {

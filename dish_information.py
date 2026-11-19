@@ -72,7 +72,7 @@ def _key_benefits(notes, limit=3, recipe=None):
 
 
 def _combined_background(history, culture):
-    """Present the two stored background fields as one readable paragraph.
+    """Present the stored fields while preserving generated paragraph breaks.
 
     Keep the original Supabase fields intact for provenance. Strip formatting
     and repeated section labels when building a user-facing summary only.
@@ -81,11 +81,13 @@ def _combined_background(history, culture):
     for value in (history, culture):
         if not isinstance(value, str) or not value.strip():
             continue
-        text = re.sub(r"\s+", " ", value).strip()
+        text = "\n\n".join(re.sub(r"\s+", " ", paragraph).strip()
+                           for paragraph in re.split(r"\n\s*\n", value.replace("\r\n", "\n"))
+                           if paragraph.strip())
         text = re.sub(r"^(?:historical background|cultural background|history|culture)\s*:\s*", "", text, flags=re.I)
         if text and (not parts or text.casefold() != parts[-1].casefold()):
             parts.append(text)
-    return " ".join(parts)
+    return "\n\n".join(parts)
 
 
 def _empty(recipe):
@@ -217,6 +219,16 @@ def public_information(recipe, avoid_allergens=(), schedule=True, store=None):
         health = None  # A nutrition outage must not hide an existing background.
 
     background_current = background and background.get("data_version") == DATA_VERSION
+    if background_current and _client is not None:
+        from background_generation import _stale_fields
+        if _stale_fields(background):
+            # Show the refreshed description in this response, as similarity
+            # explanations already do. The generator keeps old text on failure.
+            from dish_backgrounds import enrich_background
+            try:
+                background = enrich_background(recipe, store, client=_client)
+            except Exception:
+                log.warning("Prompt-change background refresh failed; keeping the saved description.")
     if (background_current
             and any(background.get(field) for field in ("historical_background", "cultural_background"))):
         result['background'].update(_public_background(background, recipe))

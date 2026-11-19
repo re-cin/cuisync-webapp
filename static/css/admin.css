@@ -364,12 +364,19 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 0.85em; }
 .prompt-item.selected { border: 2px solid var(--maroon-main); background: #f1e4c8; }
 .prompt-item:focus-visible { outline: 2px solid var(--maroon-main); outline-offset: 3px; }
 [data-prompt-management] [role="tabpanel"][hidden] { display: none; }
-.prompt-rules pre, .prompt-history pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow-y: auto; font-size: .8rem; }
-.prompt-rules, .prompt-history { margin: 12px 0; }
-.prompt-rules summary, .prompt-history summary { cursor: pointer; }
+.prompt-history { margin: 12px 0; }
+.prompt-history summary { cursor: pointer; }
+.prompt-history pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow-y: auto; font-size: .8rem; }
 .prompt-version { padding: 10px 0; border-top: 1px solid var(--border, #e0d6c5); }
 .prompt-preview { padding: 16px; background: var(--cream, #faf5e9); border-radius: 8px; overflow-wrap: anywhere; }
 .prompt-preview p { white-space: pre-wrap; }
+.prompt-preview a { color: var(--maroon-main); text-decoration: underline; text-underline-offset: 2px; }
+.prompt-dish-picker { position: relative; }
+.prompt-dish-picker > input[type="search"] { width: 100%; }
+.prompt-dish-results { position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 4px); max-height: 280px; overflow-y: auto; padding: 6px; border: 1px solid var(--admin-border); border-radius: 8px; background: var(--admin-card); box-shadow: 0 8px 20px rgba(45, 28, 18, .18); }
+.prompt-dish-option { display: block; width: 100%; padding: 10px 12px; border: 0; border-radius: 6px; background: transparent; color: var(--text-dark); text-align: left; font: inherit; cursor: pointer; }
+.prompt-dish-option:hover, .prompt-dish-option:focus-visible { background: var(--cream-bg); color: var(--maroon-main); outline: none; }
+.prompt-dish-option span { color: var(--admin-muted); font-size: .9em; }
 .prompt-item-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 
 .regen-form { margin-top: -4px; }

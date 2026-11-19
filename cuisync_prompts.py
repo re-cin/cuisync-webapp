@@ -205,19 +205,44 @@ def prompt_snapshot(instructions=None):
 
 
 def prompt_fingerprint():
-    content = [PROTECTED_RULES, get_system_prompt(), FEW_SHOT_EXAMPLES]
+    content = ["adaptive-examples-v2", PROTECTED_RULES, get_system_prompt(), FEW_SHOT_EXAMPLES]
     return hashlib.sha256(json.dumps(content, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
 
 
 def build_messages(evidence: dict, instructions=None) -> list:
-    messages = [{"role": "system", "content": PROTECTED_RULES}]
-    for ex in FEW_SHOT_EXAMPLES:
+    writing = get_system_prompt() if instructions is None else instructions
+    messages = [{"role": "system", "content": (PROTECTED_RULES
+                 + "\nACTIVE ADMIN WRITING INSTRUCTIONS (subject to the protected rules above):\n"
+                 + writing)}]
+    # Examples use the default one-paragraph style. They would override an
+    # admin's custom format, and a preview sample must never include its answer.
+    pair = (str(evidence.get("input_dish", "")).casefold(),
+            str(evidence.get("matched_dish", "")).casefold())
+    examples = FEW_SHOT_EXAMPLES if writing == DEFAULT_SYSTEM_PROMPT else ()
+    for ex in examples:
+        example_pair = (ex["evidence"]["input_dish"].casefold(),
+                        ex["evidence"]["matched_dish"].casefold())
+        if example_pair == pair:
+            continue
         messages.append({"role": "user", "content": json.dumps(ex["evidence"], ensure_ascii=False)})
         messages.append({"role": "assistant", "content": ex["explanation"]})
-    messages.append({"role": "user", "content": json.dumps({
-        "editable_writing_instructions": get_system_prompt() if instructions is None else instructions,
-        "culinary_evidence": evidence}, ensure_ascii=False)})
+    messages.append({"role": "user", "content": json.dumps(evidence, ensure_ascii=False)})
     return messages
+
+
+def writing_format_issue(text: str, instructions: str) -> str:
+    """Check explicit paragraph and approximate word-count requirements."""
+    if re.search(r"\b(?:two|2)\s+(?:plain[- ]text\s+)?paragraphs?\b", instructions, re.I):
+        paragraphs = [part for part in re.split(r"\n\s*\n", text.strip()) if part.strip()]
+        if len(paragraphs) != 2:
+            return "Write exactly two paragraphs separated by a blank line."
+    words = re.search(r"\b(\d{1,3})\s*(?:to|[-–])\s*(\d{1,3})\s+words?\b", instructions, re.I)
+    if words:
+        lower, upper = map(int, words.groups())
+        count = len(text.split())
+        if lower <= upper and not round(lower * 0.9) <= count <= round(upper * 1.1):
+            return f"Use approximately {lower} to {upper} words in total."
+    return ""
 
 
 _NAME_FIELDS = ("input_dish", "matched_dish", "input_cuisine", "matched_cuisine")

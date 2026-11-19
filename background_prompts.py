@@ -19,8 +19,8 @@ evidence is insufficient. Wikipedia is last-resort context, not scholarly verifi
 FALLBACK_RULES = """No sources are supplied. Use cautious general knowledge only and explicitly
 state uncertainty for ambiguous or unfamiliar dishes. Avoid specific origins,
 historical dates, named creators, traditions and anecdotes without evidence.
-No URLs, citations, Markdown links or numeric historical dates. Give at most two
-short sentences per requested field. This is AI-generated, unverified information."""
+No URLs, citations, Markdown links or numeric historical dates.
+This is AI-generated, unverified information."""
 
 
 def configure(get_prompt):
@@ -56,7 +56,7 @@ def configuration(fallback=False, instructions=None):
     name = FALLBACK if fallback else SOURCE
     prompt = get_prompt(name) if instructions is None else validate_prompt(instructions)
     rules = protected_rules(fallback)
-    version = hashlib.sha256(json.dumps([name, prompt, rules], ensure_ascii=False).encode("utf-8")).hexdigest()
+    version = hashlib.sha256(json.dumps(["admin-style-contract-v2", name, prompt, rules], ensure_ascii=False).encode("utf-8")).hexdigest()
     return prompt, rules, version
 
 
