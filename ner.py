@@ -243,19 +243,22 @@ def _extract_local(text):
 # 2. Remote model (Hugging Face Space)
 # ---------------------------------------------------------------------------
 
-def _extract_remote(text):
+def _post_remote(path, text, key):
+    """POST the text to the NER Space and return data[key]. Waits while a sleeping Space wakes up."""
     import requests
     headers = {"Authorization": f"Bearer {NER_API_TOKEN}"} if NER_API_TOKEN else {}
     deadline = time.monotonic() + NER_API_TIMEOUT
     while True:
         try:
-            response = requests.post(NER_API_URL + "/extract", json={"text": text}, headers=headers,
+            response = requests.post(NER_API_URL + path, json={"text": text}, headers=headers,
                                      timeout=max(5.0, deadline - time.monotonic()))
+            if response.status_code == 404:
+                raise NerError("The NER service has no " + path + " yet.")
             if response.status_code not in (502, 503, 504):  # these mean the Space is waking up
                 data = response.json()
                 if response.status_code != 200:
                     raise NerError(data.get("message") or f"NER service error ({response.status_code}).")
-                return data.get("ingredients", [])
+                return data.get(key, [])
             problem = f"HTTP {response.status_code}"
         except (requests.ConnectionError, requests.Timeout) as error:
             problem = type(error).__name__
@@ -264,6 +267,10 @@ def _extract_remote(text):
         if time.monotonic() > deadline:
             raise NerError(f"The NER service didn't answer in time ({problem}). Please try again.")
         time.sleep(5)
+
+
+def _extract_remote(text):
+    return _post_remote("/extract", text, "ingredients")
 
 
 # ---------------------------------------------------------------------------
@@ -418,6 +425,13 @@ def extract_directions(text):
         result = _extract_directions_model(text)
         result["source"] = "model"
         return result
+    if NER_API_URL:  # no local model (Render): the directions model on the NER Space
+        try:
+            result = _extract_directions_remote(text)
+            result["source"] = "model"
+            return result
+        except NerError as error:  # Space without the directions model: use the vocabulary below
+            print("[CuiSync] Directions model on the NER Space not used:", error)
     if not _action_index:
         raise NerError("The cooking vocabulary is not loaded yet.")
     words = re.findall(r"[a-z]+", text.lower())
@@ -512,6 +526,9 @@ class _TokenModel:
 
     def status(self):
         if not self.folder:
+            if NER_API_URL:
+                return {"mode": "remote", "ready": True,
+                        "text": "Hugging Face Space (NER_API_URL), or the dataset vocabulary if the Space has no directions model"}
             return {"mode": None, "ready": True, "text": "Dataset vocabulary (no ner_directions_model/ folder)"}
         if self.error:
             return {"mode": "local", "ready": False, "text": f"Directions model could not load: {self.error}"}
@@ -585,20 +602,34 @@ def _match_feature(feature, text):
     return {"name": shown, "status": "new"}
 
 
-def _extract_directions_model(text):
-    found = {f: {} for f in DIRECTION_FEATURES}
+def _local_direction_entities(text):
     for line in (l.strip() for l in re.split(r"[\r\n]+|(?<=[.!?;])\s+", text)):
         line_words = _WORD.findall(line)
         for start in range(0, len(line_words), WINDOW_WORDS):
             words = line_words[start:start + WINDOW_WORDS]
-            if not words:
-                continue
-            for kind, name, score in _typed_entities(words, DIRECTIONS_MODEL.tag(words)):
-                feature = _LABEL_FEATURE.get(kind)
-                if not feature or score < MIN_SCORE:
-                    continue
-                item = _match_feature(feature, _clean(name))
-                if item and item["name"] not in found[feature]:
-                    item["score"] = round(score, 3)
-                    found[feature][item["name"]] = item
+            if words:
+                yield from _typed_entities(words, DIRECTIONS_MODEL.tag(words))
+
+
+def _match_direction_entities(entities):
+    """[(type, text, score)] from the model -> existing / suggested / new per feature."""
+    found = {f: {} for f in DIRECTION_FEATURES}
+    for kind, name, score in entities:
+        feature = _LABEL_FEATURE.get(kind)
+        if not feature or score < MIN_SCORE:
+            continue
+        item = _match_feature(feature, _clean(name))
+        if item and item["name"] not in found[feature]:
+            item["score"] = round(score, 3)
+            found[feature][item["name"]] = item
     return {f: list(found[f].values()) for f in DIRECTION_FEATURES}
+
+
+def _extract_directions_model(text):
+    return _match_direction_entities(_local_direction_entities(text))
+
+
+def _extract_directions_remote(text):
+    entities = _post_remote("/extract_directions", text, "entities")
+    return _match_direction_entities((str(e.get("type", "")), str(e.get("name", "")), float(e.get("score", 0)))
+                                     for e in entities if isinstance(e, dict))

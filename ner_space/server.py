@@ -3,7 +3,10 @@
 Uses the fine-tuned BERT model (BertForTokenClassification, labels O / B-INGREDIENT / I-INGREDIENT)
 to pull the ingredients out of recipe text that an admin pastes on the Admin page.
 
-    GET  /health   -> {"status": "ok", "model_ready": true/false, "embed_ready": true/false}
+    GET  /health   -> {"status": "ok", "model_ready": ..., "embed_ready": ..., "directions_ready": ...}
+    POST /extract_directions -> JSON {"text": "..."}
+                      returns {"entities": [{"type": "ACTION", "name": "simmer", "score": 0.95}, ...]}
+                      (needs the directions model in the folder DIRECTIONS_MODEL_DIR, default ./directions)
     POST /extract  -> JSON {"text": "..."}
                       returns {"ingredients": [{"name": "...", "score": 0.97}, ...]}
     POST /embed    -> JSON {"items": ["gochugaru", "air fryer", ...]}
@@ -57,6 +60,38 @@ def _load_model():
 threading.Thread(target=_load_model, daemon=True).start()
 
 
+# ---------- Directions model (ACTION / COOKWARE / UTENSIL) ----------
+# Optional second model in ./directions (config.json, model.safetensors, tokenizer files).
+DIRECTIONS_DIR = os.environ.get("DIRECTIONS_MODEL_DIR",
+                                os.path.join(os.path.dirname(os.path.abspath(__file__)), "directions"))
+DIRECTIONS_READY = threading.Event()
+_dir_tokenizer = None
+_dir_model = None
+_dir_id2label = {}
+_dir_error = None
+
+
+def _load_directions_model():
+    global _dir_tokenizer, _dir_model, _dir_id2label, _dir_error
+    if not os.path.isfile(os.path.join(DIRECTIONS_DIR, "config.json")):
+        _dir_error = "no directions model in " + DIRECTIONS_DIR
+        print("[NER]", _dir_error)
+        return
+    try:
+        _dir_tokenizer = AutoTokenizer.from_pretrained(DIRECTIONS_DIR)
+        _dir_model = AutoModelForTokenClassification.from_pretrained(DIRECTIONS_DIR)
+        _dir_model.eval()
+        _dir_id2label = {int(k): v for k, v in _dir_model.config.id2label.items()}
+        DIRECTIONS_READY.set()
+        print("[NER] Directions model loaded from", DIRECTIONS_DIR)
+    except Exception as error:  # the ingredient part keeps working without it
+        _dir_error = str(error).splitlines()[0][:200]
+        print("[NER] Could not load the directions model:", error)
+
+
+threading.Thread(target=_load_directions_model, daemon=True).start()
+
+
 def _authorized():
     if not TOKEN:
         return True
@@ -87,14 +122,17 @@ def _windows(words):
 
 # ---------- Step 2 + 3: tokenize and tag ----------
 
-def _tag_words(words):
+def _tag_words(words, tokenizer=None, model=None, id2label=None):
     """Tokenize the words, run BERT, and give each WORD one label.
 
     BERT splits words into word pieces ("lemongrass" -> "lemon", "##grass").
     Each word takes the label and confidence of its FIRST piece,
     which is how token classification models are usually trained.
     """
-    encoded = _tokenizer(
+    tokenizer = tokenizer or _tokenizer
+    model = model or _model
+    id2label = id2label or _id2label
+    encoded = tokenizer(
         words,
         is_split_into_words=True,
         truncation=True,
@@ -102,7 +140,7 @@ def _tag_words(words):
         return_tensors="pt",
     )
     with torch.no_grad():
-        logits = _model(**encoded).logits[0]
+        logits = model(**encoded).logits[0]
     probs = torch.softmax(logits, dim=-1)
     best_prob, best_id = probs.max(dim=-1)
 
@@ -112,7 +150,7 @@ def _tag_words(words):
         if word_index is None or word_index in seen:  # [CLS], [SEP], or a later word piece
             continue
         seen.add(word_index)
-        labels[word_index] = (_id2label[int(best_id[token_index])], float(best_prob[token_index]))
+        labels[word_index] = (id2label[int(best_id[token_index])], float(best_prob[token_index]))
     return labels
 
 
@@ -167,6 +205,55 @@ def extract_ingredients(text):
     return [{"name": name, "score": round(score, 3)} for name, score in found.items()]
 
 
+# ---------- Directions: actions, cookware, utensils (POST /extract_directions) ----------
+
+def _typed_entities(words, labels):
+    """[(type, text, score)]: B-X starts an X, I-X continues the same X, anything else ends it."""
+    out, kind, current, scores = [], None, [], []
+
+    def close():
+        if current:
+            out.append((kind, " ".join(current), sum(scores) / len(scores)))
+        current.clear()
+        scores.clear()
+
+    for word, (label, score) in zip(words, labels):
+        prefix, _, ent = label.partition("-")
+        if ent and (prefix == "B" or ent != kind or not current):
+            close()
+            kind = ent
+            current.append(word)
+            scores.append(score)
+        elif ent:
+            current.append(word)
+            scores.append(score)
+        else:
+            close()
+            kind = None
+    close()
+    return out
+
+
+def extract_directions(text):
+    """Every tagged item with its type (ACTION / COOKWARE / UTENSIL) and confidence.
+    The web app matches them with its own item lists."""
+    found = {}
+    for line in (l.strip() for l in re.split(r"[\r\n]+|(?<=[.!?;])\s+", text)):
+        line_words = _WORD.findall(line)
+        for words in _windows(line_words):
+            if not words:
+                continue
+            labels = _tag_words(words, _dir_tokenizer, _dir_model, _dir_id2label)
+            for kind, name, score in _typed_entities(words, labels):
+                name = _clean(name)
+                if not kind or not name or score < MIN_SCORE or not re.search(r"[^\W\d_]", name):
+                    continue
+                key = (kind, name)
+                if key not in found or score > found[key]:
+                    found[key] = score
+    return [{"type": kind, "name": name, "score": round(score, 3)} for (kind, name), score in found.items()]
+
+
 # ---------- Item vectors (POST /embed) ----------
 # all-MiniLM-L6-v2 is a public model. The Dockerfile downloads it into ./embed_model when the
 # Space is built, so nothing has to be uploaded for it.
@@ -218,7 +305,8 @@ def embed_items(items):
 @app.get("/")
 @app.get("/health")
 def health():
-    return jsonify({"status": "ok", "model_ready": MODEL_READY.is_set(), "embed_ready": EMBED_READY.is_set()})
+    return jsonify({"status": "ok", "model_ready": MODEL_READY.is_set(), "embed_ready": EMBED_READY.is_set(),
+                    "directions_ready": DIRECTIONS_READY.is_set()})
 
 
 @app.post("/extract")
@@ -240,6 +328,29 @@ def extract():
     except Exception as error:
         app.logger.exception("NER failed")
         return jsonify({"error": "ner_failed", "message": f"NER failed: {error}"}), 500
+
+
+@app.post("/extract_directions")
+def extract_directions_route():
+    if not _authorized():
+        return jsonify({"error": "unauthorized", "message": "Wrong or missing NER token."}), 401
+    if not DIRECTIONS_READY.is_set():
+        if _dir_error:
+            return jsonify({"error": "no_directions_model", "message": "The directions model is not available."}), 404
+        return jsonify({"error": "loading", "message": "The directions model is still loading. Try again in a moment."}), 503
+
+    data = request.get_json(silent=True) or {}
+    text = str(data.get("text", "")).strip()
+    if not text:
+        return jsonify({"error": "no_text", "message": "No directions were sent."}), 400
+    if len(text) > MAX_CHARS:
+        return jsonify({"error": "too_long", "message": f"Directions are over {MAX_CHARS} characters."}), 400
+
+    try:
+        return jsonify({"entities": extract_directions(text)})
+    except Exception as error:
+        app.logger.exception("Directions NER failed")
+        return jsonify({"error": "ner_failed", "message": f"Directions NER failed: {error}"}), 500
 
 
 @app.post("/embed")
