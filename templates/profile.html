@@ -16,29 +16,17 @@
         </button>
       </p>
 
-      <!-- My allergies, shown under the name -->
+      <!-- My allergies, shown under the name and username -->
       {% set watch = user.avoid_allergens or [] %}
       {% if watch %}
-      <div class="pf-about" id="pf-about">
-        <button type="button" class="pf-about-close" id="pf-about-close" aria-label="Hide my allergies" title="Hide">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-        </button>
-        {% if watch %}
+      <div class="pf-allergy-line">
         <div class="pf-tagrow">
           <span class="pf-tagrow-label">I am allergic to</span>
           {% for a in watch %}<span class="pf-tag pf-tag-allergen">
             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>{{ a }}</span>{% endfor %}
         </div>
-        {% endif %}
         <a class="pf-about-edit" href="#preferences" data-open-prefs>Edit allergies &rsaquo;</a>
       </div>
-      <button type="button" class="pf-about-show" id="pf-about-show" hidden>Show my allergies</button>
-      <!-- Desktop: the card opens as a popup from this button -->
-      <button type="button" class="pf-about-open" id="pf-about-open" aria-haspopup="dialog">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/><path d="M6 17h12"/></svg>
-        My allergies
-      </button>
-      <div class="pf-about-backdrop" id="pf-about-backdrop" hidden></div>
       {% else %}
       <a class="pf-about-empty" href="#preferences" data-open-prefs>+ Add your allergies</a>
       {% endif %}
@@ -261,65 +249,8 @@
     if (location.hash === '#account') document.getElementById('account').open = true;
     if (location.hash === '#preferences') document.getElementById('preferences').open = true;
   };
-  // "My allergies" card under the name.
-  //  Phones: shown in the header; × hides it (remembered in this browser), "Show my allergies" brings it back.
-  //  Desktop: "My allergies" opens it as a popup; ×, Esc or a click outside closes it.
-  (function () {
-    const card = document.getElementById('pf-about');
-    const show = document.getElementById('pf-about-show');
-    const close = document.getElementById('pf-about-close');
-    const openBtn = document.getElementById('pf-about-open');
-    const backdrop = document.getElementById('pf-about-backdrop');
-    if (!card || !show || !close || !openBtn || !backdrop) return;
-    const desktop = window.matchMedia('(min-width: 601px)');
-    const key = 'cuisync-hide-prefs-card-{{ user.id }}';
-    let hiddenOnPhone = false;
-    try { hiddenOnPhone = localStorage.getItem(key) === '1'; } catch (e) {}
-    card.setAttribute('aria-label', 'My allergies');
-
-    function layout() {
-      closePopup(false);
-      if (desktop.matches) { card.hidden = true; show.hidden = true; }
-      else { card.hidden = hiddenOnPhone; show.hidden = !hiddenOnPhone; }
-    }
-    function openPopup() {
-      card.hidden = false;
-      card.classList.add('is-popup');
-      card.setAttribute('role', 'dialog');
-      card.setAttribute('aria-modal', 'true');
-      backdrop.hidden = false;
-      document.documentElement.classList.add('pf-about-popup-open');
-      close.focus();
-    }
-    function closePopup(focusBack = true) {
-      if (!card.classList.contains('is-popup')) return;
-      card.classList.remove('is-popup');
-      card.removeAttribute('role');
-      card.removeAttribute('aria-modal');
-      card.hidden = true;
-      backdrop.hidden = true;
-      document.documentElement.classList.remove('pf-about-popup-open');
-      if (focusBack) openBtn.focus();
-    }
-    function setPhoneHidden(hidden) {
-      hiddenOnPhone = hidden;
-      card.hidden = hidden; show.hidden = !hidden;
-      try { hidden ? localStorage.setItem(key, '1') : localStorage.removeItem(key); } catch (e) {}
-    }
-    openBtn.addEventListener('click', openPopup);
-    backdrop.addEventListener('click', () => closePopup());
-    close.addEventListener('click', () => {
-      if (card.classList.contains('is-popup')) closePopup();
-      else { setPhoneHidden(true); show.focus(); }
-    });
-    show.addEventListener('click', () => { setPhoneHidden(false); close.focus(); });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePopup(); });
-    desktop.addEventListener('change', layout);
-    layout();
-  })();
   // "+ Add your allergies" under the name opens that section
   document.querySelectorAll('[data-open-prefs]').forEach((a) => a.addEventListener('click', () => {
-    document.getElementById('pf-about-backdrop')?.click();   // closes the popup if it's open
     document.getElementById('preferences').open = true;
   }));
   openAccount();

@@ -1767,3 +1767,7 @@ html.pf-about-popup-open { overflow: hidden; }
 .pf-about-edit { align-self: flex-start; margin-top: 2px; font-size: 0.78rem; font-weight: 500; color: var(--gold-accent); text-decoration: none; }
 .pf-about-edit:hover { text-decoration: underline; text-underline-offset: 3px; }
 
+
+/* Allergies under the name and username: just the tags and the Edit link (no card) */
+.pf-allergy-line { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; max-width: 720px; }
+@media (max-width: 600px) { .pf-allergy-line { align-items: center; } .pf-allergy-line .pf-tagrow { justify-content: center; } .pf-allergy-line .pf-about-edit { align-self: center; } }
