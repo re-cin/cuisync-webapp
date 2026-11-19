@@ -16,11 +16,11 @@
         </button>
       </p>
 
-      <!-- Food preferences, shown under the name -->
+      <!-- My allergies, shown under the name -->
       {% set watch = user.avoid_allergens or [] %}
       {% if watch %}
       <div class="pf-about" id="pf-about">
-        <button type="button" class="pf-about-close" id="pf-about-close" aria-label="Hide my food preferences" title="Hide">
+        <button type="button" class="pf-about-close" id="pf-about-close" aria-label="Hide my allergies" title="Hide">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
         {% if watch %}
@@ -30,17 +30,17 @@
             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>{{ a }}</span>{% endfor %}
         </div>
         {% endif %}
-        <a class="pf-about-edit" href="#preferences" data-open-prefs>Edit preferences &rsaquo;</a>
+        <a class="pf-about-edit" href="#preferences" data-open-prefs>Edit allergies &rsaquo;</a>
       </div>
-      <button type="button" class="pf-about-show" id="pf-about-show" hidden>Show my food preferences</button>
+      <button type="button" class="pf-about-show" id="pf-about-show" hidden>Show my allergies</button>
       <!-- Desktop: the card opens as a popup from this button -->
       <button type="button" class="pf-about-open" id="pf-about-open" aria-haspopup="dialog">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/><path d="M6 17h12"/></svg>
-        My food preferences
+        My allergies
       </button>
       <div class="pf-about-backdrop" id="pf-about-backdrop" hidden></div>
       {% else %}
-      <a class="pf-about-empty" href="#preferences" data-open-prefs>+ Add your food preferences</a>
+      <a class="pf-about-empty" href="#preferences" data-open-prefs>+ Add your allergies</a>
       {% endif %}
     </div>
     <!-- Edit display name / username (opened with the Edit button) -->
@@ -122,18 +122,18 @@
 <!-- PREFERENCES: allergens to watch for (the avoid_allergens column of profiles) -->
 <details class="panel-card pf-card pf-account pf-prefs" id="preferences">
   <summary>
-    <span>Food preferences</span>
+    <span>My allergies</span>
     <span class="pf-account-cta pf-account-arrow" aria-hidden="true"><span>&rsaquo;</span></span>
   </summary>
   <form method="POST" action="{{ url_for('profile') }}" class="panel-form two-col pf-account-form">
     <fieldset class="span-2 pf-chips">
-      <legend>Allergens to watch for <span>We’ll point these out in a dish’s Health info</span></legend>
+      <legend>I am allergic to <span>We’ll point these out in a dish’s Health info</span></legend>
       {% for a in allergen_choices %}
       <label class="pf-chip pf-chip-allergen"><input type="checkbox" name="avoid_allergens" value="{{ a }}" {{ 'checked' if a in user.avoid_allergens }}><span>{{ a }}</span></label>
       {% endfor %}
     </fieldset>
 
-    <div class="span-2 pf-account-actions"><button class="pf-btn" type="submit">Save preferences</button></div>
+    <div class="span-2 pf-account-actions"><button class="pf-btn" type="submit">Save allergies</button></div>
   </form>
 </details>
 
@@ -254,9 +254,9 @@
     if (location.hash === '#account') document.getElementById('account').open = true;
     if (location.hash === '#preferences') document.getElementById('preferences').open = true;
   };
-  // Food preferences card under the name.
-  //  Phones: shown in the header; × hides it (remembered in this browser), "Show my food preferences" brings it back.
-  //  Desktop: "My food preferences" opens it as a popup; ×, Esc or a click outside closes it.
+  // "My allergies" card under the name.
+  //  Phones: shown in the header; × hides it (remembered in this browser), "Show my allergies" brings it back.
+  //  Desktop: "My allergies" opens it as a popup; ×, Esc or a click outside closes it.
   (function () {
     const card = document.getElementById('pf-about');
     const show = document.getElementById('pf-about-show');
@@ -268,7 +268,7 @@
     const key = 'cuisync-hide-prefs-card-{{ user.id }}';
     let hiddenOnPhone = false;
     try { hiddenOnPhone = localStorage.getItem(key) === '1'; } catch (e) {}
-    card.setAttribute('aria-label', 'My food preferences');
+    card.setAttribute('aria-label', 'My allergies');
 
     function layout() {
       closePopup(false);
@@ -310,7 +310,7 @@
     desktop.addEventListener('change', layout);
     layout();
   })();
-  // "+ Add your food preferences" under the name opens that section
+  // "+ Add your allergies" under the name opens that section
   document.querySelectorAll('[data-open-prefs]').forEach((a) => a.addEventListener('click', () => {
     document.getElementById('pf-about-backdrop')?.click();   // closes the popup if it's open
     document.getElementById('preferences').open = true;

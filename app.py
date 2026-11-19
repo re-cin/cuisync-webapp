@@ -1775,7 +1775,7 @@ def profile():
     if request.method == "POST":
         try:
             accounts.update_profile(user["id"], request.form)
-            flash("Preferences saved.", "success")
+            flash("Allergies saved.", "success")
         except accounts.SupabaseError as error:
             flash(str(error), "error")
         return redirect(url_for("profile") + "#preferences")

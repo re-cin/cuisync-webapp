@@ -118,7 +118,7 @@
     {% else %}
     {# Only display explicit findings; an unassessed ingredient is not a negative finding. #}
     {% set allergen_findings = (health.get('potential_allergens') or []) | selectattr('classification', 'in', ['identified', 'possible']) | list %}
-    {# The user's own allergies (Profile > Food preferences): tell them up front, and the
+    {# The user's own allergies (Profile > My allergies): tell them up front, and the
        matching allergens below are highlighted in red. #}
     {% set my_allergies = avoid_allergens if avoid_allergens is defined and avoid_allergens else [] %}
     {% set my_hits = allergen_findings | selectattr('avoid') | map(attribute='name') | unique | list %}
