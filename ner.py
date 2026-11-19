@@ -213,6 +213,7 @@ def _join_entities(words, labels):
 def _clean(name):
     name = re.sub(r"\s*-\s*", "-", name)
     name = re.sub(r"\s*'\s*", "'", name)
+    name = re.sub(r"^[^\w(]+|[^\w)]+$", "", name.strip())  # "sitaw ," -> "sitaw"
     return " ".join(name.split()).lower()
 
 
@@ -294,7 +295,7 @@ def extract_and_match(text):
 
     results, seen = [], set()
     for entity in entities:
-        shown = " ".join(str(entity.get("name", "")).lower().split())  # as the model found it
+        shown = _clean(str(entity.get("name", "")))  # as the model found it, without stray commas
         key = normalize(shown)                                           # only used for matching
         if not key or key in seen:
             continue
