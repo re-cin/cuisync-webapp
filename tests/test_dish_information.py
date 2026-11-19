@@ -166,6 +166,20 @@ class PublicBoundaryTests(unittest.TestCase):
     def setUp(self):
         self.recipe = {"recipe_id": 7, "title": "Noodle soup", "country": "TEST", "ingredient_text": "tofu"}
 
+    def test_changed_prompt_refreshes_background_in_the_current_response(self):
+        old = approved_background()
+        new = approved_background(historical_background="New prompt history.",
+                                  cultural_background="New prompt culture.",
+                                  verification_status="pending", reviewed_at=None)
+        with patch.object(information, "_client", Mock()), \
+             patch("background_generation._stale_fields", return_value=["historical_background"]), \
+             patch("dish_backgrounds.enrich_background", return_value=new) as enrich:
+            result = information.public_information(self.recipe, schedule=False,
+                                                    store=PublicStore([old], [verified_health(self.recipe)]))
+        enrich.assert_called_once()
+        self.assertEqual("New prompt history.", result["background"]["historical_background"])
+        self.assertEqual("New prompt culture.", result["background"]["cultural_background"])
+
     def test_temporary_provider_failure_can_retry_after_one_hour(self):
         row = approved_background(verification_status="unavailable", historical_background="", cultural_background="",
                                   unavailable_reason="Temporary evidence provider cooldown; retry later.",

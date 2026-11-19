@@ -1,9 +1,9 @@
 # Admin Prompt Management
 
-The existing two categories contain three editors: Similarity Explanation,
-Source-Based Generation, and General-Knowledge Fallback. Each editor shows its
-active version, Default/Custom status, read-only backend rules, editable writing
-instructions, a Test Prompt button, and version history with restore controls.
+The two categories contain three editors: Similarity explanation, History and
+culture: with sources, and History and culture: without sources. Each editor
+shows the version in use, Default/Custom status, rules that always apply,
+editable writing instructions, a preview button, and past versions.
 
 ## Deployment and preservation of existing instructions
 
@@ -67,9 +67,13 @@ instructions, a Test Prompt button, and version history with restore controls.
 - Background metadata continues storing content fingerprints per generated
   field under `generation_fields._prompt_versions`. Version numbers are audit
   identifiers; content fingerprints identify compatible generation behavior.
-  Changing a prompt does not regenerate a dish or replace citations. Complete
-  descriptions and reviewed/approved records, including older data versions,
-  are preserved. The existing supported source-upgrade workflow stays separate.
+  A saved, reset, or restored prompt makes descriptions generated with different
+  instructions stale. The next dish request schedules regeneration of affected
+  historical and cultural fields, including complete and previously reviewed
+  descriptions. The old text stays visible until a valid replacement is saved;
+  a failed draft leaves it intact. A successful replacement clears prior review
+  approval so the new text can be reviewed. Source citations remain associated
+  with source-based drafts. The source-upgrade workflow stays separate.
 
 ## Preview and legacy endpoint behavior
 
@@ -78,14 +82,21 @@ fixed scores and relative Shapley influence percentages. These are reference
 fixtures, not newly calculated rankings. The preview shows the full evidence,
 score, contributions and GPT text. It uses the same vocabulary-grounding check
 and retry logic without reading or writing the production explanation cache.
+The selected pair's reference answer is never sent to GPT, and custom writing
+instructions omit default-format examples. Explicit two-paragraph and word-count
+requests are checked and retried once rather than displaying a mismatched draft.
+The results page preserves paragraph breaks already stored in explanations.
 
 Background previews select a dataset dish. Source-based previews reuse eligible
-cached excerpts or retrieve references through the current evidence pipeline;
-if adequate sources are unavailable, the preview reports an error rather than
-silently switching modes. Fallback previews supply no sources. The two returned
-descriptions, supplied excerpts and disclaimer are displayed separately. The
-same JSON, length, link and date checks apply. These automated checks cannot
-prove that every claim is accurate; the admin must review the source excerpts.
+cached excerpts or retrieve references through the current evidence pipeline.
+When a source is unavailable or cannot support a field, the missing field uses
+the active general-knowledge instructions instead. The preview shows one
+combined History & Culture block, matching the dish page; source excerpts and
+internal checks are not shown.
+The same JSON, length, link and date checks apply internally.
+Fixed sentence counts live in the editable defaults, not in protected rules,
+so an admin can change the length and structure of either generation mode.
+The history/culture display also preserves paragraph breaks in generated text.
 Previews do not activate instructions, persist dish records, or fall back to a
 template when GPT is unavailable.
 
@@ -108,4 +119,5 @@ python -m unittest discover -s tests -p test_dish_backgrounds.py
 Tests exercise all three modes, safe import, history, restore, CSRF/admin
 authorization, stale writes, local concurrent workers, remote refresh/outage
 behavior, request-consistent cache keys, protected messages, preview isolation,
-grounding failures, date validation and preservation of reviewed records.
+grounding failures, date validation, prompt-change refresh, and preservation of
+old text when regeneration fails.

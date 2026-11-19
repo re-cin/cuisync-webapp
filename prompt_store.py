@@ -83,13 +83,13 @@ class PromptStore:
             response = requests.request(method, self.url + "/rest/v1/" + endpoint,
                                         headers=headers, timeout=4, **kwargs)
             if response.status_code == 409:
-                raise PromptConflict("Another administrator changed this prompt. Reload and review the active version before saving.")
+                raise PromptConflict("Someone else saved this prompt while you were editing. Reload the page, review the current instructions, and try again.")
             response.raise_for_status()
             return response.json()
         except PromptConflict:
             raise
         except (requests.RequestException, ValueError) as exc:
-            raise PromptUnavailable("Prompt database is unavailable. Changes were not activated; try again later.") from exc
+            raise PromptUnavailable("Your instructions could not be saved right now. Nothing changed. Please try again later.") from exc
 
     def refresh(self, strict=False):
         if not self.remote:
@@ -176,7 +176,7 @@ class PromptStore:
             conn.execute("BEGIN IMMEDIATE")
             row = conn.execute("SELECT version FROM prompt_versions WHERE name=? AND active=1", (name,)).fetchone()
             if not row or row[0] != expected:
-                raise PromptConflict("Another administrator changed this prompt. Reload and review the active version before saving.")
+                raise PromptConflict("Someone else saved this prompt while you were editing. Reload the page, review the current instructions, and try again.")
             version = expected + 1
             conn.execute("UPDATE prompt_versions SET active=0 WHERE name=?", (name,))
             conn.execute("INSERT INTO prompt_versions VALUES (?,?,?,?,?,1)",

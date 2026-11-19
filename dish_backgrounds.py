@@ -195,7 +195,7 @@ FOOD = re.compile(
 GENERIC_NAMES = {"dish", "food", "soup", "stew", "curry", "salad", "rice", "noodles", "sauce"}
 NON_FOOD_IDENTITY = re.compile(r"\b(?:restaurant|company|brand|band|album|film|song|surname|village|city|municipality)\b")
 
-DRAFT_PROMPT = """Write a well-developed but entirely source-grounded History and
+DRAFT_PROMPT = """Write an entirely source-grounded History and
 Culture account for the named dish and country. You will receive selected
 UNESCO heritage records, Crossref publication abstracts, Google Books
 publisher descriptions, and (only if no primary evidence is available) Wikipedia excerpts. These are evidence excerpts, NOT complete articles.
@@ -210,9 +210,8 @@ explain how the dish fits community practices, regional identity, occasions,
 customary serving, or culinary traditions. Do not simply restate the recipe's
 ingredient list. Avoid repetition across the two fields.
 
-When sources give enough detail, write 2-4 coherent informative sentences
-per field (roughly 80-140 words in total). If evidence is thinner, write less;
-NEVER pad with general knowledge, plausible stories, broad cuisine claims, or
+If evidence is thin, write less. NEVER pad with general knowledge,
+plausible stories, broad cuisine claims, or
 unsupported historical dates. When no passage supports one field, return an
 empty string for that field. A cultural source can support the historical field
 only if its text contains historical evidence too, and vice versa.
@@ -975,6 +974,10 @@ def _persist(store, row, observed, error=None):
         _record_lookup(store, result, error=error)
         return result
     except Exception:
+        if observed and any(str(observed.get(field) or '').strip()
+                            for field in ('historical_background', 'cultural_background')):
+            _record_lookup(store, observed)
+            return observed
         result = _unavailable(row, "Temporary database failure; retry later.")
         _record_lookup(store, result)
         return result
@@ -1064,8 +1067,9 @@ def _draft_with_retry(client, row, instructions=None):
             _request_attempt("openai")
             return client.chat.completions.create(
                 model=os.environ.get("OPENAI_MODEL", "gpt-4o"),
-                messages=[{"role": "system", "content": rules}, {"role": "user", "content": json.dumps({
-                    "editable_writing_instructions": prompt,
+                messages=[{"role": "system", "content": rules
+                           + "\nACTIVE ADMIN WRITING INSTRUCTIONS (subject to the protected rules above):\n"
+                           + prompt}, {"role": "user", "content": json.dumps({
                     "dish": row["dish_name"], "country": row["country"], "source_excerpts": row["sources"], "requested_fields": row.get("fallback_fields", row.get("draft_fields", ["historical_background", "cultural_background"])),
                 }, ensure_ascii=False)}],
                 temperature=0.15, max_tokens=1000, response_format={"type": "json_object"}, timeout=30,

@@ -3,6 +3,7 @@ import json
 import re
 from dish_info_common import DATA_VERSION, fresh
 from background_provenance import method_for_fields, field_method
+from background_prompts import configuration
 
 DISCLAIMER = ('This historical and cultural information was generated using artificial intelligence. '
               'It may contain inaccuracies and should be used for general informational purposes only.')
@@ -12,23 +13,51 @@ Do not invent citations, URLs, dates, named creators, origins, festivals, tradit
 Do not assert an exact origin or historical date without retrieved evidence (none is supplied here).
 If a dish is ambiguous, a modern recipe variant, or unfamiliar, explicitly say its specific history or cultural association is uncertain.
 Do not transfer a parent dish's origin or customs to a particular variant as established fact.
-Give at most two short sentences per requested field. Describe broad culinary context only when confident.
+Describe broad culinary context only when confident.
 Every requested field must contain nonempty text. When knowledge is insufficient, explicitly state that the dish's specific history or cultural association is uncertain.
 An uncertainty statement is acceptable; do not fill gaps with plausible stories. Do not make health or allergen claims.
 Return ONLY the requested fields as a JSON object. No citations, Markdown links, or numeric historical dates.'''
 
+UNCERTAINTY_TEXT = {
+    'historical_background': "The specific history of this dish is uncertain from the available information.",
+    'cultural_background': "The specific cultural association of this dish is uncertain from the available information.",
+}
+
 
 def background_cache_valid(cached):
-    """Keep complete descriptions; retry gaps after a bounded provider cooldown."""
+    """Reuse complete descriptions only when their generating prompt is active."""
     import dish_backgrounds as b
     if not cached or cached.get('data_version') != DATA_VERSION:
         return False
     if all(str(cached.get(field) or '').strip()
            for field in ('historical_background', 'cultural_background')):
-        return True
+        return not _stale_fields(cached)
     retry_days = 1 / 24 if str(cached.get('unavailable_reason') or '').startswith('Temporary') else 1
     return (cached.get('enrichment_version') == b.BACKGROUND_RETRIEVAL_VERSION
             and fresh(cached, max_age_days=retry_days))
+
+
+def _stale_fields(cached):
+    """Check each field against the active prompt for its generation mode."""
+    import background_prompts as prompts
+    from prompt_store import get_store
+    if get_store().degraded:
+        return []  # Wait for prompt storage to recover before replacing saved text.
+    methods = cached.get('generation_fields') or {}
+    versions = methods.get('_prompt_versions') or {}
+    stale = []
+    for field in ('historical_background', 'cultural_background'):
+        if not str(cached.get(field) or '').strip():
+            continue
+        mode = field_method(methods, field, cached.get('generation_method')) or 'gpt_fallback'
+        fallback = mode != 'source_based'
+        name = prompts.FALLBACK if fallback else prompts.SOURCE
+        active, _, fingerprint = prompts.configuration(fallback)
+        # Older rows have no fingerprint. Keep them under the code default,
+        # but refresh them when an administrator activates custom instructions.
+        if versions.get(field) != fingerprint and (versions.get(field) or active != prompts.defaults()[name]):
+            stale.append(field)
+    return stale
 
 
 def generate(recipe, store, client=None, refresh=False, upgrade_sources=False, improve_existing=False, diagnostics=None):
@@ -42,13 +71,13 @@ def generate(recipe, store, client=None, refresh=False, upgrade_sources=False, i
     except Exception:
         return b._unavailable(row, 'Temporary database failure; retry later.')
     current = cached and cached.get('data_version') == DATA_VERSION
-    if cached and (cached.get('verification_status') == 'verified' or cached.get('reviewed_at')):
-        return cached  # Reviewed records are never completed or refreshed automatically.
     has_content = current and any(str(cached.get(field) or '').strip() for field in fields)
+    stale = _stale_fields(cached) if has_content else []
+    if cached and (cached.get('verification_status') == 'verified' or cached.get('reviewed_at')) and not stale:
+        return cached
     if upgrade_sources:
         return _upgrade_sources(recipe, store, row, cached, client, improve_existing=improve_existing, diagnostics=diagnostics)
-    # Cached completed descriptions are durable; a page view never regenerates them.
-    if has_content and all(str(cached.get(f) or '').strip() for f in fields):
+    if has_content and all(str(cached.get(f) or '').strip() for f in fields) and not stale:
         return cached
     if not refresh and background_cache_valid(cached):
         return cached
@@ -82,16 +111,18 @@ def generate(recipe, store, client=None, refresh=False, upgrade_sources=False, i
         for source in evidence:
             retained.setdefault(source.get('url'), source)
         row['sources'] = list(retained.values())
+    if client is None and stale and has_content:
+        return cached
     if client is None:
         row['unavailable_reason'] = 'Temporary summary drafting is unavailable; configure the GPT client.'
     else:
-        missing = [f for f in fields if not row[f]]
-        if evidence and missing:
+        source_targets = [f for f in fields if not row[f] or (f in stale and methods.get(f) == 'source_based')]
+        if evidence and source_targets:
             try:
-                draft_row = dict(row, sources=evidence, draft_fields=missing)
+                draft_row = dict(row, sources=evidence, draft_fields=source_targets)
                 response = b._draft_with_retry(client, draft_row)
                 draft = _parse(response)
-                for field in missing:
+                for field in source_targets:
                     if draft.get(field) and _dates_grounded(draft[field], evidence):
                         row[field] = draft[field]
                         methods[field] = 'source_based'
@@ -99,25 +130,41 @@ def generate(recipe, store, client=None, refresh=False, upgrade_sources=False, i
             except Exception:
                 # An API failure is not an evidence shortage: avoid a second GPT request.
                 row['unavailable_reason'] = 'Temporary source-based drafting failure; retry later.'
-        missing = [f for f in fields if not row[f]]
-        if missing and not row.get('unavailable_reason'):
+        fallback_targets = [f for f in fields if not row[f] or (f in stale and methods.get(f) != 'source_based')]
+        if fallback_targets:
             try:
                 # Retry an empty/partial model response once, requesting only
                 # the remaining fields and preserving every usable section.
                 for _ in range(2):
-                    draft_row = dict(row, sources=[], fallback_fields=missing)
+                    draft_row = dict(row, sources=[], fallback_fields=fallback_targets)
                     response = b._draft_with_retry(client, draft_row)
                     draft = _parse(response, fallback=True)
-                    for field in missing:
+                    for field in fallback_targets:
                         if draft.get(field):
                             row[field] = draft[field]
                             methods[field] = 'gpt_fallback'
                             _record_prompt_version(methods, field, draft_row)
-                    missing = [f for f in fields if not str(row[f] or '').strip()]
-                    if not missing:
+                    fallback_targets = [f for f in fallback_targets if not draft.get(f)]
+                    if not fallback_targets:
                         break
             except Exception:
                 row['unavailable_reason'] = 'Temporary general-knowledge drafting failure; retry later.'
+        # Never leave a requested background field blank after the fallback
+        # path. These statements are deliberately cautious and contain no
+        # invented links, dates, origins, or traditions.
+        for field in fallback_targets:
+            if not str(row.get(field) or '').strip():
+                row[field] = UNCERTAINTY_TEXT[field]
+                methods[field] = 'gpt_fallback'
+                _record_prompt_version(methods, field, {'_draft_prompt_version': configuration(True)[2]})
+    if stale and not any(row[f] != (cached.get(f) or '') or
+                         (methods.get('_prompt_versions') or {}).get(f) !=
+                         (cached.get('generation_fields') or {}).get('_prompt_versions', {}).get(f)
+                         for f in fields):
+        return cached  # Keep the previous description if no replacement succeeded.
+    if stale and (cached.get('reviewed_at') or cached.get('verification_status') == 'verified'):
+        row.update(reviewed_at=None, reviewed_by=None, review_note=None)
+        methods.pop('_source_review', None)
     row['generation_fields'] = methods
     row['generation_method'] = method_for_fields(methods)
     if any(row[f] for f in fields):
@@ -150,7 +197,7 @@ def _parse(response, fallback=False):
             raise ValueError('Invalid summary format')
         if fallback and (re.search(r'https?://|www\.|\[[^\]]*\]\(|\b\d{3,4}\b', value)
                          or _HISTORICAL_DATE.search(value)):
-            raise ValueError('Fallback must not manufacture links or historical dates')
+            raise ValueError('This preview does not use sources. GPT must not add links or exact historical dates; it must clearly state uncertainty instead.')
         result[field] = value.strip()
     return result
 
