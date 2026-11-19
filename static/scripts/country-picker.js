@@ -12,9 +12,15 @@
   }
 
   function build(select) {
+    if (select.dataset.pickerReady) return;
+    select.dataset.pickerReady = '1';
+    // Texts can be changed per select (Health info uses its own wording)
+    const label = select.dataset.pickerLabel || 'FIND A SIMILAR DISH IN';
+    const headTitle = select.dataset.pickerHead || 'Find a similar dish in';
+    const emptyName = select.dataset.pickerEmpty || 'Choose a Target country';
     const options = [...select.options].filter((o) => o.value);
     const wrap = document.createElement('div');
-    wrap.className = 'country-picker';
+    wrap.className = 'country-picker' + ('pickerCompact' in select.dataset ? ' country-picker--compact' : '');
     select.classList.add('country-picker-native');
     select.tabIndex = -1;
     select.setAttribute('aria-hidden', 'true');
@@ -26,8 +32,8 @@
       <button type="button" class="country-picker-card is-empty" aria-haspopup="listbox" aria-expanded="false" aria-controls="${listId}">
         <span class="country-picker-icon" aria-hidden="true">${GLOBE}</span>
         <span class="country-picker-info">
-          <span class="selected-dish-label">FIND A SIMILAR DISH IN</span>
-          <strong class="country-picker-name">Choose a Target country</strong>
+          <span class="selected-dish-label">${esc(label)}</span>
+          <strong class="country-picker-name">${esc(emptyName)}</strong>
           <span class="country-picker-hint">Click to choose</span>
         </span>
         <span class="country-picker-arrow" aria-hidden="true">&rsaquo;</span>
@@ -35,7 +41,7 @@
       <div class="country-picker-panel" hidden>
         <!-- Header only shows on phones, where the list opens as a popup -->
         <div class="country-picker-head">
-          <span class="country-picker-head-title">Find a similar dish in</span>
+          <span class="country-picker-head-title">${esc(headTitle)}</span>
           <button type="button" class="country-picker-close" aria-label="Close">&times;</button>
         </div>
         <ul class="country-picker-list" id="${listId}" role="listbox"></ul>
@@ -45,6 +51,7 @@
     const nameEl = wrap.querySelector('.country-picker-name');
     const hintEl = wrap.querySelector('.country-picker-hint');
     const panel = wrap.querySelector('.country-picker-panel');
+    if ('pickerCompact' in select.dataset) panel.classList.add('is-compact');
     const list = wrap.querySelector('.country-picker-list');
     let active = -1;
     let pendingDetail = null;
@@ -77,7 +84,7 @@
       const has = Boolean(select.value && o);
       card.classList.toggle('is-empty', !has);
       if (!has) {
-        nameEl.textContent = 'Choose a Target country';
+        nameEl.textContent = emptyName;
         hintEl.textContent = 'Click to choose';
       } else if (select.value === 'any') {
         nameEl.textContent = 'Any country';
@@ -188,9 +195,12 @@
     updateCard();
   }
 
-  function init() {
-    document.querySelectorAll('select[data-country-picker]').forEach(build);
+  function init(root) {
+    // root is the page, or the part of it that was just loaded (DOMContentLoaded passes an event)
+    (root && root.querySelectorAll ? root : document).querySelectorAll('select[data-country-picker]').forEach(build);
   }
+  // Used by dish-info-ui.js for the Health info picker, which can be loaded after the page
+  window.CuiSyncCountryPicker = { init };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 })();

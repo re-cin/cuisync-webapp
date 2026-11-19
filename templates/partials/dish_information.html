@@ -171,7 +171,9 @@
       <div class="rt-market-content">
         <p class="rt-market-intro">Each country decides which allergens must be shown on food labels. <strong>Choose the country you're from or are buying this food in</strong>, and we'll check this dish against that country's list.</p>
         <label class="rt-market-label" for="rt-market-{{ side }}">Which country are you in?</label>
-        <select class="rt-market-select" id="rt-market-{{ side }}" aria-label="Country to check allergens for {{ dish.title }}">
+        <select class="rt-market-select" id="rt-market-{{ side }}" aria-label="Country to check allergens for {{ dish.title }}"
+                data-country-picker data-picker-compact data-picker-label="CHECK ALLERGENS FOR"
+                data-picker-head="Which country are you in?" data-picker-empty="Choose a country">
           {% for m in regional_markets %}
           <option value="{{ m.country }}" {{ 'selected' if m.country == dish.country else '' }}>{{ country_label(m.country) }}</option>
           {% endfor %}

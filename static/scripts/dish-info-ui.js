@@ -73,6 +73,8 @@
   // Country / market picker in "Check allergens for your country" (the comparison page also has
   // its own copy of this in results.html)
   function setupMarkets(root) {
+    // The country dropdown looks like the target country picker of the search
+    if (window.CuiSyncCountryPicker) window.CuiSyncCountryPicker.init(root);
     (root || document).querySelectorAll('.rt-market-comparison').forEach((panel) => {
       const selector = panel.querySelector('.rt-market-select');
       if (!selector || selector.dataset.marketReady) return;
