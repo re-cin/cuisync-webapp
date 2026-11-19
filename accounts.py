@@ -49,6 +49,18 @@ class SupabaseError(ValueError):
     """Supabase is not set up or did not answer. The message is safe to show."""
 
 
+PASSWORD_MIN = 8
+PASSWORD_RULE = f"at least {PASSWORD_MIN} characters, with at least one letter and one number"
+
+
+def check_password(password):
+    """Raises SupabaseError when the password is too weak (used for every new password)."""
+    password = password or ""
+    if (len(password) < PASSWORD_MIN or not re.search(r"[A-Za-z]", password)
+            or not re.search(r"[0-9]", password)):
+        raise SupabaseError(f"Your password needs {PASSWORD_RULE}.")
+
+
 def init(_data_dir=None):
     """Read the Supabase settings. The site still runs without them (search works, accounts don't)."""
     global URL, ANON_KEY, SERVICE_KEY
@@ -294,7 +306,7 @@ def _auth_user(user_id):
     return response.json() if response.status_code == 200 else None
 
 
-def start_signup(username, password, display_name="", email="", redirect_to=""):
+def start_signup(username, password, display_name="", email="", redirect_to="", privacy_accepted_at=""):
     """Step 1: checks the form, makes the unconfirmed Supabase user and sends the email.
     Returns "sent" (check your email) or "active" (Supabase has email confirmation off),
     together with the user id."""
@@ -304,8 +316,7 @@ def start_signup(username, password, display_name="", email="", redirect_to=""):
         raise SupabaseError("Username must be 3-30 characters: letters, numbers, . or _")
     if not EMAIL_RE.match(email):
         raise SupabaseError("Please enter a valid email address.")
-    if len(password or "") < 6:
-        raise SupabaseError("Password must be at least 6 characters.")
+    check_password(password)
     taken = _profile_by("username", username.lower())
     if taken:
         auth = _auth_user(taken["id"]) or {}
@@ -320,7 +331,9 @@ def start_signup(username, password, display_name="", email="", redirect_to=""):
     params = {"redirect_to": redirect_to} if redirect_to else None
     response = _call("POST", "/auth/v1/signup", key=ANON_KEY, params=params, json={
         "email": email, "password": password,
-        "data": {"name": display_name.strip()[:60], "username": username.lower()},
+        # privacy_accepted_at: when they ticked "I agree to the Privacy Policy" (Data Privacy Act)
+        "data": {"name": display_name.strip()[:60], "username": username.lower(),
+                 "privacy_accepted_at": privacy_accepted_at},
     }, ok=(200, 201, 400, 422, 429, 500))
     if response.status_code not in (200, 201):
         raise _signup_error(response)
@@ -394,6 +407,46 @@ def user_from_access_token(access_token):
     return data.get("id") if data.get("email_confirmed_at") else None
 
 
+# ---------------------------------------------------------------------------
+# Log in with Google (Supabase's Google provider, PKCE flow: the code from Google is
+# exchanged on the server, so no tokens sit in the browser's address bar)
+# ---------------------------------------------------------------------------
+
+def google_login_url(redirect_to, code_challenge):
+    if not configured():
+        init()
+    from urllib.parse import urlencode
+    return URL + "/auth/v1/authorize?" + urlencode({
+        "provider": "google", "redirect_to": redirect_to,
+        "code_challenge": code_challenge, "code_challenge_method": "s256",
+    })
+
+
+def google_finish(auth_code, code_verifier):
+    """Returns the user id after Google sign-in, making sure the profile has a username."""
+    response = _call("POST", "/auth/v1/token", key=ANON_KEY, params={"grant_type": "pkce"},
+                     json={"auth_code": auth_code, "code_verifier": code_verifier}, ok=(200, 400, 401, 403, 404))
+    if response.status_code != 200:
+        return None
+    user = response.json().get("user") or {}
+    user_id = user.get("id")
+    if not user_id:
+        return None
+    profile = _profile_by("id", user_id) or {}
+    meta = user.get("user_metadata") or {}
+    if not profile.get("username"):
+        base = re.sub(r"[^a-z0-9._]", "", (user.get("email") or "user").split("@")[0].lower())[:24] or "user"
+        base = base if len(base) >= 3 else (base + "user")[:24]
+        username, n = base, 1
+        while _profile_by("username", username):
+            n += 1
+            username = f"{base}{n}"
+        _rest("POST", "profiles", params={"on_conflict": "id"}, prefer="resolution=merge-duplicates,return=minimal",
+              json={"id": user_id, "email": (user.get("email") or "").lower(), "username": username,
+                    "name": (profile.get("name") or meta.get("full_name") or meta.get("name") or "")[:60]})
+    return user_id
+
+
 def ensure_admin(username, password, email):
     """Create the first admin account if Supabase has no admin yet. Returns True when it made one."""
     if not configured():
@@ -430,31 +483,105 @@ def update_profile(user_id, form):
         return
     favorite = [c for c in form.getlist("favorite_cuisines") if c][:13]
     allergens = [a for a in form.getlist("avoid_allergens") if a in ALLERGEN_CHOICES]
-    cooking_role = form.get("cooking_role", "")
-    if cooking_role not in COOKING_ROLES:
-        cooking_role = ""
-    _rest("PATCH", "profiles", params={"id": f"eq.{user_id}"}, json={
-        "name": form.get("display_name", "").strip()[:60],
+    cooking_role = form.get("cooking_role", "").strip()[:60]   # typed freely on the profile page
+    changes = {
         "cooking_role": cooking_role,
         "home_country": form.get("home_country", "").strip()[:60],
         "favorite_cuisines": favorite,
         "avoid_allergens": allergens,
         "bio": form.get("bio", "").strip()[:500],
-    })
+    }
+    # The profile page's preferences form has no name box: only change the name when it's sent
+    if "display_name" in form:
+        changes["name"] = form.get("display_name", "").strip()[:60]
+    _rest("PATCH", "profiles", params={"id": f"eq.{user_id}"}, json=changes)
 
 
-def change_password(user_id, old, new):
+def update_names(user_id, display_name, username):
+    """Profile header: change the display name and the username (@handle)."""
+    if not _valid_id(user_id):
+        raise SupabaseError("Account not found.")
+    username = (username or "").strip().lstrip("@").lower()
+    if not USERNAME_RE.match(username):
+        raise SupabaseError("Username must be 3-30 characters: letters, numbers, dots ( . ) or underscores ( _ ).")
+    other = _profile_by("username", username)
+    if other and str(other.get("id")) != str(user_id):
+        raise SupabaseError("That username is already taken.")
+    _rest("PATCH", "profiles", params={"id": f"eq.{user_id}"}, prefer="return=minimal",
+          json={"name": (display_name or "").strip()[:60], "username": username})
+
+
+def _user_token(email, password):
+    """Logs in as the user (email + password) and returns their access token, or None."""
+    response = _call("POST", "/auth/v1/token", key=ANON_KEY, params={"grant_type": "password"},
+                     json={"email": email, "password": password or ""}, ok=(200, 400, 401))
+    return response.json().get("access_token") if response.status_code == 200 else None
+
+
+def _email_of(user_id):
     user = get_user(user_id)
     if not user:
         raise SupabaseError("Account not found.")
-    email = user.get("email") or _call("GET", f"/auth/v1/admin/users/{user_id}").json().get("email")
-    check = _call("POST", "/auth/v1/token", key=ANON_KEY, params={"grant_type": "password"},
-                  json={"email": email, "password": old or ""}, ok=(200, 400, 401))
-    if check.status_code != 200:
+    return user.get("email") or _call("GET", f"/auth/v1/admin/users/{user_id}").json().get("email")
+
+
+def _update_as_user(token, changes, redirect_to=""):
+    """Changes the account the way the user would (PUT /auth/v1/user with their own token).
+    That's what makes Supabase send its security emails ("Your password was changed",
+    "Confirm email change")."""
+    params = {"redirect_to": redirect_to} if redirect_to else None
+    response = _call("PUT", "/auth/v1/user", key=ANON_KEY, params=params, json=changes, extra_auth=token,
+                     ok=(200, 400, 401, 403, 422, 429, 500))
+    if response.status_code != 200:
+        raise _signup_error(response)
+    return response.json()
+
+
+def change_password(user_id, old, new):
+    token = _user_token(_email_of(user_id), old)
+    if not token:
         raise SupabaseError("Your current password is not correct.")
-    if len(new or "") < 6:
-        raise SupabaseError("The new password must be at least 6 characters.")
-    _call("PUT", f"/auth/v1/admin/users/{user_id}", json={"password": new})
+    check_password(new)
+    if old == new:
+        raise SupabaseError("The new password must be different from the current one.")
+    _update_as_user(token, {"password": new})
+
+
+def sign_in_methods(user_id):
+    """["email"] for email + password accounts, ["google"] for Google-only accounts, or both."""
+    response = _call("GET", f"/auth/v1/admin/users/{user_id}", ok=(200, 404))
+    if response.status_code != 200:
+        return []
+    data = response.json()
+    providers = (data.get("app_metadata") or {}).get("providers") or []
+    if not providers:
+        providers = [i.get("provider") for i in data.get("identities") or [] if i.get("provider")]
+    return providers or ["email"]
+
+
+def change_email(user_id, password, new_email, redirect_to=""):
+    """Supabase emails a confirmation link to the new address (and the old one too, if
+    "Secure email change" is on). The email only changes once it's confirmed."""
+    new_email = (new_email or "").strip().lower()
+    if not EMAIL_RE.match(new_email):
+        raise SupabaseError("Please enter a valid email address.")
+    current = (_email_of(user_id) or "").lower()
+    if new_email == current:
+        raise SupabaseError("That is already your email address.")
+    if _profile_by("email", new_email):
+        raise SupabaseError("That email is already used by another account.")
+    token = _user_token(current, password)
+    if not token:
+        raise SupabaseError("Your password is not correct.")
+    _update_as_user(token, {"email": new_email}, redirect_to=redirect_to)
+
+
+def delete_own_account(user_id, password=None):
+    """The user deletes their own account (profile and search history go with it)."""
+    if "email" in sign_in_methods(user_id):
+        if not _user_token(_email_of(user_id), password):
+            raise SupabaseError("Your password is not correct.")
+    delete_user(user_id)
 
 
 # ---------------------------------------------------------------------------
@@ -492,9 +619,11 @@ def reset_user_from_code(email, code):
 
 
 def reset_user_from_token_hash(token_hash):
+    """Returns (user id, access token) for a good reset link, or (None, None)."""
     response = _call("POST", "/auth/v1/verify", key=ANON_KEY, ok=(200, 400, 401, 403, 404, 422),
                      json={"type": "recovery", "token_hash": token_hash})
-    return _verified_user_id(response)
+    user_id = _verified_user_id(response)
+    return (user_id, response.json().get("access_token")) if user_id else (None, None)
 
 
 def recovery_user_from_access_token(access_token):
@@ -505,11 +634,19 @@ def recovery_user_from_access_token(access_token):
     return response.json().get("id") if response.status_code == 200 else None
 
 
-def set_new_password(user_id, password):
-    if len(password or "") < 6:
-        raise SupabaseError("The new password must be at least 6 characters.")
+def set_new_password(user_id, password, token=None):
+    """Forgot password, last step. With the user's token (from the reset link) Supabase also
+    sends its "Your password was changed" email."""
+    check_password(password)
     if not _valid_id(user_id):
         raise SupabaseError("Account not found.")
+    if token:
+        try:
+            _update_as_user(token, {"password": password})
+            return
+        except SupabaseError as error:
+            if "different" in str(error).lower():
+                raise
     _call("PUT", f"/auth/v1/admin/users/{user_id}", json={"password": password})
 
 

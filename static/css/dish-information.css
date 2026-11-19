@@ -177,3 +177,34 @@
   padding: 10px 12px; border-radius: 8px; background: var(--pill-bg); border: 1px solid var(--gold-border);
   font-size: .8rem; color: var(--text-dark);
 }
+
+/* The user's own allergies (Profile > Food preferences): alert at the top of the allergy
+   section, and the matching allergens highlighted in red */
+.rt-my-allergy {
+  display: flex; align-items: flex-start; gap: 10px; margin: 0 0 12px; padding: 10px 12px;
+  border: 1px solid #cfe0c3; border-radius: 8px; background: #eef5e8; color: #2d4a20;
+  font-size: .82rem; line-height: 1.5;
+}
+.rt-my-allergy p { margin: 0; }
+.rt-my-allergy p span { display: block; color: inherit; opacity: .85; font-size: .78rem; }
+.rt-my-allergy-icon {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px;
+  border-radius: 50%; background: #b3261e; color: #fff; font-weight: 700; font-size: .8rem;
+}
+.rt-my-allergy-icon.is-ok { background: #3f7d2a; }
+.rt-my-allergy.is-alert { border-color: #e3a19b; background: #fbe9e7; color: #7d1a14; }
+.rt-my-allergy-mark { padding: 0 5px; border-radius: 4px; background: #b3261e; color: #fff; font-weight: 600; }
+.rt-allergen-finding.is-avoid,
+#rt-panel-health .rt-allergen-finding.is-avoid,
+.dp-info-health .rt-allergen-finding.is-avoid {
+  border: 1px solid #d36b62 !important;
+  background: #fbe9e7 !important;
+}
+.rt-allergen-finding.is-avoid .rt-allergen-name,
+#rt-panel-health .rt-allergen-finding.is-avoid .rt-allergen-name,
+.dp-info-health .rt-allergen-finding.is-avoid .rt-allergen-name { color: #b3261e; }
+.rt-allergen-finding.is-avoid .rt-avoid-note,
+#rt-panel-health .rt-allergen-finding.is-avoid .rt-avoid-note,
+.dp-info-health .rt-allergen-finding.is-avoid .rt-avoid-note { margin: 4px 0 0; color: #b3261e; font-weight: 600; font-size: .74rem; }
+
+/* Country comparison: the user's own allergies highlighted in the country's list too */

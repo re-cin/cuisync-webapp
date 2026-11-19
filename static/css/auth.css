@@ -83,3 +83,60 @@
 
 /* Log in: "Keep me signed in" and "Forgot password?" on one row */
 .login-options { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; }
+
+/* Hints under fields (username rules, Google note) */
+.field-hint { margin: 6px 0 0; font-size: 0.78rem; line-height: 1.45; color: var(--admin-muted, #7a6e62); }
+.auth-google-note { margin-top: -10px; text-align: center; }
+
+/* "I agree to the Privacy Policy" */
+.agree-check { align-items: flex-start; min-height: 0; line-height: 1.5; }
+.agree-check input { flex: none; margin-top: 3px; }
+.agree-check .small-link { font-size: inherit; }
+
+/* "or" line and "Continue with Google" */
+.auth-or { display: flex; align-items: center; gap: 12px; margin: -6px 0; color: var(--admin-muted, #7a6e62); font-size: 0.8rem; }
+.auth-or::before, .auth-or::after { content: ""; flex: 1; height: 1px; background: #d8cdb9; }
+.btn-google {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  border: 1px solid #d8cdb9; border-radius: 10px; background: #fff; color: #2f2620;
+  font-weight: 600; text-decoration: none;
+}
+.btn-google:hover { background: #faf6ef; }
+
+/* Password strength meter (password-strength.js) */
+.pw-meter { margin-top: 8px; font-size: 0.78rem; }
+.pw-meter-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.pw-meter-bar span { height: 5px; border-radius: 3px; background: #e4dccd; transition: background-color 0.2s ease; }
+.pw-meter[data-score="1"] .pw-meter-bar span:nth-child(-n+1) { background: #c0392b; }
+.pw-meter[data-score="2"] .pw-meter-bar span:nth-child(-n+2) { background: #d98a1f; }
+.pw-meter[data-score="3"] .pw-meter-bar span:nth-child(-n+3) { background: #7fa33a; }
+.pw-meter[data-score="4"] .pw-meter-bar span { background: #2e7d32; }
+.pw-meter-label { display: block; min-height: 1.2em; margin-top: 4px; font-weight: 600; color: #5a4e44; }
+.pw-rules { margin: 2px 0 0; padding: 0; list-style: none; color: var(--admin-muted, #7a6e62); }
+.pw-rules li::before { content: "\2022"; display: inline-block; width: 1.1em; }
+.pw-rules li.is-ok { color: #2e7d32; }
+.pw-rules li.is-ok::before { content: "\2713"; }
+
+/* × in the top-right corner (partials/auth_close.html) */
+.auth-close {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid #d8cdb9;
+  background: rgba(255, 252, 245, 0.95);
+  color: var(--maroon-main);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.auth-close:hover,
+.auth-close:focus-visible { background: var(--maroon-main); color: #fff; outline: none; }
+@media (max-width: 600px) {
+  .auth-close { top: 12px; right: 12px; width: 40px; height: 40px; }
+}

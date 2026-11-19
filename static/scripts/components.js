@@ -105,8 +105,10 @@ class AppNav extends HTMLElement {
           ${me.username ? `<span class="acct-who-user">@${esc(me.username)}</span>` : ''}
         </div>
         <a role="menuitem" href="/profile#history">Search history</a>
-        <a role="menuitem" href="/profile#account">Account settings</a>
-        <a role="menuitem" href="/logout" class="acct-logout">Log out</a>
+        <a role="menuitem" href="/profile?open=account">Account settings</a>
+        <form method="post" action="/logout" class="acct-logout-form">
+          <button type="submit" role="menuitem" class="acct-logout">Log out</button>
+        </form>
       </div>`;
     topAccount.replaceWith(wrap);
     const btn = wrap.querySelector('.acct-btn');
@@ -189,6 +191,7 @@ class AppFooter extends HTMLElement {
               <li><a href="/analysis">Statistics</a></li>
               <li><a href="/dictionary">Dishes</a></li>
               <li><a href="/faqs">FAQs</a></li>
+              <li><a href="/privacy">Privacy Policy</a></li>
             </ul>
           </div>
 

@@ -1,6 +1,6 @@
 {# Forgot password.
    mode "request": type your email
-   mode "sent":    check your email (click the link, or type the code)
+   mode "sent":    check your email (click the link in it)
    mode "new":     choose a new password (after the link / code checked out)
    mode "changed": the new password was saved
    mode "invalid": the link expired or was used; also where Supabase's default link lands
@@ -23,6 +23,7 @@
 </head>
 <body class="admin-page auth-page">
 {% include "partials/flash.html" %}
+{% include "partials/auth_close.html" %}
 <div class="login-shell">
 
   <section class="login-brand user-brand">
@@ -62,18 +63,8 @@
       <span class="confirm-icon" aria-hidden="true">{{ icon('mail', 30) }}</span>
       <div class="login-heading">
         <h2>Check your email</h2>
-        <p>If <strong class="confirm-email">{{ email }}</strong> has a CuiSync account, we sent it a link to reset your password. Open it and click the link, or type the code from it below.</p>
+        <p>If <strong class="confirm-email">{{ email }}</strong> has a CuiSync account, we sent it a link to reset your password. Open the email and click <strong>Reset password</strong>.</p>
       </div>
-      <form method="POST" action="{{ url_for('forgot_password') }}" class="confirm-code-form">
-        <input type="hidden" name="action" value="code">
-        <input type="hidden" name="email" value="{{ email }}">
-        <div class="field">
-          <label for="code">Reset code</label>
-          <input id="code" name="code" class="confirm-code" type="text" inputmode="numeric" autocomplete="one-time-code"
-                 pattern="[0-9 ]{6,12}" maxlength="12" required placeholder="123456">
-        </div>
-        <button type="submit" class="btn btn-maroon btn-block">Continue</button>
-      </form>
       <form method="POST" action="{{ url_for('forgot_password') }}" class="confirm-resend">
         <input type="hidden" name="action" value="send">
         <input type="hidden" name="email" value="{{ email }}">
@@ -92,14 +83,14 @@
       <div class="field">
         <label for="password">New password</label>
         <div class="input-icon">
-          <input id="password" name="password" type="password" required minlength="6" autocomplete="new-password" placeholder="At least 6 characters" autofocus>
+          <input id="password" name="password" type="password" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters, a letter and a number" autofocus data-strength>
           <button type="button" class="icon-btn-plain" data-toggle-password="password" aria-label="Show password">{{ icon('eye') }}</button>
         </div>
       </div>
       <div class="field">
         <label for="confirm">Confirm new password</label>
         <div class="input-icon">
-          <input id="confirm" name="confirm" type="password" required minlength="6" autocomplete="new-password" placeholder="Type it again">
+          <input id="confirm" name="confirm" type="password" required minlength="8" autocomplete="new-password" placeholder="Type it again">
           <button type="button" class="icon-btn-plain" data-toggle-password="confirm" aria-label="Show password">{{ icon('eye') }}</button>
         </div>
       </div>
@@ -159,5 +150,6 @@
   </section>
 </div>
 <script src="{{ url_for('static', filename='scripts/admin.js') }}"></script>
+<script src="{{ url_for('static', filename='scripts/password-strength.js') }}"></script>
 </body>
 </html>

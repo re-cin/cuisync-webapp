@@ -7,8 +7,82 @@
 <div class="pf-head">
   <span class="pf-avatar" aria-hidden="true">{{ (user.name or user.username or '?')[:1] | upper }}</span>
   <div class="pf-who">
-    <h1 class="pf-name">{{ user.name }}</h1>
-    <p class="pf-handle">@{{ user.username }}</p>
+    <div class="pf-who-view" id="pf-who-view">
+      <h1 class="pf-name">{{ user.name }}</h1>
+      <p class="pf-handle">@{{ user.username }}
+        <button type="button" class="pf-edit-btn" id="pf-edit-btn" aria-controls="pf-names-form" aria-expanded="false">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          Edit
+        </button>
+      </p>
+
+      <!-- Food preferences, shown under the name -->
+      {% set favs = user.favorite_cuisines or [] %}
+      {% set watch = user.avoid_allergens or [] %}
+      {% if user.cooking_role or user.home_country or user.bio or favs or watch %}
+      <div class="pf-about" id="pf-about">
+        <button type="button" class="pf-about-close" id="pf-about-close" aria-label="Hide my food preferences" title="Hide">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+        {% if user.cooking_role or user.home_country %}
+        <p class="pf-meta">
+          {% if user.cooking_role %}
+          <span class="pf-meta-item">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/><path d="M6 17h12"/></svg>
+            {{ user.cooking_role }}
+          </span>
+          {% endif %}
+          {% if user.home_country %}
+          <span class="pf-meta-item">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+            {{ user.home_country }}
+          </span>
+          {% endif %}
+        </p>
+        {% endif %}
+        {% if user.bio %}<p class="pf-bio">“{{ user.bio }}”</p>{% endif %}
+        {% if favs %}
+        <div class="pf-tagrow">
+          <span class="pf-tagrow-label">My Favorite Cuisine</span>
+          {% for c in favs[:6] %}<span class="pf-tag">{{ c }}</span>{% endfor %}
+          {% if favs | length > 6 %}<span class="pf-tag pf-tag-more" title="{{ favs[6:] | join(', ') }}">+{{ favs | length - 6 }} more</span>{% endif %}
+        </div>
+        {% endif %}
+        {% if watch %}
+        <div class="pf-tagrow">
+          <span class="pf-tagrow-label">I am allergic to</span>
+          {% for a in watch %}<span class="pf-tag pf-tag-allergen">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>{{ a }}</span>{% endfor %}
+        </div>
+        {% endif %}
+        <a class="pf-about-edit" href="#preferences" data-open-prefs>Edit preferences &rsaquo;</a>
+      </div>
+      <button type="button" class="pf-about-show" id="pf-about-show" hidden>Show my food preferences</button>
+      <!-- Desktop: the card opens as a popup from this button -->
+      <button type="button" class="pf-about-open" id="pf-about-open" aria-haspopup="dialog">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/><path d="M6 17h12"/></svg>
+        My food preferences
+      </button>
+      <div class="pf-about-backdrop" id="pf-about-backdrop" hidden></div>
+      {% else %}
+      <a class="pf-about-empty" href="#preferences" data-open-prefs>+ Add your food preferences</a>
+      {% endif %}
+    </div>
+    <!-- Edit display name / username (opened with the Edit button) -->
+    <form method="POST" action="{{ url_for('change_names') }}" class="pf-names-form" id="pf-names-form" hidden>
+      <label><span>Display name <span class="pf-optional">(optional)</span></span>
+        <input type="text" name="display_name" maxlength="60" value="{{ user.display_name }}" placeholder="What should we call you?" autocomplete="name">
+      </label>
+      <label>Username
+        <span class="pf-at-input"><span aria-hidden="true">@</span><input type="text" name="username" required minlength="3" maxlength="30"
+          pattern="[A-Za-z0-9._]{3,30}" value="{{ user.username }}" autocomplete="username" aria-describedby="pf-username-hint"></span>
+        <small id="pf-username-hint">3 to 30 characters: letters, numbers, dots ( . ) or underscores ( _ ).</small>
+      </label>
+      <div class="pf-names-actions">
+        <button type="submit" class="pf-names-save">Save</button>
+        <button type="button" class="pf-names-cancel" id="pf-names-cancel">Cancel</button>
+      </div>
+    </form>
   </div>
   <dl class="pf-stats">
     <div><dt>Searches</dt><dd>{{ history | length }}</dd></div>
@@ -70,23 +144,124 @@
   {% endif %}
 </section>
 
-<!-- ACCOUNT: one line, opens to change the password -->
+<!-- PREFERENCES: cooking role, home country, favourite cuisines, allergens to watch for, bio
+     (the cooking_role / home_country / favorite_cuisines / avoid_allergens / bio columns of profiles) -->
+{% set countries = (all_countries or []) | selectattr('visible') | sort(attribute='label') | list %}
+<details class="panel-card pf-card pf-account pf-prefs" id="preferences">
+  <summary>
+    <span>Food preferences</span>
+    <span class="pf-account-cta pf-account-arrow" aria-hidden="true"><span>&rsaquo;</span></span>
+  </summary>
+  <form method="POST" action="{{ url_for('profile') }}" class="panel-form two-col pf-account-form">
+    <label>I am a
+      <input type="text" name="cooking_role" maxlength="60" value="{{ user.cooking_role }}" placeholder="e.g. Home cook, Chef, Student" autocomplete="off">
+    </label>
+    <label>Home country
+      <input type="text" name="home_country" maxlength="60" value="{{ user.home_country }}" placeholder="e.g. Philippines" autocomplete="country-name">
+    </label>
+
+    <fieldset class="span-2 pf-chips">
+      <legend>Favourite cuisines <span>Pick any</span></legend>
+      {% for c in countries %}
+      <label class="pf-chip"><input type="checkbox" name="favorite_cuisines" value="{{ c.label }}" {{ 'checked' if c.label in user.favorite_cuisines }}><span>{{ c.label }}</span></label>
+      {% endfor %}
+    </fieldset>
+
+    <fieldset class="span-2 pf-chips">
+      <legend>Allergens to watch for <span>We’ll point these out in a dish’s Health info</span></legend>
+      {% for a in allergen_choices %}
+      <label class="pf-chip pf-chip-allergen"><input type="checkbox" name="avoid_allergens" value="{{ a }}" {{ 'checked' if a in user.avoid_allergens }}><span>{{ a }}</span></label>
+      {% endfor %}
+    </fieldset>
+
+    <label class="span-2"><span>About me <span class="pf-optional-dark">(optional, up to 500 characters)</span></span>
+      <textarea name="bio" rows="3" maxlength="500" placeholder="e.g. Home cook from Manila who loves trying Southeast Asian dishes">{{ user.bio }}</textarea>
+    </label>
+
+    <div class="span-2 pf-account-actions"><button class="pf-btn" type="submit">Save preferences</button></div>
+  </form>
+</details>
+
+<!-- ACCOUNT: one line, opens to change the password (same design as before), with the other
+     account settings (email, delete account) under it -->
+{% set has_password = 'email' in (sign_in_methods or ['email']) %}
 <details class="panel-card pf-card pf-account" id="account">
   <summary>
     <span>Account and password</span>
-    <span class="pf-account-cta">Change password <span aria-hidden="true">&rsaquo;</span></span>
+    <span class="pf-account-cta pf-account-arrow" aria-hidden="true"><span>&rsaquo;</span></span>
   </summary>
+
+  {% if has_password %}
   <form method="POST" action="{{ url_for('change_password') }}" class="panel-form two-col pf-account-form">
-    <label>Current password <input type="password" name="old" required autocomplete="current-password"></label>
-    <label>New password <input type="password" name="new" required minlength="6" autocomplete="new-password"></label>
+    <div class="pf-current-pw">
+      <label>Current password <input type="password" name="old" required autocomplete="current-password"></label>
+      <a class="pf-forgot" href="{{ url_for('forgot_password', email=user.email) }}">Forgot password?</a>
+    </div>
+    <label>New password <input type="password" name="new" required minlength="8" autocomplete="new-password" data-strength></label>
+    <label class="pf-confirm">Confirm new password <input type="password" name="confirm" required minlength="8" autocomplete="new-password"></label>
     <div class="span-2 pf-account-actions">
       <button class="pf-btn" type="submit">Change password</button>
-      <a class="pf-link" href="{{ url_for('logout') }}">Log out</a>
+      <button class="pf-link" type="submit" form="pf-logout-form">Log out</button>
     </div>
+  </form>
+  {% else %}
+  <div class="pf-account-form pf-account-note">
+    <p>You sign in with Google ({{ user.email }}), so there’s no CuiSync password to change.</p>
+    <div class="pf-account-actions"><button class="pf-btn" type="submit" form="pf-logout-form">Log out</button></div>
+  </div>
+  {% endif %}
+  <!-- Log out sends a form (POST); the buttons above point to it -->
+  <form method="POST" action="{{ url_for('logout') }}" id="pf-logout-form" hidden></form>
+
+  {% if has_password %}
+  <form method="POST" action="{{ url_for('change_email') }}" class="panel-form two-col pf-account-form">
+    <p class="span-2 pf-account-sub">Change email <span>Now: {{ user.email }}. We’ll send a confirmation link to the new address; it changes once you click it.</span></p>
+    <label>New email <input type="email" name="email" required autocomplete="email" placeholder="you@example.com"></label>
+    <label>Current password <input type="password" name="password" required autocomplete="current-password"></label>
+    <div class="span-2 pf-account-actions"><button class="pf-btn" type="submit">Change email</button></div>
+  </form>
+  {% endif %}
+
+  <form method="POST" action="{{ url_for('delete_account') }}" class="panel-form two-col pf-account-form pf-danger"
+        onsubmit="return confirm('Delete your CuiSync account and all your search history? This can\'t be undone.');">
+    <p class="span-2 pf-account-sub">Delete account <span>Permanently deletes your account, profile and search history. This can’t be undone.</span></p>
+    {% if has_password %}<label>Current password <input type="password" name="password" required autocomplete="current-password"></label>{% endif %}
+    <label>Type DELETE (in capital letters) to confirm <input type="text" name="confirm_text" required pattern="DELETE" autocomplete="off"></label>
+    <div class="span-2 pf-account-actions"><button class="pf-btn pf-btn-danger" type="submit" data-delete-btn disabled>Delete my account</button></div>
   </form>
 </details>
 {% endblock %}
 {% block scripts %}
+<script>
+  // Edit display name / username in the header
+  (function () {
+    const view = document.getElementById('pf-who-view');
+    const form = document.getElementById('pf-names-form');
+    const edit = document.getElementById('pf-edit-btn');
+    if (!view || !form || !edit) return;
+    const open = (on) => {
+      view.hidden = on; form.hidden = !on; edit.setAttribute('aria-expanded', String(on));
+      if (on) form.querySelector('input').focus(); else { form.reset(); edit.focus(); }
+    };
+    edit.addEventListener('click', () => open(true));
+    document.getElementById('pf-names-cancel').addEventListener('click', () => open(false));
+    form.addEventListener('keydown', (e) => { if (e.key === 'Escape') open(false); });
+  })();
+</script>
+<script>
+  // "Delete my account" stays greyed out until DELETE is typed (and the password, when asked)
+  document.querySelectorAll('[data-delete-btn]').forEach((btn) => {
+    const form = btn.closest('form');
+    const word = form.querySelector('input[name="confirm_text"]');
+    const pass = form.querySelector('input[name="password"]');
+    const update = () => {
+      btn.disabled = word.value.trim() !== 'DELETE' || (pass && !pass.value);   // capital letters only
+    };
+    form.addEventListener('input', update);
+    update();
+  });
+</script>
+<script src="{{ url_for('static', filename='scripts/password-strength.js') }}"></script>
 <script>
   // SQLite saves times in UTC. Show them in the visitor's own time zone.
   document.querySelectorAll('.local-time').forEach(el => {
@@ -114,7 +289,77 @@
     window.addEventListener('resize', sync);
     sync();
   });
-  const openAccount = () => { if (location.hash === '#account') document.getElementById('account').open = true; };
+  // "Account settings" in the account menu opens /profile?open=account: the Account section is
+  // opened but the page stays at the top. (#account, used after saving a form, also scrolls to it.)
+  if (new URLSearchParams(location.search).get('open') === 'account') {
+    document.getElementById('account').open = true;
+    history.replaceState(null, '', location.pathname);
+  }
+  const openAccount = () => {
+    if (location.hash === '#account') document.getElementById('account').open = true;
+    if (location.hash === '#preferences') document.getElementById('preferences').open = true;
+  };
+  // Food preferences card under the name.
+  //  Phones: shown in the header; × hides it (remembered in this browser), "Show my food preferences" brings it back.
+  //  Desktop: "My food preferences" opens it as a popup; ×, Esc or a click outside closes it.
+  (function () {
+    const card = document.getElementById('pf-about');
+    const show = document.getElementById('pf-about-show');
+    const close = document.getElementById('pf-about-close');
+    const openBtn = document.getElementById('pf-about-open');
+    const backdrop = document.getElementById('pf-about-backdrop');
+    if (!card || !show || !close || !openBtn || !backdrop) return;
+    const desktop = window.matchMedia('(min-width: 601px)');
+    const key = 'cuisync-hide-prefs-card-{{ user.id }}';
+    let hiddenOnPhone = false;
+    try { hiddenOnPhone = localStorage.getItem(key) === '1'; } catch (e) {}
+    card.setAttribute('aria-label', 'My food preferences');
+
+    function layout() {
+      closePopup(false);
+      if (desktop.matches) { card.hidden = true; show.hidden = true; }
+      else { card.hidden = hiddenOnPhone; show.hidden = !hiddenOnPhone; }
+    }
+    function openPopup() {
+      card.hidden = false;
+      card.classList.add('is-popup');
+      card.setAttribute('role', 'dialog');
+      card.setAttribute('aria-modal', 'true');
+      backdrop.hidden = false;
+      document.documentElement.classList.add('pf-about-popup-open');
+      close.focus();
+    }
+    function closePopup(focusBack = true) {
+      if (!card.classList.contains('is-popup')) return;
+      card.classList.remove('is-popup');
+      card.removeAttribute('role');
+      card.removeAttribute('aria-modal');
+      card.hidden = true;
+      backdrop.hidden = true;
+      document.documentElement.classList.remove('pf-about-popup-open');
+      if (focusBack) openBtn.focus();
+    }
+    function setPhoneHidden(hidden) {
+      hiddenOnPhone = hidden;
+      card.hidden = hidden; show.hidden = !hidden;
+      try { hidden ? localStorage.setItem(key, '1') : localStorage.removeItem(key); } catch (e) {}
+    }
+    openBtn.addEventListener('click', openPopup);
+    backdrop.addEventListener('click', () => closePopup());
+    close.addEventListener('click', () => {
+      if (card.classList.contains('is-popup')) closePopup();
+      else { setPhoneHidden(true); show.focus(); }
+    });
+    show.addEventListener('click', () => { setPhoneHidden(false); close.focus(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePopup(); });
+    desktop.addEventListener('change', layout);
+    layout();
+  })();
+  // "+ Add your food preferences" under the name opens that section
+  document.querySelectorAll('[data-open-prefs]').forEach((a) => a.addEventListener('click', () => {
+    document.getElementById('pf-about-backdrop')?.click();   // closes the popup if it's open
+    document.getElementById('preferences').open = true;
+  }));
   openAccount();
   window.addEventListener('hashchange', openAccount);
 </script>

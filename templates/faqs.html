@@ -101,7 +101,7 @@
               <span class="faq-toggle">+</span>
             </button>
             <div class="faq-answer">
-              <p>Cuisync supports the processing of multiple languages, including English, Hindi, Arabic, Japanese, Korean, Chinese, Vietnamese, Thai, Malay, and Khmer, by integrating Google Translate for language translation.</p>
+              <p>Search by Photo Text can read menus written in English, Chinese, Japanese, Korean, Thai, Hindi, Arabic, Vietnamese, Indonesian, Malay, Filipino and Turkish, using PaddleOCR text recognition. Text in a non-Latin script is romanized (written in Latin letters, so 红烧肉 becomes “Hong Shao Rou”) and then matched to dish names. It is not translated. For Search by Text and the tag search, type dish names, ingredients and cooking methods in English or as they are commonly romanized, such as “Adobo” or “Pho”.</p>
             </div>
           </div>
         </div>
@@ -117,6 +117,25 @@
             </button>
             <div class="faq-answer">
               <p>Recipe data is sourced from a curated combination of culinary datasets, such as RecipeNLG and INDoRI.</p>
+            </div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>Where does the culture &amp; history information come from?</span>
+              <span class="faq-toggle">+</span>
+            </button>
+            <div class="faq-answer">
+              <p>It is written by GPT and saved in our database, so every visitor sees the same text for a dish. When possible, CuiSync bases it on sources such as Wikipedia, UNESCO and published books and articles, and lists them under <strong>Sources</strong>. When no suitable source is found, it is a general GPT summary, which is why it is labelled <strong>AI-Generated Information</strong>.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>Where do the nutrition and allergen notes come from?</span>
+              <span class="faq-toggle">+</span>
+            </button>
+            <div class="faq-answer">
+              <p>They are worked out from the recipe’s ingredient list. Nutrient information comes from <strong>USDA FoodData Central</strong>. Allergens are found by checking the ingredient names, and the allergen labeling references come from 13 Asian countries, which you can compare in the Health info tab.</p>
             </div>
           </div>
         </div>
@@ -179,6 +198,25 @@
               <p>Yes, it is based on the gathered data obtained through system queries, evaluations, and similarity score results computed from the extracted entities.</p>
             </div>
           </div>
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>Is the culture &amp; history information accurate?</span>
+              <span class="faq-toggle">+</span>
+            </button>
+            <div class="faq-answer">
+              <p>It is AI-generated and not independently verified unless it is marked as source-based, so it may contain mistakes. Use it as general background about the dish, not as a reference to cite.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>Can I rely on the allergen list?</span>
+              <span class="faq-toggle">+</span>
+            </button>
+            <div class="faq-answer">
+              <p>Not on its own. Recipes in our dataset list ingredient names without amounts, brands or how they were made, so CuiSync can only flag allergens it recognizes by name. A dish with no allergens shown is not guaranteed to be allergen-free. If you have a food allergy, always check the full recipe, product labels and possible cross-contact. This is not medical advice.</p>
+            </div>
+          </div>
         </div>
 
         <div class="faq-group" id="privacy-usage">
@@ -191,7 +229,37 @@
               <span class="faq-toggle">+</span>
             </button>
             <div class="faq-answer">
-              <p>Cuisync does not collect personal data and does not require users to sign in. It functions solely as a tool for discovering similar cuisines across Asia, providing evidence-based insights.</p>
+              <p>Only if you create an account. You can search without an account, and those searches aren’t linked to you. If you sign up, CuiSync keeps your email, username, optional display name, your search history and the profile settings you choose, such as allergens to watch for. Your password is handled by our sign-in provider (Supabase) and is never visible to us. Photos you upload for Search by Photo Text are only used for that search and aren’t saved. See our <a href="{{ url_for('privacy') }}">Privacy Policy</a> for the full details.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>Do I need an account to use Cuisync?</span>
+              <span class="faq-toggle">+</span>
+            </button>
+            <div class="faq-answer">
+              <p>No. Searching by text, tags or photo works without an account. An account lets you keep your search history and set allergens to watch for. You can sign up with your email or continue with Google.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>How is my account kept secure?</span>
+              <span class="faq-toggle">+</span>
+            </button>
+            <div class="faq-answer">
+              <p>New accounts are confirmed by email, passwords need at least 8 characters with a letter and a number, and after 5 wrong passwords the account must wait 5 minutes before trying again. Changing your password or email needs your current password, and you’ll get an email when your password changes.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>Can I delete my account and data?</span>
+              <span class="faq-toggle">+</span>
+            </button>
+            <div class="faq-answer">
+              <p>Yes. Go to your profile, open <strong>Account and password</strong>, and use <strong>Delete account</strong>. This permanently deletes your account, profile and search history, in line with your rights under the Data Privacy Act of 2012 (RA 10173). You can also clear just your search history from your profile.</p>
             </div>
           </div>
         </div>

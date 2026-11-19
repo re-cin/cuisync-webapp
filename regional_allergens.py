@@ -203,6 +203,28 @@ ALLERGEN_PLAIN = {
 }
 
 
+# Which of the profile's allergen choices (accounts.ALLERGEN_CHOICES) a country category
+# belongs to, so the user's own allergies can be highlighted in the country comparison too.
+USER_ALLERGEN_OF = {
+    'Peanuts': 'Peanuts',
+    'Tree nuts': 'Tree nuts', 'Almond': 'Tree nuts', 'Cashew': 'Tree nuts', 'Walnut': 'Tree nuts',
+    'Pistachio': 'Tree nuts', 'Macadamia nuts': 'Tree nuts', 'Pine nuts': 'Tree nuts',
+    'Milk': 'Milk', 'Egg': 'Egg',
+    'Fish': 'Fish', 'Salmon': 'Fish', 'Mackerel': 'Fish', 'Salmon roe': 'Fish',
+    'Crustaceans': 'Shellfish', 'Shrimp': 'Shellfish', 'Crab': 'Shellfish',
+    'Molluscs': 'Shellfish', 'Squid': 'Shellfish', 'Abalone': 'Shellfish', 'Clams': 'Shellfish',
+    'Soy': 'Soy', 'Sesame': 'Sesame',
+    'Wheat': 'Wheat/Gluten', 'Cereals containing gluten': 'Wheat/Gluten',
+}
+_CATEGORY_OF_PLAIN = {plain: category for category, plain in ALLERGEN_PLAIN.items()}
+
+
+def user_allergen_of(name):
+    """'Gluten (wheat, barley, rye)' or 'Cereals containing gluten' -> 'Wheat/Gluten'; '' if none."""
+    name = str(name or '')
+    return USER_ALLERGEN_OF.get(_CATEGORY_OF_PLAIN.get(name, name), '')
+
+
 def _plain(names):
     return [ALLERGEN_PLAIN.get(n, n) for n in names]
 

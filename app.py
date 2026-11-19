@@ -1,6 +1,8 @@
+import base64
 import csv
 from collections import Counter, defaultdict
 import difflib
+import hashlib
 import io
 import json
 import os
@@ -178,7 +180,13 @@ else:
             f.write(secrets.token_hex(32))
     with open(_key_file) as f:
         app.secret_key = f.read().strip()
-app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax")
+app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
+                  # "Keep me signed in on this device" lasts 14 days (Flask's default is 31)
+                  PERMANENT_SESSION_LIFETIME=14 * 24 * 60 * 60)
+
+# Templates: which profile allergen (Peanuts, Shellfish, ...) a country's allergen category is
+from regional_allergens import user_allergen_of as _user_allergen_of
+app.jinja_env.globals["user_allergen_of"] = _user_allergen_of
 
 # Accounts live in Supabase (accounts.py, supabase_setup.sql)
 accounts.init(STORE.data_dir)
@@ -1370,14 +1378,61 @@ def _safe_next(target):
     return target if target and target.startswith("/") and not target.startswith("//") else url_for("home")
 
 
+# Too many wrong passwords for one account: wait before trying again. Counted per account
+# (not per internet address: on Render every login reaches Supabase from the same server).
+LOGIN_MAX_TRIES = 5
+LOGIN_LOCK_SECONDS = 5 * 60
+_login_failures = {}            # login name -> [wrong tries, locked until]
+_login_failures_lock = threading.Lock()
+
+
+def _login_key(login_name):
+    return (login_name or "").strip().lower()
+
+
+def _login_locked_for(login_name):
+    """Seconds left before this account can try again (0 = not locked)."""
+    with _login_failures_lock:
+        tries, until = _login_failures.get(_login_key(login_name), (0, 0))
+    return max(0, int(until - time.time()))
+
+
+def _login_failed(login_name):
+    """Counts a wrong password. Returns the tries left (0 = now locked)."""
+    key = _login_key(login_name)
+    with _login_failures_lock:
+        tries, until = _login_failures.get(key, (0, 0))
+        if until and until <= time.time():   # an old lock ran out: start counting again
+            tries, until = 0, 0
+        tries += 1
+        if tries >= LOGIN_MAX_TRIES:
+            until = time.time() + LOGIN_LOCK_SECONDS
+        _login_failures[key] = (tries, until)
+        if len(_login_failures) > 5000:      # keep the table small
+            for k in [k for k, (_, u) in _login_failures.items() if u and u < time.time()][:1000]:
+                _login_failures.pop(k, None)
+    return max(0, LOGIN_MAX_TRIES - tries)
+
+
+def _login_ok(login_name):
+    with _login_failures_lock:
+        _login_failures.pop(_login_key(login_name), None)
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     user = current_user()
     if request.method == "GET" and user and user["is_admin"]:
         return redirect(url_for("admin_page"))
     if request.method == "POST":
+        login_name = request.form.get("username")
+        wait = _login_locked_for(login_name)
+        if wait:
+            flash(f"Too many wrong passwords. Please wait {wait // 60} min {wait % 60} s and try again, "
+                  "or reset your password.", "error")
+            return render_template("auth.html", mode="login", next=request.values.get("next", "")), 429
         try:
-            user = accounts.authenticate(request.form.get("username"), request.form.get("password"))
+            user = accounts.authenticate(login_name, request.form.get("password"))
         except accounts.EmailNotConfirmed as error:
             # Signed up but never confirmed: send them to "Check your email" (with Resend)
             login_name = (request.form.get("username") or "").strip()
@@ -1387,17 +1442,24 @@ def login():
         except accounts.SupabaseError as error:
             flash(str(error), "error")
             return render_template("auth.html", mode="login", next=request.values.get("next", "")), 400
-        if user and user["is_admin"]:  # admins sign in on their own page
-            flash("Admin accounts sign in on the admin log in page.", "error")
-            return redirect(url_for("admin_login"))
+        # Admin accounts only sign in on the admin log in page. Here they're treated like a
+        # wrong login: not logged in, and nothing says that an admin account was used.
+        if user and user["is_admin"]:
+            user = None
         if user:
+            _login_ok(login_name)
             session.clear()
             session["user_id"] = user["id"]
             session.permanent = bool(request.form.get("remember"))  # "Keep me signed in"
             # no message after logging in
             nxt = request.form.get("next")
             return redirect(_safe_next(nxt) if nxt else url_for("home"))
-        flash("Wrong email / username or password.", "error")
+        left = _login_failed(login_name)
+        if left:
+            flash("Wrong email / username or password."
+                  + (f" {left} tr{'y' if left == 1 else 'ies'} left before a 5-minute wait." if left <= 2 else ""), "error")
+        else:
+            flash("Too many wrong passwords. Please wait 5 minutes and try again, or reset your password.", "error")
     return render_template("auth.html", mode="login", next=request.values.get("next", ""))
 
 
@@ -1408,13 +1470,16 @@ def register():
     if request.method == "POST":
         if request.form.get("password") != request.form.get("confirm"):
             flash("The two passwords don't match.", "error")
+        elif not request.form.get("agree"):
+            flash("Please agree to the Privacy Policy to create an account.", "error")
         else:
             try:
                 state, uid = accounts.start_signup(
                     request.form.get("username"), request.form.get("password"),
                     display_name=request.form.get("display_name", ""),
                     email=request.form.get("email", ""),
-                    redirect_to=url_for("register_confirm", _external=True))
+                    redirect_to=url_for("register_confirm", _external=True),
+                    privacy_accepted_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
                 if state == "active":   # email confirmation is turned off in Supabase
                     session.clear()
                     session["user_id"] = uid
@@ -1502,9 +1567,12 @@ def register_confirmed():
 RESET_MINUTES = 15   # how long the "choose a new password" step stays open after the link / code
 
 
-def _allow_reset(user_id):
-    """The email link / code checked out: let this browser set a new password for a while."""
-    session["password_reset"] = {"user_id": user_id, "until": time.time() + RESET_MINUTES * 60}
+def _allow_reset(user_id, token=None):
+    """The email link / code checked out: let this browser set a new password for a while.
+    token: the user's own session from the link, so the change goes through as the user and
+    Supabase sends its "Your password was changed" email."""
+    session["password_reset"] = {"user_id": user_id, "token": token or "",
+                                 "until": time.time() + RESET_MINUTES * 60}
 
 
 @app.route("/forgot-password", methods=["GET", "POST"])
@@ -1544,9 +1612,9 @@ def reset_password():
         allowed = {}
     try:
         if request.method == "GET" and request.args.get("token_hash"):
-            uid = accounts.reset_user_from_token_hash(request.args["token_hash"])
+            uid, token = accounts.reset_user_from_token_hash(request.args["token_hash"])
             if uid:
-                _allow_reset(uid)
+                _allow_reset(uid, token)
                 return redirect(url_for("reset_password"))
             flash("That reset link has expired or was already used. Request a new one.", "error")
             return render_template("auth_reset.html", mode="invalid")
@@ -1557,7 +1625,8 @@ def reset_password():
             if request.form.get("password") != request.form.get("confirm"):
                 flash("The two passwords don't match.", "error")
             else:
-                accounts.set_new_password(allowed["user_id"], request.form.get("password"))
+                accounts.set_new_password(allowed["user_id"], request.form.get("password"),
+                                          token=allowed.get("token"))
                 session.pop("password_reset", None)
                 session.pop("pending_reset", None)
                 session.pop("user_id", None)   # log in again with the new password
@@ -1581,20 +1650,122 @@ def reset_password_done():
 def reset_password_link():
     data = request.get_json(silent=True) or {}
     try:
-        uid = accounts.recovery_user_from_access_token(str(data.get("access_token") or ""))
+        token = str(data.get("access_token") or "")
+        uid = accounts.recovery_user_from_access_token(token)
     except ValueError:
         uid = None
     if not uid:
         return jsonify({"ok": False}), 400
-    _allow_reset(uid)
+    _allow_reset(uid, token)
     return jsonify({"ok": True, "redirect": url_for("reset_password")})
 
 
-@app.route("/logout")
+@app.route("/logout", methods=["GET", "POST"])
 def logout():
+    """Logging out is a button that sends a form (POST). Just opening /logout (which another
+    website could make a browser do) doesn't log anyone out any more."""
+    if request.method == "GET":
+        return redirect(url_for("profile") + "#account" if current_user() else url_for("home"))
     session.clear()
     # no message after logging out
     return redirect(url_for("home"))
+
+
+@app.route("/privacy")
+def privacy():
+    """Privacy Policy (Data Privacy Act of 2012), linked from Create account."""
+    return render_template("privacy.html", contact_email=os.environ.get("CUISYNC_CONTACT_EMAIL", "").strip())
+
+
+# ---------------- log in with Google ----------------
+@app.route("/auth/google")
+def google_login():
+    """Sends the user to Google (through Supabase). PKCE: a random secret stays in this
+    browser's session; Supabase only sees its SHA-256 hash until the code comes back."""
+    verifier = secrets.token_urlsafe(64)
+    challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+    session["google_pkce"] = {"verifier": verifier, "next": _safe_next(request.args.get("next")) if request.args.get("next") else ""}
+    return redirect(accounts.google_login_url(url_for("google_callback", _external=True), challenge))
+
+
+@app.route("/auth/google/callback")
+def google_callback():
+    pkce = session.pop("google_pkce", None) or {}
+    code = request.args.get("code")
+    if request.args.get("error") or not code or not pkce.get("verifier"):
+        flash("Google sign-in was cancelled or didn't work. Please try again.", "error")
+        return redirect(url_for("login"))
+    try:
+        uid = accounts.google_finish(code, pkce["verifier"])
+        user = accounts.get_user(uid) if uid else None
+    except ValueError as error:
+        flash(str(error), "error")
+        return redirect(url_for("login"))
+    if not user:
+        flash("Google sign-in didn't work. Please try again.", "error")
+        return redirect(url_for("login"))
+    if not user["is_active"]:
+        flash("This account is disabled. Please contact the CuiSync team.", "error")
+        return redirect(url_for("login"))
+    if user["is_admin"]:   # admins only sign in on the admin log in page; same answer as a failed sign-in
+        flash("Google sign-in didn't work. Please try again.", "error")
+        return redirect(url_for("login"))
+    session.clear()
+    session["user_id"] = user["id"]
+    session.permanent = True
+    return redirect(pkce.get("next") or url_for("home"))
+
+
+# ---------------- profile: change email, delete account ----------------
+@app.route("/profile/names", methods=["POST"])
+@login_required
+def change_names():
+    """Profile header: display name and username."""
+    try:
+        accounts.update_names(current_user()["id"], request.form.get("display_name"), request.form.get("username"))
+        flash("Name and username saved.", "success")
+    except ValueError as error:
+        flash(str(error), "error")
+    return redirect(url_for("profile"))
+
+
+@app.route("/profile/email", methods=["POST"])
+@login_required
+def change_email():
+    """Supabase emails a confirmation link to the new address; the email changes once it's clicked."""
+    new_email = (request.form.get("email") or "").strip().lower()
+    try:
+        accounts.change_email(current_user()["id"], request.form.get("password"), new_email,
+                              redirect_to=url_for("email_changed", _external=True))
+        flash(f"Almost done: we sent a confirmation link to {new_email}. Your email changes once you click it.", "success")
+    except ValueError as error:
+        flash(str(error), "error")
+    return redirect(url_for("profile") + "#account")
+
+
+@app.route("/profile/email/confirmed")
+def email_changed():
+    """Where the "Confirm email change" link lands. Supabase puts the result in the address
+    (#message=... when the other address still has to confirm, #access_token=... when done,
+    #error=... when the link expired); the page reads it and shows the right message."""
+    return render_template("auth_confirm.html", mode="email_changed")
+
+
+@app.route("/profile/delete", methods=["POST"])
+@login_required
+def delete_account():
+    """The user deletes their own account and everything saved with it."""
+    user = current_user()
+    if (request.form.get("confirm_text") or "").strip() != "DELETE":   # capital letters only
+        flash("Type DELETE in capital letters to confirm.", "error")
+        return redirect(url_for("profile") + "#account")
+    try:
+        accounts.delete_own_account(user["id"], request.form.get("password"))
+    except ValueError as error:
+        flash(str(error), "error")
+        return redirect(url_for("profile") + "#account")
+    session.clear()
+    return render_template("auth_confirm.html", mode="deleted")
 
 
 @app.route("/profile", methods=["GET", "POST"])
@@ -1604,10 +1775,10 @@ def profile():
     if request.method == "POST":
         try:
             accounts.update_profile(user["id"], request.form)
-            flash("Profile saved.", "success")
+            flash("Preferences saved.", "success")
         except accounts.SupabaseError as error:
             flash(str(error), "error")
-        return redirect(url_for("profile"))
+        return redirect(url_for("profile") + "#preferences")
     return render_template(
         "profile.html",
         user=user,
@@ -1617,7 +1788,16 @@ def profile():
         cooking_roles=accounts.COOKING_ROLES,
         allergen_choices=accounts.ALLERGEN_CHOICES,
         all_countries=STORE.countries,
+        sign_in_methods=_sign_in_methods(user["id"]),
+        password_rule=accounts.PASSWORD_RULE,
     )
+
+
+def _sign_in_methods(user_id):
+    try:
+        return accounts.sign_in_methods(user_id)
+    except ValueError:
+        return ["email"]
 
 
 def _history_with_images(history):
@@ -1647,8 +1827,10 @@ def _history_with_images(history):
 @login_required
 def change_password():
     try:
+        if request.form.get("confirm") is not None and request.form.get("confirm") != request.form.get("new"):
+            raise ValueError("The two new passwords don't match.")
         accounts.change_password(current_user()["id"], request.form.get("old"), request.form.get("new"))
-        flash("Password changed.", "success")
+        flash("Password changed. We emailed you a notice about it.", "success")
     except ValueError as error:
         flash(str(error), "error")
     return redirect(url_for("profile") + "#account")
@@ -2041,7 +2223,8 @@ def api_dish_information(idx):
     health = info.get("health") or {}
     dish = {"title": (recipe.get("title") or "").strip(), "country": recipe["country"]}
     panels = {part: render_template_string(DISH_INFO_PANELS, part=part, background=background,
-                                           health=health, dish=dish)
+                                           health=health, dish=dish,
+                                           avoid_allergens=(user or {}).get("avoid_allergens", []))
               for part in ("culture", "health")}
     return jsonify(
         culture=panels["culture"], health=panels["health"],

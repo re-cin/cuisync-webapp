@@ -167,7 +167,7 @@ code { background: var(--input-bg); padding: 1px 5px; border-radius: 4px; font-s
 .span-2 { grid-column: 1 / -1; }
 .panel-form label, .explore-form label { display: flex; flex-direction: column; gap: 6px; font-size: 0.8rem; font-weight: 500; color: var(--text-dark); }
 .panel-page input[type=text], .panel-page input[type=search], .panel-page input[type=password],
-.panel-page input[type=url], .panel-page select, .panel-page textarea, .panel-page input[type=file] {
+.panel-page input[type=url], .panel-page input[type=email], .panel-page select, .panel-page textarea, .panel-page input[type=file] {
   width: 100%;
   padding: 11px 14px;
   border: 1px solid var(--gold-border);
@@ -1550,3 +1550,219 @@ span.tag-chip:not(.removable) { border-radius: 4px; }
 .profile-page .hc-photos { background: var(--cream-card); }
 .profile-page .hc-card:hover { background: #ebe4d0; }
 .profile-page .hc-card { border-color: var(--gold-border); }
+
+/* Profile > Account and password: the change-email and delete-account forms sit under the
+   password form, each in the same row style (thin line above) */
+.pf-account-sub { margin: 14px 0 0; font-weight: 600; font-size: 0.92rem; color: #2f2620; }
+.pf-account-sub span { display: block; margin-top: 2px; font-weight: 400; font-size: 0.8rem; line-height: 1.5; color: #8a7e72; }
+.pf-account-note p { margin: 16px 0 12px; font-size: 0.86rem; color: #6b5f54; }
+.pf-danger .pf-account-sub { color: #a11a1a; }
+.pf-btn-danger { background: #a11a1a; }
+.pf-btn-danger:hover { background: #7d1313; }
+.pf-account .pw-meter { font-weight: 400; }
+/* Password form: Current password on the left; New password (with its meter) and Confirm on the right */
+.pf-account-form { align-items: start; }
+.pf-account-form .pf-confirm { grid-column: 2; }
+@media (max-width: 820px) { .pf-account-form .pf-confirm { grid-column: auto; } }
+
+/* Password strength meter (same as the log in pages) */
+.pw-meter { margin-top: 6px; font-size: 0.76rem; }
+.pw-meter-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.pw-meter-bar span { height: 5px; border-radius: 3px; background: #e4dccd; }
+.pw-meter[data-score="1"] .pw-meter-bar span:nth-child(-n+1) { background: #c0392b; }
+.pw-meter[data-score="2"] .pw-meter-bar span:nth-child(-n+2) { background: #d98a1f; }
+.pw-meter[data-score="3"] .pw-meter-bar span:nth-child(-n+3) { background: #7fa33a; }
+.pw-meter[data-score="4"] .pw-meter-bar span { background: #2e7d32; }
+.pw-meter-label { display: block; min-height: 1.2em; margin-top: 3px; font-weight: 600; color: #5a4e44; }
+.pw-rules { margin: 2px 0 0; padding: 0; list-style: none; color: #8a7e72; }
+.pw-rules li::before { content: "\2022"; display: inline-block; width: 1.1em; }
+.pw-rules li.is-ok { color: #2e7d32; }
+.pw-rules li.is-ok::before { content: "\2713"; }
+
+
+/* "Delete my account" until DELETE is typed */
+.pf-btn:disabled,
+.pf-btn:disabled:hover { background: #c9bfae; color: #f7f3ea; cursor: not-allowed; }
+
+/* "Forgot password?" under Current password */
+.pf-current-pw { display: flex; flex-direction: column; gap: 8px; }
+.pf-forgot { align-self: flex-end; font-size: 0.8rem; font-weight: 500; color: var(--maroon-main); text-decoration: underline; text-underline-offset: 3px; }
+.pf-forgot:hover { color: var(--maroon-dark); }
+
+/* Account and password: just a big arrow on the right (turns down when open) */
+.pf-account-arrow { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; }
+.pf-account-arrow span { font-size: 2.1rem; line-height: 1; font-weight: 400; transform-origin: 50% 55%; }
+
+/* Profile header: "Edit" next to @username, and the edit form (on the red header) */
+.pf-edit-btn {
+  display: inline-flex; align-items: center; gap: 5px; margin-left: 10px; padding: 3px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.45); border-radius: 999px; background: transparent;
+  color: #fff; font: inherit; font-size: 0.75rem; font-weight: 500; cursor: pointer; vertical-align: middle;
+}
+.pf-edit-btn:hover, .pf-edit-btn:focus-visible { background: rgba(255, 255, 255, 0.15); outline: none; }
+.pf-names-form { display: grid; grid-template-columns: repeat(2, minmax(0, 260px)); gap: 10px 16px; align-items: start; }
+.pf-names-form[hidden] { display: none; }
+.pf-names-form label { display: flex; flex-direction: column; gap: 6px; font-size: 0.8rem; font-weight: 500; color: rgba(255, 255, 255, 0.85); }
+.pf-names-form .pf-optional { font-weight: 400; color: rgba(255, 255, 255, 0.6); }
+.pf-names-form input[type=text] { background: #fff8ec; }
+.pf-names-form small { font-size: 0.7rem; font-weight: 400; line-height: 1.4; color: rgba(255, 255, 255, 0.65); }
+.pf-at-input { position: relative; display: block; }
+.pf-at-input > span { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #8a7e72; font-size: 0.9rem; }
+.pf-names-form .pf-at-input input { padding-left: 28px; }
+.pf-names-actions { grid-column: 1 / -1; display: flex; gap: 10px; }
+.pf-names-save { padding: 8px 20px; border: 0; border-radius: 8px; background: var(--gold-accent); color: #3a1a0a; font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+.pf-names-save:hover { filter: brightness(0.95); }
+.pf-names-cancel { padding: 8px 16px; border: 1px solid rgba(255, 255, 255, 0.5); border-radius: 8px; background: transparent; color: #fff; font: inherit; font-size: 0.85rem; cursor: pointer; }
+.pf-names-cancel:hover { background: rgba(255, 255, 255, 0.12); }
+@media (max-width: 600px) { .pf-names-form { grid-template-columns: 1fr; } }
+
+/* Profile > Food preferences */
+.pf-chips { margin: 4px 0 0; padding: 0; border: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.pf-chips legend { width: 100%; margin-bottom: 8px; padding: 0; font-size: 0.8rem; font-weight: 500; color: var(--text-dark); }
+.pf-chips legend span { margin-left: 6px; font-weight: 400; color: #8a7e72; }
+.pf-chip { position: relative; display: inline-flex; cursor: pointer; }
+.pf-chip input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.pf-chip span {
+  padding: 6px 13px; border: 1px solid var(--gold-border); border-radius: 999px;
+  background: var(--pill-bg); font-size: 0.8rem; color: var(--text-dark);
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.pf-chip:hover span { border-color: var(--maroon-main); }
+.pf-chip input:checked + span { background: var(--maroon-main); border-color: var(--maroon-main); color: #fff; }
+.pf-chip-allergen input:checked + span { background: #a11a1a; border-color: #a11a1a; }
+.pf-chip input:focus-visible + span { outline: 2px solid var(--maroon-main); outline-offset: 2px; }
+.pf-optional-dark { font-weight: 400; color: #8a7e72; }
+
+/* Profile dropdowns: our own arrow, set in from the right edge */
+.pf-account-form select {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 46px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23800d12' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 18px center;
+  background-size: 14px 14px;
+  cursor: pointer;
+}
+
+
+/* Profile header: food preferences under the name (role, home country, bio, cuisines, allergens) */
+.pf-head { align-items: flex-start; }
+.pf-head .pf-avatar { margin-top: 4px; }
+.pf-about { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; max-width: 720px; }
+.pf-meta { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; }
+.pf-meta-item { display: inline-flex; align-items: center; gap: 6px; font-size: 0.88rem; color: #f6e9cf; }
+.pf-meta-item svg { color: var(--gold-accent); flex: none; }
+.pf-bio {
+  margin: 0; padding-left: 12px; border-left: 2px solid rgba(220, 179, 73, 0.6);
+  font-family: 'Playfair Display', serif; font-style: italic; font-size: 0.98rem; line-height: 1.55;
+  color: rgba(255, 255, 255, 0.85);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.pf-tagrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pf-tagrow-label {
+  margin-right: 4px; font-size: 0.68rem; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+.pf-tag {
+  display: inline-flex; align-items: center; gap: 5px; padding: 3px 11px; border-radius: 999px;
+  border: 1px solid rgba(220, 179, 73, 0.55); background: rgba(220, 179, 73, 0.12);
+  font-size: 0.78rem; font-weight: 500; color: #f8e7c0;
+}
+.pf-tag-more { border-style: dashed; background: transparent; cursor: default; }
+.pf-tag-allergen { border-color: rgba(255, 255, 255, 0.35); background: rgba(255, 255, 255, 0.1); color: #fff; }
+.pf-tag-allergen svg { color: #ffcf7a; }
+.pf-about-empty {
+  display: inline-block; margin-top: 12px; padding: 5px 14px; border: 1px dashed rgba(255, 255, 255, 0.45);
+  border-radius: 999px; font-size: 0.8rem; color: rgba(255, 255, 255, 0.8); text-decoration: none;
+}
+.pf-about-empty:hover { border-color: var(--gold-accent); color: var(--gold-accent); }
+.pf-who-view[hidden] { display: none; }
+
+/* The food preferences under the name sit in a card on the red header */
+.pf-about {
+  margin-top: 16px;
+  padding: 16px 20px;
+  border: 1px solid rgba(220, 179, 73, 0.35);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(2px);
+}
+.pf-about .pf-meta + .pf-bio,
+.pf-about .pf-bio + .pf-tagrow,
+.pf-about .pf-meta + .pf-tagrow { padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.12); }
+.pf-about .pf-bio { border-top: 0; padding-top: 0; }
+@media (max-width: 600px) { .pf-about { padding: 14px 14px; } }
+
+/* × on the food preferences card, and the button that shows it again */
+.pf-about { position: relative; padding-right: 48px; }
+.pf-about[hidden] { display: none; }
+.pf-about-close {
+  position: absolute; top: 10px; right: 10px; display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 50%;
+  background: rgba(0, 0, 0, 0.12); color: rgba(255, 255, 255, 0.85); cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.pf-about-close:hover, .pf-about-close:focus-visible { background: #fff; color: var(--maroon-main); outline: none; }
+.pf-about-show {
+  margin-top: 12px; padding: 5px 14px; border: 1px dashed rgba(255, 255, 255, 0.45); border-radius: 999px;
+  background: transparent; color: rgba(255, 255, 255, 0.8); font: inherit; font-size: 0.8rem; cursor: pointer;
+}
+.pf-about-show[hidden] { display: none; }
+.pf-about-show:hover { border-color: var(--gold-accent); color: var(--gold-accent); }
+
+/* Phones: profile header centred (avatar, name, @username + Edit), the food preferences card
+   full width, and the stats as an even two-column row under a thin line */
+@media (max-width: 600px) {
+  .profile-page .panel-hero { padding-bottom: 34px; }
+  .pf-head { flex-direction: column; align-items: center; gap: 14px; text-align: center; }
+  .pf-head .pf-avatar { margin-top: 0; width: 76px; height: 76px; font-size: 2.1rem; }
+  .pf-who { width: 100%; }
+  .pf-name { font-size: 2rem; }
+  .pf-handle { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; }
+  .pf-edit-btn { margin-left: 0; }
+  .pf-about { text-align: left; margin-top: 14px; }
+  .pf-about-show, .pf-about-empty { margin-top: 12px; padding: 5px 14px; font-size: 0.78rem; }
+  .pf-stats {
+    width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+    margin-top: 6px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.15);
+  }
+  .pf-stats div { align-items: center; }
+  .pf-stats div + div { border-left: 1px solid rgba(255, 255, 255, 0.15); }
+  .pf-stats dd { font-size: 1.25rem; }
+  .pf-names-form { text-align: left; }
+}
+
+/* Food preferences card: a popup on desktop (opened by "My food preferences"), in the header on phones */
+.pf-about-open {
+  display: none; align-items: center; gap: 7px; margin-top: 12px; padding: 6px 14px;
+  border: 1px solid rgba(220, 179, 73, 0.6); border-radius: 999px; background: rgba(220, 179, 73, 0.12);
+  color: #f8e7c0; font: inherit; font-size: 0.82rem; font-weight: 500; cursor: pointer;
+}
+.pf-about-open svg { color: var(--gold-accent); }
+.pf-about-open:hover, .pf-about-open:focus-visible { background: rgba(220, 179, 73, 0.25); outline: none; }
+.pf-about-backdrop { position: fixed; inset: 0; z-index: 1100; background: rgba(20, 6, 4, 0.55); animation: pf-fade 0.15s ease; }
+.pf-about-backdrop[hidden] { display: none; }
+@keyframes pf-fade { from { opacity: 0; } to { opacity: 1; } }
+@media (min-width: 601px) {
+  .pf-about-open { display: inline-flex; }
+  .pf-about-show { display: none !important; }
+  .pf-about.is-popup {
+    position: fixed; top: 50%; left: 50%; z-index: 1101; transform: translate(-50%, -50%);
+    width: min(560px, calc(100vw - 48px)); max-height: calc(100vh - 80px); overflow-y: auto; margin: 0;
+    padding: 26px 56px 24px 26px; border-color: rgba(220, 179, 73, 0.5);
+    background: linear-gradient(160deg, var(--maroon-dark), var(--maroon-main) 70%);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45); backdrop-filter: none;
+    animation: pf-fade 0.15s ease;
+  }
+  .pf-about.is-popup::before {
+    content: "My food preferences"; display: block; margin-bottom: 14px;
+    font-family: 'Playfair Display', serif; font-size: 1.35rem; font-weight: 700; color: #fff;
+  }
+  .pf-about.is-popup .pf-about-close { top: 16px; right: 16px; width: 32px; height: 32px; }
+}
+html.pf-about-popup-open { overflow: hidden; }
+.pf-about-edit { align-self: flex-start; margin-top: 2px; font-size: 0.78rem; font-weight: 500; color: var(--gold-accent); text-decoration: none; }
+.pf-about-edit:hover { text-decoration: underline; text-underline-offset: 3px; }
+

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  {% include "partials/head_icons.html" %}
+  <title>CUISYNC - Privacy Policy</title>
+  {# Privacy Policy, linked from Create account ("I agree to the Privacy Policy").
+     Written for the Data Privacy Act of 2012 (Republic Act No. 10173). Same layout as the FAQs page.
+     Set CUISYNC_CONTACT_EMAIL in .env / Render to show the team's contact address. #}
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base-style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/faqs.css') }}">
+</head>
+<body class="faqs-page privacy-page">
+
+  <app-nav></app-nav>
+  {% include "partials/flash.html" %}
+
+  <main class="faq-container">
+
+    <header class="faq-header">
+      <span class="sub-label">◆ Legal</span>
+      <h1 class="faq-title">Privacy Policy</h1>
+      <p class="faq-subtitle">
+        How CuiSync collects, uses and protects your personal information, under the Data Privacy Act of 2012 (Republic Act No. 10173).
+      </p>
+      <p class="pp-updated">Last updated: November 2026</p>
+    </header>
+
+    <div class="faq-content-grid">
+
+      <aside class="faq-sidebar">
+        <span class="sidebar-label">SECTIONS</span>
+        <nav class="category-nav">
+          <a href="#who-we-are" class="category-link active">Who we are</a>
+          <a href="#no-account" class="category-link">Searching without an account</a>
+          <a href="#what-we-collect" class="category-link">What we collect</a>
+          <a href="#photos" class="category-link">Photos you upload</a>
+          <a href="#how-we-use" class="category-link">How we use it</a>
+          <a href="#services" class="category-link">Services we use</a>
+          <a href="#keeping" class="category-link">How long we keep it</a>
+          <a href="#protection" class="category-link">How we protect it</a>
+          <a href="#rights" class="category-link">Your rights</a>
+          <a href="#contact" class="category-link">Contact and changes</a>
+        </nav>
+      </aside>
+
+      <section class="faq-sections">
+
+        <div class="faq-group pp-card" id="who-we-are">
+          <span class="group-category">Section 1</span>
+          <h2 class="group-title">WHO WE ARE</h2>
+          <p>CuiSync is a research web app that finds similar dishes across Asian cuisines based on their ingredients and cooking steps. It is run by the CuiSync research team. In this policy, “we” means the CuiSync team and “you” means anyone who uses the app.</p>
+        </div>
+
+        <div class="faq-group pp-card" id="no-account">
+          <span class="group-category">Section 2</span>
+          <h2 class="group-title">YOU CAN SEARCH WITHOUT AN ACCOUNT</h2>
+          <p>Searching by text, tags or photo works without an account. If you search without logging in, we don’t link your searches to you.</p>
+        </div>
+
+        <div class="faq-group pp-card" id="what-we-collect">
+          <span class="group-category">Section 3</span>
+          <h2 class="group-title">WHAT WE COLLECT WHEN YOU CREATE AN ACCOUNT</h2>
+          <ul>
+            <li><strong>Account details:</strong> your email address, username and (optional) display name. If you sign in with Google, we receive your name and email address from Google.</li>
+            <li><strong>Password:</strong> handled by our sign-in provider (Supabase). It is stored only in a scrambled (hashed) form; we can never see it.</li>
+            <li><strong>Search history:</strong> the dishes you searched for, the country you chose and the result, so you can open them again from your profile.</li>
+            <li><strong>Food preferences you choose to add:</strong> what kind of cook you are, your home country, favourite cuisines, allergens to watch for and a short bio.</li>
+            <li><strong>Consent record:</strong> the date and time you agreed to this policy.</li>
+          </ul>
+        </div>
+
+        <div class="faq-group pp-card" id="photos">
+          <span class="group-category">Section 4</span>
+          <h2 class="group-title">PHOTOS YOU UPLOAD</h2>
+          <p>When you use Search by Photo Text, the photo is sent to our text-reading (OCR) service to read the dish names. The photo is used only for that search and is not saved.</p>
+        </div>
+
+        <div class="faq-group pp-card" id="how-we-use">
+          <span class="group-category">Section 5</span>
+          <h2 class="group-title">HOW WE USE YOUR INFORMATION</h2>
+          <ul>
+            <li>To create your account, let you log in and keep it secure (for example, confirmation and password emails).</li>
+            <li>To show your search history and use your food preferences, such as pointing out the allergens you watch for.</li>
+            <li>To see, in totals only, how the app is used (for example, number of searches per day) for our research.</li>
+          </ul>
+          <p>We don’t sell your information, show you ads, or share it with anyone for marketing.</p>
+        </div>
+
+        <div class="faq-group pp-card" id="services">
+          <span class="group-category">Section 6</span>
+          <h2 class="group-title">SERVICES THAT HELP RUN CUISYNC</h2>
+          <ul>
+            <li><strong>Supabase:</strong> stores accounts, profiles and search history, and sends account emails.</li>
+            <li><strong>Render:</strong> hosts the website.</li>
+            <li><strong>Hugging Face:</strong> runs the text-reading service for photo searches.</li>
+            <li><strong>OpenAI:</strong> writes the explanations and dish background shown with results. Only dish information is sent, never your account details.</li>
+            <li><strong>USDA FoodData Central:</strong> provides nutrient information for ingredients. Only ingredient names are sent.</li>
+            <li><strong>Google:</strong> only if you choose “Continue with Google”.</li>
+          </ul>
+        </div>
+
+        <div class="faq-group pp-card" id="keeping">
+          <span class="group-category">Section 7</span>
+          <h2 class="group-title">HOW LONG WE KEEP IT</h2>
+          <p>We keep your account and search history until you delete them. You can clear your search history or delete your whole account at any time. When you delete your account, your profile and search history are deleted permanently.</p>
+        </div>
+
+        <div class="faq-group pp-card" id="protection">
+          <span class="group-category">Section 8</span>
+          <h2 class="group-title">HOW WE PROTECT IT</h2>
+          <p>Connections to CuiSync are encrypted (https). Passwords are hashed by Supabase, new accounts are confirmed by email, account changes need your password, and repeated wrong passwords are slowed down. Only the CuiSync team’s admin accounts can see the user list.</p>
+        </div>
+
+        <div class="faq-group pp-card" id="rights">
+          <span class="group-category">Section 9</span>
+          <h2 class="group-title">YOUR RIGHTS</h2>
+          <p>Under the Data Privacy Act you have the right to be informed, to access, to correct, to object, to erase or block, and to get a copy of your personal information, and to file a complaint with the National Privacy Commission. In CuiSync you can:</p>
+          <ul>
+            <li><strong>See and correct</strong> your name, username and food preferences on your profile page.</li>
+            <li><strong>Change your email or password</strong> in Profile &rsaquo; Account and password.</li>
+            <li><strong>Delete your account</strong> and all its data in Profile &rsaquo; Account and password &rsaquo; Delete account.</li>
+          </ul>
+        </div>
+
+        <div class="faq-group pp-card" id="contact">
+          <span class="group-category">Sections 10 and 11</span>
+          <h2 class="group-title">CONTACT US AND CHANGES TO THIS POLICY</h2>
+          <p>For questions about this policy or your information, contact the CuiSync team{% if contact_email %} at <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>{% endif %}.</p>
+          <p>If we change this policy, we’ll update the date at the top of this page.</p>
+        </div>
+
+      </section>
+    </div>
+  </main>
+
+  <app-footer></app-footer>
+
+  <script src="{{ url_for('static', filename='scripts/components.js') }}"></script>
+  <script>
+    // Highlight the section you're reading in the left list (same as the FAQs page)
+    document.addEventListener("DOMContentLoaded", () => {
+      const sections = document.querySelectorAll(".faq-group");
+      const navLinks = document.querySelectorAll(".category-link");
+      const setActive = (id) => navLinks.forEach((l) => l.classList.toggle("active", l.getAttribute("href") === `#${id}`));
+      let lockUntil = 0;
+      navLinks.forEach((l) => l.addEventListener("click", () => { setActive(l.getAttribute("href").slice(1)); lockUntil = Date.now() + 1000; }));
+      window.addEventListener("scroll", () => {
+        if (Date.now() < lockUntil) return;
+        let current = sections.length ? sections[0].id : "";
+        sections.forEach((s) => { if (window.scrollY >= s.offsetTop - 120) current = s.id; });
+        if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2 && sections.length) {
+          current = sections[sections.length - 1].id;
+        }
+        setActive(current);
+      });
+    });
+  </script>
+</body>
+</html>

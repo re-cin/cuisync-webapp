@@ -118,6 +118,23 @@
     {% else %}
     {# Only display explicit findings; an unassessed ingredient is not a negative finding. #}
     {% set allergen_findings = (health.get('potential_allergens') or []) | selectattr('classification', 'in', ['identified', 'possible']) | list %}
+    {# The user's own allergies (Profile > Food preferences): tell them up front, and the
+       matching allergens below are highlighted in red. #}
+    {% set my_allergies = avoid_allergens if avoid_allergens is defined and avoid_allergens else [] %}
+    {% set my_hits = allergen_findings | selectattr('avoid') | map(attribute='name') | unique | list %}
+    {% if my_hits %}
+    <div class="rt-my-allergy is-alert" role="alert">
+      <span class="rt-my-allergy-icon" aria-hidden="true">!</span>
+      <p><strong>Allergy alert:</strong> this dish may have <strong>{{ my_hits | join(', ') }}</strong>, which you said you’re allergic to.
+        <span>Your allergies are <mark class="rt-my-allergy-mark">highlighted in red</mark> below.</span></p>
+    </div>
+    {% elif my_allergies %}
+    <div class="rt-my-allergy">
+      <span class="rt-my-allergy-icon is-ok" aria-hidden="true">&#10003;</span>
+      <p>None of your allergies ({{ my_allergies | join(', ') }}) were found in this recipe’s ingredients.
+        <span>Still check the full recipe and product labels.</span></p>
+    </div>
+    {% endif %}
     {% if allergen_findings %}
     <div class="rt-allergen-groups">
       {% for status, group_title, group_explanation in [('identified', 'Contains', 'Found in an ingredient in the recipe'), ('possible', 'May contain', 'Depends on the brand or recipe version, so check the package label')] %}
@@ -135,7 +152,6 @@
             <span class="rt-allergen-name">{{ allergen.name }}</span>
             {% if allergen_hint.get(allergen.name) %}<span class="rt-allergen-hint">{{ allergen_hint[allergen.name] }}</span>{% endif %}
             {% if allergen.from %}<p class="rt-allergen-from">From: {{ allergen.from | join(', ') }}</p>{% endif %}
-            {% if allergen.avoid %}<p class="rt-avoid-note">⚠ On your avoid list.</p>{% endif %}
           </li>
           {% endfor %}
         </ul>
@@ -183,7 +199,7 @@
         </div>
         <ul class="rt-allergen-findings rt-market-findings" aria-label="Allergen matches for {{ dish.title }} by country">
           {% for allergen in regional_findings %}
-          <li class="rt-allergen-finding" data-market-code="{{ allergen.country }}" hidden>
+          <li class="rt-allergen-finding{% if user_allergen_of(allergen.name) and user_allergen_of(allergen.name) in my_allergies %} is-avoid{% endif %}" data-market-code="{{ allergen.country }}" hidden>
             <span class="rt-allergen-name">{{ allergen.name }}</span>
             <span class="rt-allergen-certainty">{{ 'Contained in this dish' if allergen.classification == 'identified' else 'Might be in this dish, so check the package label' }}{% if allergen.label_status_plain %} · {{ allergen.label_status_plain }}{% endif %}</span>
             {% if allergen.from %}<p class="rt-allergen-from">From: {{ allergen.from | join(', ') }}</p>{% endif %}

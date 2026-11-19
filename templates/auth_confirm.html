@@ -1,15 +1,18 @@
 {# Create account, step 2.
-   mode "check":     "Check your email" - type the code from the email, or click the link in it.
-   mode "confirmed": "Email confirmed" - the account is ready (the user is now logged in). #}
+   mode "check":     "Check your email" - click the link in the email.
+   mode "confirmed": "Email confirmed" - the account is ready (the user is now logged in).
+   mode "email_changed": where the "Confirm email change" link lands (the script reads the result).
+   mode "deleted":   the user deleted their account. #}
 {% from "admin/admin_icons.html" import icon %}
 {% set confirmed = mode == 'confirmed' %}
+{% set titles = {'confirmed': 'Email confirmed', 'email_changed': 'Email change', 'deleted': 'Account deleted'} %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="referrer" content="no-referrer">
-  <title>CUISYNC - {{ 'Email confirmed' if confirmed else 'Confirm your email' }}</title>
+  <title>CUISYNC - {{ titles.get(mode, 'Confirm your email') }}</title>
   {% include "partials/head_icons.html" %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,20 +23,75 @@
 </head>
 <body class="admin-page auth-page">
 {% include "partials/flash.html" %}
+{% include "partials/auth_close.html" %}
 <div class="login-shell">
 
   <section class="login-brand user-brand">
     <a href="{{ url_for('home') }}" class="admin-logo">CUISYNC</a>
     <div class="login-brand-copy">
       <p class="eyebrow eyebrow-gold"><span class="diamond"></span>Discover Asian cuisines</p>
+      {% if mode == 'deleted' %}
+      <h1>Goodbye for now.</h1>
+      <p>Your account and everything saved with it have been removed.</p>
+      {% elif mode == 'email_changed' %}
+      <h1>Updating your email.</h1>
+      <p>Your CuiSync account keeps working the whole time.</p>
+      {% else %}
       <h1>{{ 'You’re all set.' if confirmed else 'One last step.' }}</h1>
       <p>{{ 'Your email is confirmed and your CuiSync account is ready.' if confirmed
             else 'Confirm your email so we know it’s really you. Your account is created once it’s confirmed.' }}</p>
+      {% endif %}
     </div>
   </section>
 
   <section class="login-form-wrap">
-    {% if confirmed %}
+    {% if mode == 'deleted' %}
+    <div class="login-form confirm-card">
+      <span class="confirm-icon is-done" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+      </span>
+      <div class="login-heading">
+        <h2>Account deleted</h2>
+        <p>Your CuiSync account, profile and search history have been permanently deleted. You can still search without an account.</p>
+      </div>
+      <a class="btn btn-maroon btn-block" href="{{ url_for('home') }}">Back to CuiSync</a>
+    </div>
+    {% elif mode == 'email_changed' %}
+    <div class="login-form confirm-card">
+      <span class="confirm-icon" id="ec-icon" aria-hidden="true">{{ icon('mail', 30) }}</span>
+      <div class="login-heading">
+        <h2 id="ec-title">Checking your link…</h2>
+        <p id="ec-text"></p>
+      </div>
+      <a class="btn btn-maroon btn-block" href="{{ url_for('profile') }}#account">Go to my account</a>
+    </div>
+    <script>
+      /* Supabase adds the result to the address: #message=... (the other address still has to
+         confirm), #access_token=... (done) or #error=... (expired / already used). */
+      (function () {
+        const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
+        history.replaceState(null, '', location.pathname);
+        const title = document.getElementById('ec-title');
+        const text = document.getElementById('ec-text');
+        const icon = document.getElementById('ec-icon');
+        const done = () => {
+          icon.classList.add('is-done');
+          icon.innerHTML = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+        };
+        if (hash.get('error') || hash.get('error_code')) {
+          title.textContent = 'Link expired';
+          text.textContent = 'This email change link has expired or was already used. Ask for the change again from your account page.';
+        } else if (hash.get('message')) {
+          title.textContent = 'One more confirmation';
+          text.textContent = 'This address is confirmed. Now click the link we sent to your other email address to finish the change.';
+        } else {
+          done();
+          title.textContent = 'Email changed';
+          text.textContent = 'Your new email address is confirmed. Use it the next time you log in.';
+        }
+      })();
+    </script>
+    {% elif confirmed %}
     <div class="login-form confirm-card">
       <span class="confirm-icon is-done" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
@@ -51,18 +109,20 @@
       <div class="login-heading">
         <h2>Check your email</h2>
         {% if email %}
-        <p>We sent a confirmation email to <strong class="confirm-email">{{ email }}</strong>. Open it and click the link, or type the code from it below.</p>
+        <p>We sent a confirmation email to <strong class="confirm-email">{{ email }}</strong>. Open it and click the link to confirm your email.</p>
         {% else %}
-        <p>Open the confirmation email we sent you and click the link, or type the code from it below.</p>
+        <p>Open the confirmation email we sent you and click the link to confirm your email.</p>
         {% endif %}
       </div>
 
       <!-- Shown by the script below while a clicked email link is being checked -->
       <p class="confirm-status" id="confirm-status" hidden></p>
 
-      <form method="POST" action="{{ url_for('register_confirm') }}" class="confirm-code-form">
-        <input type="hidden" name="action" value="code">
-        {% if not email %}
+
+      <form method="POST" action="{{ url_for('register_confirm') }}" class="confirm-resend">
+        <input type="hidden" name="action" value="resend">
+        {% if email %}<input type="hidden" name="email" value="{{ email }}">
+        {% else %}
         <div class="field">
           <label for="confirm-email-input">Email address</label>
           <div class="input-icon">
@@ -71,17 +131,6 @@
           </div>
         </div>
         {% endif %}
-        <div class="field">
-          <label for="code">Confirmation code</label>
-          <input id="code" name="code" class="confirm-code" type="text" inputmode="numeric" autocomplete="one-time-code"
-                 pattern="[0-9 ]{6,12}" maxlength="12" required placeholder="123456">
-        </div>
-        <button type="submit" class="btn btn-maroon btn-block">Confirm email</button>
-      </form>
-
-      <form method="POST" action="{{ url_for('register_confirm') }}" class="confirm-resend">
-        <input type="hidden" name="action" value="resend">
-        {% if email %}<input type="hidden" name="email" value="{{ email }}">{% endif %}
         <span>Didn’t get it? Check your spam folder, or</span>
         <button type="submit" class="small-link confirm-resend-btn">resend the email</button>
       </form>
@@ -119,7 +168,7 @@
       body: JSON.stringify({ access_token: token }),
     }).then((r) => r.json()).then((data) => {
       if (data.ok) location.replace(data.redirect);
-      else show('We couldn’t confirm your email with that link. Try the code instead, or request a new email.', true);
+      else show('We couldn’t confirm your email with that link. Request a new email below.', true);
     }).catch(() => show('We couldn’t reach the server. Please try again.', true));
   })();
 </script>

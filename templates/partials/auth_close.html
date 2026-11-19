@@ -1,0 +1,22 @@
+{# × in the top-right corner of the log in / create account pages: leaves without logging in.
+   Goes back to the page the user came from on this site, otherwise to "next" or the home page. #}
+<a class="auth-close" href="{{ next if next and next.startswith('/') and not next.startswith('//') else url_for('home') }}"
+   aria-label="Close and go back to CuiSync" title="Close" data-auth-close>
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+</a>
+<script>
+  (function () {
+    const btn = document.querySelector('[data-auth-close]');
+    if (!btn) return;
+    btn.addEventListener('click', (e) => {
+      // Came from another CuiSync page (not another log in / sign up step)? Just go back to it.
+      let from = null;
+      try { from = document.referrer ? new URL(document.referrer) : null; } catch (err) { from = null; }
+      const authPage = /^\/(login|register|forgot-password|reset-password|auth\/)/;
+      if (from && from.origin === location.origin && !authPage.test(from.pathname) && history.length > 1) {
+        e.preventDefault();
+        history.back();
+      }
+    });
+  })();
+</script>

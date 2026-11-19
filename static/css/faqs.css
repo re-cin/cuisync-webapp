@@ -302,3 +302,24 @@
 .sub-label,
 .category-link,
 .group-category { letter-spacing: 0.02em; }
+
+/* An open question keeps its divider line above it and stays in place (it used to drop the
+   line and shift down with extra space, which looked like a gap in the list) */
+.faq-item.active,
+.faq-group .faq-item.active {
+  margin: 0;
+  padding: 0;
+  background-color: transparent;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Privacy Policy (templates/privacy.html): same layout as the FAQs, with plain text in each card */
+.pp-updated { margin-top: 14px; font-size: 0.8rem; color: rgba(255, 255, 255, 0.6); }
+.pp-card p,
+.pp-card li { font-size: 0.9rem; line-height: 1.65; color: #2d2d2d; }
+.pp-card p { margin: 0 0 10px; }
+.pp-card p:last-child { margin-bottom: 0; }
+.pp-card ul { margin: 0 0 10px; padding-left: 20px; }
+.pp-card li + li { margin-top: 6px; }
+.pp-card a { color: var(--maroon-main); font-weight: 600; }
+.privacy-page .category-nav { gap: 10px; }
