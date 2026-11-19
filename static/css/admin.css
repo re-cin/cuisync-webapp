@@ -382,6 +382,14 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 0.85em; }
 }
 .prompt-item:hover { border-color: var(--maroon-main); }
 .prompt-item.selected { border: 2px solid var(--maroon-main); background: #f1e4c8; }
+.prompt-item:focus-visible { outline: 2px solid var(--maroon-main); outline-offset: 3px; }
+[data-prompt-management] [role="tabpanel"][hidden] { display: none; }
+.prompt-rules pre, .prompt-history pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow-y: auto; font-size: .8rem; }
+.prompt-rules, .prompt-history { margin: 12px 0; }
+.prompt-rules summary, .prompt-history summary { cursor: pointer; }
+.prompt-version { padding: 10px 0; border-top: 1px solid var(--border, #e0d6c5); }
+.prompt-preview { padding: 16px; background: var(--cream, #faf5e9); border-radius: 8px; overflow-wrap: anywhere; }
+.prompt-preview p { white-space: pre-wrap; }
 .prompt-item-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 
 .regen-form { margin-top: -4px; }

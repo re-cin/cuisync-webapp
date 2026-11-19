@@ -42,6 +42,8 @@ def generate(recipe, store, client=None, refresh=False, upgrade_sources=False, i
     except Exception:
         return b._unavailable(row, 'Temporary database failure; retry later.')
     current = cached and cached.get('data_version') == DATA_VERSION
+    if cached and (cached.get('verification_status') == 'verified' or cached.get('reviewed_at')):
+        return cached  # Reviewed records are never completed or refreshed automatically.
     has_content = current and any(str(cached.get(field) or '').strip() for field in fields)
     if upgrade_sources:
         return _upgrade_sources(recipe, store, row, cached, client, improve_existing=improve_existing, diagnostics=diagnostics)
@@ -86,12 +88,14 @@ def generate(recipe, store, client=None, refresh=False, upgrade_sources=False, i
         missing = [f for f in fields if not row[f]]
         if evidence and missing:
             try:
-                response = b._draft_with_retry(client, dict(row, sources=evidence, draft_fields=missing))
+                draft_row = dict(row, sources=evidence, draft_fields=missing)
+                response = b._draft_with_retry(client, draft_row)
                 draft = _parse(response)
                 for field in missing:
-                    if draft.get(field):
+                    if draft.get(field) and _dates_grounded(draft[field], evidence):
                         row[field] = draft[field]
                         methods[field] = 'source_based'
+                        _record_prompt_version(methods, field, draft_row)
             except Exception:
                 # An API failure is not an evidence shortage: avoid a second GPT request.
                 row['unavailable_reason'] = 'Temporary source-based drafting failure; retry later.'
@@ -101,12 +105,14 @@ def generate(recipe, store, client=None, refresh=False, upgrade_sources=False, i
                 # Retry an empty/partial model response once, requesting only
                 # the remaining fields and preserving every usable section.
                 for _ in range(2):
-                    response = b._draft_with_retry(client, dict(row, sources=[], fallback_fields=missing))
+                    draft_row = dict(row, sources=[], fallback_fields=missing)
+                    response = b._draft_with_retry(client, draft_row)
                     draft = _parse(response, fallback=True)
                     for field in missing:
                         if draft.get(field):
                             row[field] = draft[field]
                             methods[field] = 'gpt_fallback'
+                            _record_prompt_version(methods, field, draft_row)
                     missing = [f for f in fields if not str(row[f] or '').strip()]
                     if not missing:
                         break
@@ -125,6 +131,14 @@ def generate(recipe, store, client=None, refresh=False, upgrade_sources=False, i
     return b._persist(store, row, observed=cached, error=retrieval_error)
 
 
+def _record_prompt_version(methods, field, draft_row):
+    """Use the existing JSON metadata column; no schema or old-record changes."""
+    if draft_row.get('_draft_prompt_version'):
+        versions = dict(methods.get('_prompt_versions') or {})
+        versions[field] = draft_row['_draft_prompt_version']
+        methods['_prompt_versions'] = versions
+
+
 def _parse(response, fallback=False):
     draft = json.loads(response.choices[0].message.content)
     if not isinstance(draft, dict):
@@ -134,7 +148,8 @@ def _parse(response, fallback=False):
         value = draft.get(field, '')
         if not isinstance(value, str) or len(value) > 1800:
             raise ValueError('Invalid summary format')
-        if fallback and re.search(r'https?://|www\.|\[[^\]]*\]\(|\b\d{3,4}\b', value):
+        if fallback and (re.search(r'https?://|www\.|\[[^\]]*\]\(|\b\d{3,4}\b', value)
+                         or _HISTORICAL_DATE.search(value)):
             raise ValueError('Fallback must not manufacture links or historical dates')
         result[field] = value.strip()
     return result
@@ -233,7 +248,8 @@ def _upgrade_sources(recipe, store, row, cached, client, improve_existing=False,
             report(reason='Only Wikipedia fallback was available; existing source-based text preserved')
             return cached
     try:
-        response = b._draft_with_retry(client, dict(row, sources=evidence, draft_fields=targets))
+        draft_row = dict(row, sources=evidence, draft_fields=targets)
+        response = b._draft_with_retry(client, draft_row)
         generated = _parse(response)
     except Exception:
         report(reason='GPT request failed or returned invalid JSON')
@@ -271,6 +287,7 @@ def _upgrade_sources(recipe, store, row, cached, client, improve_existing=False,
     updated.update(replacements)
     for field in replacements:
         methods[field] = 'source_based'
+        _record_prompt_version(methods, field, draft_row)
     updated['generation_fields'] = methods
     updated['generation_method'] = method_for_fields(methods)
     # Preserve original citations if they still support an untouched field.

@@ -12,7 +12,7 @@ except ImportError:
     pass
 
 from cuisync_cache import explain_with_cache, save_cached, MODEL_NAME
-from cuisync_prompts import build_messages, ungrounded_terms, HIGH_MIN, MODERATE_MIN
+from cuisync_prompts import build_messages, ungrounded_terms, HIGH_MIN, MODERATE_MIN, prompt_snapshot
 
 try:
     from openai import OpenAI
@@ -202,6 +202,8 @@ def build_evidence(source_dish, recommended_dish, similarity_pct, influence):
         parse(source_dish.get("action_text", "")), parse(recommended_dish.get("action_text", "")))
     ut_s = {u.lower() for u in parse(source_dish.get("utensil_text", ""))}
     ut_t = {u.lower() for u in parse(recommended_dish.get("utensil_text", ""))}
+    cw_s = {u.lower() for u in parse(source_dish.get("cookware_text", ""))}
+    cw_t = {u.lower() for u in parse(recommended_dish.get("cookware_text", ""))}
 
     evidence = {
         "input_dish": source_dish["title"].strip(),
@@ -215,6 +217,9 @@ def build_evidence(source_dish, recommended_dish, similarity_pct, influence):
         "shared_actions": s_act,
         "unique_actions_input": act_s,
         "unique_actions_match": act_t,
+        "shared_cookware": sorted(cw_s & cw_t)[:4],
+        "unique_cookware_input": sorted(cw_s - cw_t)[:3],
+        "unique_cookware_match": sorted(cw_t - cw_s)[:3],
         "shared_utensils": sorted(ut_s & ut_t)[:4],
         "unique_utensils_input": sorted(ut_s - ut_t)[:3],
         "unique_utensils_match": sorted(ut_t - ut_s)[:3],
@@ -288,6 +293,26 @@ def fallback_explanation(ev):
 
 
 def get_explanation(evidence):
+    # A concurrent admin save cannot change the prompt between cache lookup,
+    # generation, retry and cache write within this request.
+    with prompt_snapshot():
+        return _get_explanation(evidence)
+
+
+def preview_explanation(evidence, instructions):
+    """GPT-only preview; never reads/writes the production explanation cache."""
+    if _client is None:
+        raise ValueError("GPT is unavailable.")
+    with prompt_snapshot(instructions):
+        for attempt in range(2):
+            text = _call_gpt(evidence, avoid=bad if attempt else None)
+            bad = ungrounded_terms(text, evidence, _VOCAB)
+            if not bad and text:
+                return text
+    raise ValueError("Preview rejected by the existing evidence-grounding check; unsupported culinary items were mentioned.")
+
+
+def _get_explanation(evidence):
     if _client is None:
         print("[CuiSync] GPT unavailable -> TEMPLATE")
         return fallback_explanation(evidence), "template"

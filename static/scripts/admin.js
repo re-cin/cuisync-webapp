@@ -1,5 +1,163 @@
 // CuiSync Admin: small helpers used on every admin page.
 (() => {
+  // Keep every prompt form mounted: category changes only hide/show panels,
+  // preserving unsaved text and each editor's independent save/reset form.
+  const prompts = document.querySelector('[data-prompt-management]');
+  if (prompts) {
+    const tabs = Array.from(prompts.querySelectorAll('[role="tab"]'));
+    const panels = Array.from(prompts.querySelectorAll('[role="tabpanel"]'));
+    const selectCategory = (id) => {
+      if (!tabs.some((tab) => tab.getAttribute('aria-controls') === id)) return;
+      tabs.forEach((tab) => {
+        const selected = tab.getAttribute('aria-controls') === id;
+        tab.classList.toggle('selected', selected);
+        tab.setAttribute('aria-selected', String(selected));
+        tab.tabIndex = selected ? 0 : -1;
+      });
+      panels.forEach((panel) => { panel.hidden = panel.id !== id; });
+    };
+    const activate = (tab) => {
+      const id = tab.getAttribute('aria-controls');
+      selectCategory(id);
+      // Remember the selected category across a save/redirect without navigating.
+      window.history.replaceState(null, '', `#${id}`);
+    };
+    tabs.forEach((tab, index) => {
+      tab.addEventListener('click', (event) => {
+        event.preventDefault();
+        activate(tab);
+      });
+      tab.addEventListener('keydown', (event) => {
+        let next;
+        if (event.key === 'ArrowDown') next = (index + 1) % tabs.length;
+        else if (event.key === 'ArrowUp') next = (index - 1 + tabs.length) % tabs.length;
+        else if (event.key === 'Home') next = 0;
+        else if (event.key === 'End') next = tabs.length - 1;
+        else if (event.key === ' ') next = index;
+        else return;
+        event.preventDefault();
+        activate(tabs[next]);
+        tabs[next].focus();
+      });
+    });
+    const selectFromHash = () => {
+      const id = window.location.hash.slice(1);
+      selectCategory(panels.some((panel) => panel.id === id) ? id : 'prompt-explanation');
+    };
+    window.addEventListener('hashchange', selectFromHash);
+    selectFromHash();
+
+    prompts.querySelectorAll('[data-prompt-form]').forEach((form) => {
+      const feedback = form.querySelector('[data-prompt-feedback]');
+      const preview = form.querySelector('[data-prompt-preview]');
+      const showPreview = (data) => {
+        preview.replaceChildren();
+        const add = (title, value) => {
+          const heading = document.createElement('h4');
+          heading.textContent = title;
+          const body = document.createElement('p');
+          body.textContent = value;
+          preview.append(heading, body);
+        };
+        if (data.explanation) {
+          add('GPT explanation preview', data.explanation);
+          add('Precomputed similarity score', `${data.similarity_score}%`);
+          add('Shapley contributions', Object.entries(data.shapley_contributions).map(([name, value]) => `${name}: ${value}%`).join('; '));
+          add('Reference evidence', JSON.stringify(data.evidence, null, 2));
+          add('Sample', data.sample_note);
+        } else {
+          add('Historical background', data.historical_background || 'No supported history returned.');
+          add('Cultural background', data.cultural_background || 'No supported culture returned.');
+          add('Retrieved sources supplied', data.sources_provided ? 'Yes' : 'No — general-knowledge fallback test.');
+          (data.sources || []).forEach((source) => add(source.title, `${source.url}\n${source.excerpt}`));
+          add('AI-generated information', data.disclaimer);
+        }
+        add('Validation', data.validation);
+        preview.hidden = false;
+      };
+      const send = async (action, restoreVersion) => {
+        if ((action === 'test' || action === 'save') && !form.reportValidity()) return;
+        const body = new FormData(form);
+        body.set('action', action);
+        if (restoreVersion) body.set('restore_version', restoreVersion);
+        const buttons = Array.from(form.querySelectorAll('button'));
+        buttons.forEach((button) => { button.disabled = true; });
+        feedback.textContent = action === 'test' ? 'Testing with GPT…' : 'Saving version…';
+        if (action === 'test') preview.hidden = true;
+        try {
+          const response = await fetch(action === 'test' ? form.dataset.previewUrl : form.getAttribute('action'), {
+            method: 'POST', body, headers: { Accept: 'application/json' },
+          });
+          if (response.redirected) throw new Error('Your admin session expired. Sign in again and reload this page.');
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Request failed. Reload and try again.');
+          if (action === 'test') {
+            showPreview(data);
+            feedback.textContent = 'Preview only. The active prompt and production records have not changed.';
+          } else {
+            form.elements.expected_version.value = data.version;
+            form.elements.prompt.value = data.instructions;
+            const editor = form.closest('[data-prompt-editor]');
+            editor.querySelector('[data-active-version]').textContent = data.version;
+            const status = editor.querySelector('[data-prompt-status]');
+            status.textContent = data.custom ? 'Custom' : 'Default';
+            status.classList.toggle('pill-active', data.custom);
+            status.classList.toggle('pill-hidden', !data.custom);
+            const versions = form.querySelector('[data-version-list]');
+            versions.querySelectorAll('[data-version-status]').forEach((item) => { item.textContent = 'Inactive'; });
+            versions.querySelectorAll('[data-restore-version]').forEach((button) => { button.hidden = false; });
+            const entry = document.createElement('details');
+            entry.className = 'prompt-version';
+            const summary = document.createElement('summary');
+            summary.append(`Version ${data.version} · `);
+            const active = document.createElement('span');
+            active.dataset.versionStatus = '';
+            active.textContent = 'Active';
+            summary.append(active, ` · ${data.administrator} · ${data.modified_at} (UTC)`);
+            const text = document.createElement('pre');
+            text.className = 'mono';
+            text.textContent = data.instructions;
+            const restore = document.createElement('button');
+            restore.type = 'button';
+            restore.className = 'btn btn-outline';
+            restore.dataset.restoreVersion = data.version;
+            restore.textContent = `Restore version ${data.version}`;
+            restore.hidden = true;
+            entry.append(summary, text, restore);
+            versions.prepend(entry);
+            while (versions.children.length > 100) versions.lastElementChild.remove();
+            tabs.forEach((tab) => {
+              const panel = prompts.querySelector(`#${tab.getAttribute('aria-controls')}`);
+              const custom = Array.from(panel.querySelectorAll('[data-prompt-status]')).some((pill) => pill.textContent === 'Custom');
+              const pill = tab.querySelector('.pill');
+              pill.textContent = custom ? 'Custom' : 'Default';
+              pill.classList.toggle('pill-active', custom);
+              pill.classList.toggle('pill-hidden', !custom);
+            });
+            feedback.textContent = data.message;
+          }
+        } catch (error) {
+          feedback.textContent = error.message || 'Request failed. Your edits are still in the editor.';
+        } finally {
+          buttons.forEach((button) => { button.disabled = false; });
+        }
+      };
+      form.querySelector('[data-test-prompt]').addEventListener('click', () => send('test'));
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        send(event.submitter?.value || 'save');
+      });
+      form.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-restore-version]');
+        if (button) {
+          if (window.confirm(`Activate the writing instructions from version ${button.dataset.restoreVersion}?`)) {
+            send('restore', button.dataset.restoreVersion);
+          }
+        }
+      });
+    });
+  }
+
   // Mobile: open / close the sidebar menu
   const toggle = document.getElementById('sidebar-toggle');
   const nav = document.getElementById('admin-nav');

@@ -4,7 +4,7 @@ Table (made by supabase_dataset.sql):
   public.recipes  - one row per dish: recipe_id, position (display order) and one column per
                     dish field (title, country, ingredient_text, ...). Any other field a dish
                     has (for example from an uploaded file) goes in the "extra" JSON column.
-Only the dishes are in Supabase; the country list and GPT prompts stay in admin_data/.
+This module handles dishes only. Countries stay local; prompt_store.py owns prompt versions in Supabase.
 
 Uses the same Supabase settings and helpers as accounts.py (service key, server side only).
 If Supabase is not set up, or supabase_dataset.sql has not been run yet, available() is False

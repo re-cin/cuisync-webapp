@@ -394,54 +394,39 @@
    PROMPT MANAGEMENT
    ====================================================================== #}
 {% elif tab == 'prompts' %}
+{% from 'admin/prompt_editor.html' import editor with context %}
 {% if not gpt_on %}<div class="flash flash-info inline-flash">GPT is off right now (no OPENAI_API_KEY), so these prompts are saved but only used once GPT is on.</div>{% endif %}
-<div class="row align-start">
+{% if prompt_storage_warning %}<div class="flash flash-error inline-flash">Prompt database unavailable. Showing the last known configuration with protected backend rules. Saving requires the database to recover; reload before editing. History may be incomplete.</div>{% endif %}
+{% if not prompt_remote %}<div class="flash flash-info inline-flash">Local development: version history is stored in SQLite under admin_data. Configure Supabase for persistence across deployments.</div>{% endif %}
+{% if legacy_pending %}<div class="flash flash-info inline-flash">Local legacy instructions differ from the active configuration for {{ legacy_pending | join(', ') }}. The original prompts.json is preserved. Use the documented migration command to review and import them safely.</div>{% endif %}
+<div class="row align-start" data-prompt-management>
   <section class="card grow-1 side-card">
     <div class="card-head"><h2>Prompts</h2></div>
-    <div class="prompt-list">
-      <a href="#prompt-explanation" class="prompt-item">
+    <div class="prompt-list" role="tablist" aria-label="Prompt category" aria-orientation="vertical">
+      <a href="#prompt-explanation" id="prompt-tab-explanation" class="prompt-item selected" role="tab" aria-controls="prompt-explanation" aria-selected="true">
         <span class="prompt-item-top"><span class="strong">Similarity explanation</span><span class="pill {{ 'pill-active' if explanation_custom else 'pill-hidden' }}">{{ 'Custom' if explanation_custom else 'Default' }}</span></span>
         <span class="muted small">Explains why two dishes are similar, using the Shapley contributions.</span>
       </a>
-      <a href="#prompt-cultural" class="prompt-item">
-        <span class="prompt-item-top"><span class="strong">Cultural information</span><span class="pill {{ 'pill-active' if cultural_custom else 'pill-hidden' }}">{{ 'Custom' if cultural_custom else 'Default' }}</span></span>
-        <span class="muted small">Culture, history and health notes on the results page.</span>
+      <a href="#prompt-cultural" id="prompt-tab-cultural" class="prompt-item" role="tab" aria-controls="prompt-cultural" aria-selected="false" tabindex="-1">
+        <span class="prompt-item-top"><span class="strong">Historical and Cultural Information</span><span class="pill {{ 'pill-active' if cultural_custom else 'pill-hidden' }}">{{ 'Custom' if cultural_custom else 'Default' }}</span></span>
+        <span class="muted small">Source-based descriptions and cautious general-knowledge fallback.</span>
       </a>
     </div>
-    <p class="hint mt">New searches use a saved prompt right away. “Reset to default” goes back to the prompt in the code.</p>
+    <p class="hint mt">Saved prompts apply to future generations. Existing historical and cultural descriptions and references stay unchanged. Reset to default restores the prompt in the code.</p>
+    <p class="hint">You can switch categories without losing unsaved edits. Save each prompt separately.</p>
   </section>
 
   <div class="grow-3 stack">
-    <section class="card" id="prompt-explanation">
-      <div class="card-head"><h2>Similarity explanation</h2><span class="pill {{ 'pill-active' if explanation_custom else 'pill-hidden' }}">{{ 'Custom' if explanation_custom else 'Default' }}</span></div>
-      <p class="hint card-hint">The system prompt GPT gets when it explains why two dishes are similar. The few-shot examples and the grounding check stay the same.</p>
-      <form method="post" action="{{ url_for('admin_prompts') }}" class="stack-sm">
-        <input type="hidden" name="which" value="explanation">
-        <div class="field">
-          <label for="p-explanation">Prompt text</label>
-          <textarea id="p-explanation" name="prompt" rows="16" class="mono">{{ explanation_prompt }}</textarea>
-        </div>
-        <div class="inline-actions end">
-          <button type="submit" name="action" value="reset" class="btn btn-outline" data-confirm="Go back to the default prompt?">{{ icon('reset', 16) }} Reset to default</button>
-          <button type="submit" name="action" value="save" class="btn btn-maroon">Save prompt</button>
-        </div>
-      </form>
+    <section class="card" id="prompt-explanation" role="tabpanel" aria-labelledby="prompt-tab-explanation">
+      {{ editor(prompt_cards[0]) }}
     </section>
 
-    <section class="card" id="prompt-cultural">
-      <div class="card-head"><h2>Cultural information</h2><span class="pill {{ 'pill-active' if cultural_custom else 'pill-hidden' }}">{{ 'Custom' if cultural_custom else 'Default' }}</span></div>
-      <p class="hint card-hint">Used for the culture, history and health notes on the results page. It must ask for JSON with the keys <code>culture</code>, <code>history</code> and <code>health</code>.</p>
-      <form method="post" action="{{ url_for('admin_prompts') }}" class="stack-sm">
-        <input type="hidden" name="which" value="cultural">
-        <div class="field">
-          <label for="p-cultural">Prompt text</label>
-          <textarea id="p-cultural" name="prompt" rows="12" class="mono">{{ cultural_prompt }}</textarea>
-        </div>
-        <div class="inline-actions end">
-          <button type="submit" name="action" value="reset" class="btn btn-outline" data-confirm="Go back to the default prompt?">{{ icon('reset', 16) }} Reset to default</button>
-          <button type="submit" name="action" value="save" class="btn btn-maroon">Save prompt</button>
-        </div>
-      </form>
+    <section class="card" id="prompt-cultural" role="tabpanel" aria-labelledby="prompt-tab-cultural">
+      <div class="card-head"><h2>Historical and Cultural Information</h2></div>
+      <p class="hint card-hint">Manage the two generation modes used for dish history and culture. Both return <code>historical_background</code> and <code>cultural_background</code>. Mandatory evidence and output rules are added by the backend and cannot be removed here. Saving does not regenerate stored descriptions.</p>
+      {% for card in prompt_cards[1:] %}
+      {{ editor(card) }}
+      {% endfor %}
     </section>
   </div>
 </div>
