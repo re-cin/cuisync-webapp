@@ -832,3 +832,8 @@ a.admin-logo-link:hover, a.admin-logo-link:focus-visible { opacity: .85; }
 .ner-results .ner-option-main:hover { background: #ecc3be; }
 .ner-results .ner-choice { border-top-color: #e5cbc6; }
 .ner-results .ner-summary-warn { color: var(--maroon-main); }
+
+/* Prompt preview dish search: hidden options really hide (display: block above beat [hidden]) */
+.prompt-dish-results[hidden], .prompt-dish-option[hidden], .prompt-dish-empty[hidden] { display: none; }
+.prompt-dish-option.is-active { background: var(--cream-bg); color: var(--maroon-main); }
+.prompt-dish-empty { margin: 0; padding: 10px 12px; color: var(--admin-muted); font-size: .9rem; }
