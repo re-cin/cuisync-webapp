@@ -3417,3 +3417,14 @@ html.item-dishes-open, html.item-dishes-open body { overflow: hidden; }
 }
 /* They open below the "i", so the sticky tab bar never covers them */
 .info-tooltip--left .info-tooltip-content { top: calc(100% + 9px); bottom: auto; z-index: 60; }
+
+/* Find dishes popup: the "i" about Uses all / Uses some sits right after the tabs */
+.item-dishes-toolbar .item-dishes-help { flex: none; margin-left: -6px; margin-right: auto; }
+@media (max-width: 820px), (pointer: coarse) {
+  .item-dishes-toolbar .item-dishes-tabs { flex: 1 1 0; min-width: 0; width: auto; }
+  .item-dishes-toolbar .item-dishes-help { margin-left: 0; }
+}
+@media (max-width: 820px), (pointer: coarse) {
+  /* the "i" is at the right edge here, so its tooltip opens to the left */
+  .item-dishes-toolbar .item-dishes-help .info-tooltip-content { left: auto; right: -6px; }
+}

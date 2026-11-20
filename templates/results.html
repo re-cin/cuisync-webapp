@@ -16,7 +16,7 @@
   <!-- Dish popup styles (shared with the Dishes page); results.css after them keeps its own look -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/dictionary.css') }}?v=popup-top">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/dish-information.css') }}?v=allergen-ui-v7">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/results.css') }}?v=allergen-ui-v29">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/results.css') }}?v=allergen-ui-v31">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/country-picker.css') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/panel.css') }}?v=close-gold">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/results-map.css') }}">
@@ -241,14 +241,6 @@
                   </button>
                   <div class="entity-pick-status" id="entity-pick-status" aria-live="polite">Choose ingredients above.</div>
                   <button type="button" class="entity-pick-clear" id="entity-pick-clear" hidden>Clear</button>
-                  <span class="info-tooltip info-tooltip--left entity-pick-help">
-                    <button type="button" class="info-tooltip-trigger" aria-expanded="false" aria-label="About Find dishes">i</button>
-                    <span class="info-tooltip-content">
-                      <strong>Uses all</strong> shows the dishes that have every ingredient you picked.
-                      <strong>Uses some</strong> shows the dishes that have only some of them, with the ones that have more first.
-                      Choose a dish to see its recipe, culture &amp; history and health information.
-                    </span>
-                  </span>
                 </div>
                 {% endif %}
               {% endfor %}
@@ -525,6 +517,14 @@
           <button type="button" role="tab" id="item-dishes-tab-all" aria-selected="true"></button>
           <button type="button" role="tab" id="item-dishes-tab-some" aria-selected="false"></button>
         </div>
+        <span class="info-tooltip info-tooltip--left item-dishes-help">
+          <button type="button" class="info-tooltip-trigger" aria-expanded="false" aria-label="About Uses all and Uses some">i</button>
+          <span class="info-tooltip-content">
+            <strong>Uses all</strong> shows the dishes that have every ingredient you picked.
+            <strong>Uses some</strong> shows the dishes that have only some of them, with the ones that have more first.
+            Choose a dish to see its recipe, culture &amp; history and health information.
+          </span>
+        </span>
         <div id="item-dishes-countries" class="item-dishes-tags" aria-label="Your ingredients" hidden></div>
       </div>
       <section class="item-dishes-section" id="item-dishes-all">
