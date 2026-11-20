@@ -3217,11 +3217,17 @@ html.item-dishes-open, html.item-dishes-open body { overflow: hidden; }
   background-color: var(--cream-bg, #fdf8ef); border: 1px solid var(--gold-accent, #c8a860);
   border-radius: 14px; text-align: center; box-shadow: 0 12px 30px rgba(0, 0, 0, .35);
 }
-#item-dishes-overlay .modal-close-btn {
-  position: absolute; top: 12px; right: 14px; background: none; border: none;
-  font-size: 1.4rem; line-height: 1; color: var(--text-muted, #8c8275); cursor: pointer;
+/* Computers: a plain x in the corner. Phones get the red "x CLOSE" pill from panel.css */
+@media (min-width: 821px) and (pointer: fine) {
+  #item-dishes-overlay .modal-close-btn {
+    position: absolute; top: 12px; right: 14px; background: none; border: none;
+    font-size: 1.4rem; line-height: 1; color: var(--text-muted, #8c8275); cursor: pointer;
+  }
+  #item-dishes-overlay .modal-close-btn:hover { color: var(--maroon-main); }
 }
-#item-dishes-overlay .modal-close-btn:hover { color: var(--maroon-main); }
+@media (max-width: 820px), (pointer: coarse) {
+  #item-dishes-overlay .modal-close-btn { border: 0; cursor: pointer; }
+}
 #item-dishes-overlay .modal-title { font-size: 1.4rem; color: var(--maroon-dark); margin-bottom: 10px; }
 #item-dishes-overlay .modal-desc { font-size: .88rem; color: var(--text-muted, #6b6259); line-height: 1.5; }
 #item-dishes-overlay .dish-card { text-align: left; }
