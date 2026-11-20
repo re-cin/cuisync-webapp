@@ -3326,3 +3326,4 @@ html.item-dishes-open, html.item-dishes-open body { overflow: hidden; }
   .item-dishes-tabs { width: 100%; }
   .item-dishes-tabs button { padding: 9px 10px; font-size: .8rem; }
 }
+.item-dishes-tabs button:disabled { color: #b3a898; cursor: not-allowed; background: transparent; }

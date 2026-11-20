@@ -127,13 +127,16 @@
       ? 'Dishes with your ingredients. Choose a dish to compare it with the same target country.'
       : `No dish uses any of these: ${names.join(', ')}.`;
 
-    // Two tabs: "Uses all" and "Uses some" (only when both have dishes); pages run inside a tab
+    // Two tabs: "Uses all" and "Uses some"; pages run inside a tab
     const all = data.dishes.map((d) => ({ d, every: true })).concat(partial.map((d) => ({ d, every: false })));
     const nAll = data.dishes.length;
     const nSome = partial.length;
     let tab = nAll ? 'all' : 'some';
     let page = 0;
-    tabs.hidden = !(nAll && nSome);
+    // Both labels always show (when something is found); a tab with no dishes is greyed out
+    tabs.hidden = !(nAll || nSome);
+    tabAll.disabled = !nAll;
+    tabSome.disabled = !nSome;
     tabAll.textContent = `Uses all ${names.length} (${nAll})`;
     tabSome.textContent = `Uses some (${nSome})`;
     const pickTab = (name) => { tab = name; page = 0; render(); popupBox.scrollTop = 0; };
