@@ -137,8 +137,8 @@
     tabs.hidden = !(nAll || nSome);
     tabAll.disabled = !nAll;
     tabSome.disabled = !nSome;
-    tabAll.textContent = `Uses all ${names.length} (${nAll})`;
-    tabSome.textContent = `Uses some (${nSome})`;
+    tabAll.textContent = `Uses all ${names.length} (${data.total ?? nAll})`;
+    tabSome.textContent = `Uses some (${data.partial_total ?? nSome})`;
     const pickTab = (name) => { tab = name; page = 0; render(); popupBox.scrollTop = 0; };
     tabAll.onclick = () => pickTab('all');
     tabSome.onclick = () => pickTab('some');
@@ -179,6 +179,8 @@
     document.documentElement.classList.add('item-dishes-open');
     popupBox.scrollTop = 0;
     popupClose.focus();
+    // Tags that all fit get no fade at the end of the row
+    popupCountries.classList.toggle('fits', popupCountries.scrollWidth <= popupCountries.clientWidth + 1);
   }
 
   function closePopup() {

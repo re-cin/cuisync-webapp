@@ -2111,10 +2111,10 @@ def api_dishes_with_items():
         "mode": "items",
         "items": [{"kind": k, "label": l, "value": v} for k, l, v in wanted],
         "total": len(every),
-        "dishes": [dish_card(idx, None, found) for idx, found in every[:300]],
+        "dishes": [dish_card(idx, None, found) for idx, found in every],
         "partial_total": len(some),
         "partial": [dict(dish_card(idx, None, found), missing=[v for _, _, v in wanted if v not in {f[0] for f in found}])
-                    for idx, found in some[:300]],
+                    for idx, found in some],
     })
 
 
