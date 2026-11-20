@@ -16,7 +16,7 @@
   <!-- Dish popup styles (shared with the Dishes page); results.css after them keeps its own look -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/dictionary.css') }}?v=popup-top">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/dish-information.css') }}?v=allergen-ui-v7">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/results.css') }}?v=allergen-ui-v27">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/results.css') }}?v=allergen-ui-v29">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/country-picker.css') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/panel.css') }}?v=close-gold">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/results-map.css') }}">
@@ -210,7 +210,15 @@
               {% for key, label, param in [('ingredients', 'INGREDIENTS', 'ingredient'), ('actions', 'COOKING ACTIONS', 'action'), ('cookware', 'COOKWARES', 'cookware'), ('utensils', 'UTENSILS', 'utensil')] %}
                 {% set cat = entities[key] %}
                 <div class="entity-group">
-                  <span class="entity-category-label">{{ label }}</span>
+                  <span class="entity-category-label">{{ label }}{% if param == 'ingredient' %}
+                    <span class="info-tooltip info-tooltip--left">
+                      <button type="button" class="info-tooltip-trigger" aria-expanded="false" aria-label="How to search with these ingredients">i</button>
+                      <span class="info-tooltip-content">
+                        Click the ingredients you want to search with. You can pick as many as you like; click one again to remove it.
+                        Then press <strong>Find dishes</strong> to see every dish that uses them.
+                        Colours: gold is in both dishes, red only in your dish, green only in the similar dish.
+                      </span>
+                    </span>{% endif %}</span>
                   <div class="chips-wrapper">
                     {% for item in cat.shared %}
                       {% if param == 'ingredient' %}<button type="button" class="entity-chip chip-gold" data-type="shared" data-kind="ingredient" data-value="{{ item | lower }}" aria-pressed="false">{{ item }}</button>{% else %}<a class="entity-chip chip-gold" data-type="shared" href="{{ url_for('dictionary', **{param: item | lower}) }}" title="See every dish with {{ item | lower }}">{{ item }}</a>{% endif %}
@@ -233,6 +241,14 @@
                   </button>
                   <div class="entity-pick-status" id="entity-pick-status" aria-live="polite">Choose ingredients above.</div>
                   <button type="button" class="entity-pick-clear" id="entity-pick-clear" hidden>Clear</button>
+                  <span class="info-tooltip info-tooltip--left entity-pick-help">
+                    <button type="button" class="info-tooltip-trigger" aria-expanded="false" aria-label="About Find dishes">i</button>
+                    <span class="info-tooltip-content">
+                      <strong>Uses all</strong> shows the dishes that have every ingredient you picked.
+                      <strong>Uses some</strong> shows the dishes that have only some of them, with the ones that have more first.
+                      Choose a dish to see its recipe, culture &amp; history and health information.
+                    </span>
+                  </span>
                 </div>
                 {% endif %}
               {% endfor %}

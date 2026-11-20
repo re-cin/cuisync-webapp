@@ -3403,3 +3403,17 @@ html.item-dishes-open, html.item-dishes-open body { overflow: hidden; }
 
 /* Find dishes popup above the top bar and the phone's bottom nav (app-nav is at 99999) */
 #item-dishes-overlay { z-index: 100002; }
+
+/* Recipe breakdown tooltips: open to the right of the "i" so they don't go off the left edge */
+.info-tooltip--left .info-tooltip-content { left: -10px; transform: translate(0, 5px); width: 260px; text-transform: none; letter-spacing: normal; font-family: 'Poppins', sans-serif; }
+.info-tooltip--left:hover .info-tooltip-content,
+.info-tooltip--left:focus-within .info-tooltip-content,
+.info-tooltip--left.is-open .info-tooltip-content { transform: translate(0, 0); }
+.info-tooltip--left .info-tooltip-content strong { color: var(--gold-accent); }
+.entity-category-label .info-tooltip { vertical-align: 2px; }
+.entity-pick-help { margin-left: -4px; }
+@media (max-width: 600px) {
+  .info-tooltip--left .info-tooltip-content { width: min(260px, calc(100vw - 60px)); }
+}
+/* They open below the "i", so the sticky tab bar never covers them */
+.info-tooltip--left .info-tooltip-content { top: calc(100% + 9px); bottom: auto; z-index: 60; }
