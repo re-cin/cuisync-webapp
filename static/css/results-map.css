@@ -412,3 +412,39 @@ html.rmap-lock { overflow: hidden; }
   .rmap.is-full:has(.rmap-side.is-expanded) .rmap-zoom { opacity: 0; pointer-events: none; }
   .rmap.is-full .rmap-zoom { transition: opacity .2s ease; }
 }
+
+/* ==========================================================================
+   STATIC PREVIEW: a pre-drawn map (assets/map/world-map.svg) placed by results-map.js.
+   The interactive d3 map (#rmap-svg) only shows once full screen has loaded it (.is-live).
+   ========================================================================== */
+.rmap-static { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.rmap-static svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1000px !important;
+  height: 997px !important;
+  max-width: none !important;   /* phones cap svg widths elsewhere */
+  max-height: none !important;
+  transform-origin: 0 0;
+}
+/* 0.5px on screen, like the interactive map (results-map.js sets --stroke for the current scale) */
+.rmap-static path { stroke: #fbf6ec; stroke-width: var(--stroke, 0.5px); }
+.rmap:not(.is-live) .rmap-svg { visibility: hidden; }
+.rmap.is-live .rmap-static { display: none; }
+
+/* Full screen opened before the interactive map has finished loading */
+.rmap.is-full.is-loading:not(.is-live) .rmap-map::before {
+  content: "Loading the interactive map...";
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  z-index: 8;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: rgba(44, 26, 17, 0.75);
+  color: #ffffff;
+  font: 500 0.78rem/1.3 'Poppins', sans-serif;
+  pointer-events: none;
+}

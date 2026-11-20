@@ -140,10 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ocrLoading.style.display = isLoading ? 'block' : 'none';
     imageSearchButton.disabled = isLoading;
     imageForm.classList.toggle('is-ocr-loading', isLoading);
-    if (window.CuiSyncBusy) {
-      if (isLoading) window.CuiSyncBusy.start(null, 'Reading the menu...');
-      else window.CuiSyncBusy.stop();
-    }
+    // No full-page overlay here: the upload box already shows its own scanning loader
   }
 
   // Fill the dish card
@@ -205,7 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
         country_value: (m.country_value || m.country || '').toLowerCase(),
         tags: m.tags || [],
         ingredients: m.ingredients || [],
-        score: null,
+        score: m.score ?? null,   // how closely the menu text matches the dish name
         found: [],
       }));
       usingCardPopup = true;

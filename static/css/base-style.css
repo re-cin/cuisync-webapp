@@ -710,5 +710,43 @@ button.is-busy { cursor: progress; }
 .acct-panel button.acct-logout:hover,
 .acct-panel button.acct-logout:focus-visible { background: #f3ede1; outline: none; }
 
+/* Busy screen, subtle version: the translucent tint with only the red spinner on it.
+   No box or text; the label stays readable to screen readers. */
+.busy-box {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+.busy-spinner {
+  width: 38px;
+  height: 38px;
+  border-width: 4px;
+  /* cream track + red arc: visible on the cream pages and on the red ones */
+  border-color: rgba(234, 227, 210, 0.75);
+  border-top-color: var(--maroon-main);
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.25));
+}
+.busy-words {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Footer: Contact us column */
+.footer-email {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 0.8rem;
+  color: #e0d0cc;
+  word-break: break-all;      /* long address never overflows on small phones */
+}
+.footer-email svg { flex: none; color: var(--gold-accent); }
+.footer-email:hover { color: var(--gold-accent); text-decoration: underline; }
+
 /* Footer ©: also the hidden way to the admin login (5 clicks), so no hand cursor or text selection */
 .footer-secret { cursor: default; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }

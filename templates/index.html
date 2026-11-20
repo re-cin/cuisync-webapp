@@ -24,7 +24,12 @@
        HERO BANNER
        ================================== -->
   <section class="hero">
+    <!-- Slideshow of dish photos from the dataset (made by the script at the end of this page).
+         Until a photo has loaded (or if none load) the usual background shows. -->
+    <div class="hero-slides" id="hero-slides" aria-hidden="true"
+         data-dishes="{{ hero_dishes() | tojson | forceescape }}"></div>
     <div class="hero-overlay"></div>
+    <p class="hero-dish-caption" id="hero-dish-caption" aria-hidden="true"></p>
     <div class="hero-content">
       <div class="subtitle">◆ DISCOVER ASIAN CUISINES</div>
       <h1 class="hero-title">CUISYNC</h1>
@@ -34,11 +39,9 @@
       </p>
       <div class="hero-actions">
         <a href="#search-section" class="btn btn-gold">SEARCH NOW</a>
-        {% if current_user %}
-        <a href="/profile#history" class="btn btn-hero-outline">MY SEARCH HISTORY</a>
-        {% else %}
-        <a href="/login" class="btn btn-hero-outline">LOG IN</a>
-        {% endif %}
+        {# Guests: the same button, but it goes to the log in page first, then to their history #}
+        <a href="{{ '/profile#history' if current_user else url_for('login', next='/profile#history') }}"
+           class="btn btn-hero-outline">MY SEARCH HISTORY</a>
       </div>
       {% if not current_user %}
       <p class="hero-login-note">
@@ -605,6 +608,55 @@
     </div>
   </div>
 
+  <script>
+    /* Home page slideshow: dish photos from the dataset, fading from one to the next.
+       The server sends 8 random dishes; the first 4 photos that load properly (and are big
+       enough) are used, so a broken or blocked link is simply skipped. */
+    (function () {
+      const box = document.getElementById('hero-slides');
+      const caption = document.getElementById('hero-dish-caption');
+      if (!box) return;
+      let dishes = [];
+      try { dishes = JSON.parse(box.dataset.dishes || '[]'); } catch (e) { return; }
+      const WANT = 4, MIN_WIDTH = 700, EVERY_MS = 6000;
+      const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const slides = [];
+      let current = -1, timer = null;
+
+      function show(i) {
+        if (current >= 0) slides[current].el.classList.remove('is-on');
+        current = i;
+        slides[i].el.classList.add('is-on');
+        caption.textContent = `${slides[i].dish.title} \u00b7 ${slides[i].dish.country}`;
+        caption.classList.add('is-on');
+      }
+      function next() {
+        if (document.hidden || slides.length < 2) return;   // don't change while the tab is hidden
+        show((current + 1) % slides.length);
+      }
+      function add(dish, img) {
+        if (slides.length >= WANT) return;
+        const el = document.createElement('div');
+        el.className = 'hero-slide';
+        el.appendChild(img);
+        box.appendChild(el);
+        slides.push({ el, dish });
+        if (slides.length === 1) {
+          box.closest('.hero').classList.add('has-slides');
+          requestAnimationFrame(() => show(0));
+        }
+        if (slides.length === 2 && !still) timer = setInterval(next, EVERY_MS);
+      }
+      dishes.forEach((dish) => {
+        const img = new Image();
+        img.alt = '';
+        img.decoding = 'async';
+        img.referrerPolicy = 'no-referrer';
+        img.onload = () => { if (img.naturalWidth >= MIN_WIDTH) add(dish, img); };
+        img.src = dish.image;
+      });
+    })();
+  </script>
   <script src="{{ url_for('static', filename='scripts/components.js') }}"></script>
 
   <script src="{{ url_for('static', filename='scripts/ocr.js') }}"></script>

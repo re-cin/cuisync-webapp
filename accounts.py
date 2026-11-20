@@ -20,6 +20,8 @@ import datetime
 import os
 import re
 
+import threading
+
 import requests
 
 # Always read the .env next to this file (not whichever folder the app was started from).
@@ -42,6 +44,18 @@ USERNAME_RE = re.compile(r"^[A-Za-z0-9._]{3,30}$")
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 TIMEOUT = 15
+
+# One HTTP session per server thread, so calls to Supabase reuse an open connection instead of
+# setting up a new secure (TLS) connection every time. This is what made searches slow:
+# each search makes a few Supabase calls (user, search history), each paying the full set-up.
+_local = threading.local()
+
+
+def _session():
+    session = getattr(_local, "session", None)
+    if session is None:
+        session = _local.session = requests.Session()
+    return session
 
 URL = ANON_KEY = SERVICE_KEY = ""
 TIMEZONE = os.environ.get("CUISYNC_TIMEZONE", "Asia/Singapore")  # for "searches per day"
@@ -110,9 +124,10 @@ def _call(method, path, key=None, params=None, json=None, prefer=None, ok=(200, 
     if extra_auth:   # a signed-in user's token (the apikey header still identifies the project)
         extra["Authorization"] = f"Bearer {extra_auth}"
     try:
-        response = requests.request(method, URL + path, headers=_headers(key or SERVICE_KEY, extra),
-                                    params=params, json=json, timeout=TIMEOUT)
+        response = _session().request(method, URL + path, headers=_headers(key or SERVICE_KEY, extra),
+                                      params=params, json=json, timeout=TIMEOUT)
     except requests.RequestException:
+        _local.session = None   # start with a fresh connection next time
         raise SupabaseError("Can't reach the account server right now. Please try again.")
     if response.status_code not in ok:
         raise _error_from(response)

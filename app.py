@@ -7,10 +7,13 @@ import io
 import json
 import os
 import re
+import random
 import secrets
 import threading
+from concurrent.futures import ThreadPoolExecutor
 import time
 import unicodedata
+from urllib.parse import urlparse
 from functools import lru_cache, wraps
 
 import cv2
@@ -276,9 +279,20 @@ def _vectorize_at_startup():
         print(f"[CuiSync] Vectorizing new items at startup failed: {error}")
 
 
+# The logged-in user is kept in memory for a short time, so a page or search doesn't wait for
+# Supabase just to look the user up again. Any form submit (POST) reloads it, and after a POST
+# the copy is dropped (see forget_cached_user), so profile / allergy changes show straight away.
+USER_CACHE_SECONDS = 30
+_USER_CACHE = {}   # user id -> (expires at, user dict)
+
+
 def current_user():
     if "user" not in g:
         uid = session.get("user_id")
+        cached = _USER_CACHE.get(uid) if uid and request.method == "GET" else None
+        if cached and cached[0] > time.time():
+            g.user = cached[1]
+            return g.user
         try:
             g.user = accounts.get_user(uid) if uid else None
         except accounts.SupabaseError as error:  # Supabase unreachable: carry on logged out
@@ -289,7 +303,20 @@ def current_user():
             g.user = None
         if uid and g.user is None:
             session.pop("user_id", None)
+            _USER_CACHE.pop(uid, None)
+        elif g.user is not None:
+            _USER_CACHE[uid] = (time.time() + USER_CACHE_SECONDS, g.user)   # only active accounts
     return g.user
+
+
+@app.after_request
+def forget_cached_user(response):
+    # Something may have changed (profile, allergies, password, log out): look the user up again
+    if request.method != "GET":
+        _USER_CACHE.pop(session.get("user_id"), None)
+        if "user" in g and g.user:
+            _USER_CACHE.pop(g.user.get("id"), None)
+    return response
 
 
 def login_required(view):
@@ -347,7 +374,29 @@ def inject_globals():
         "home_ingredient_quick": quick_ingredients,
         # Countries for the Region tab of "Search by tag": [(value, label, number of dishes)]
         "home_country_options": home_country_options,
+        # Dish photos for the home page slideshow (only built when the template asks)
+        "hero_dishes": hero_dishes,
     }
+
+
+# Photos never used in the home page slideshow:
+# - Food.com (img.sndimg.com): many of its dishes only have a placeholder picture
+HERO_SKIP_HOSTS = ("img.sndimg.com",)
+
+
+def hero_dishes(count=8):
+    """A few random dishes with a photo for the home page slideshow (the page keeps the first 4
+    photos that load properly). From the current dataset, so dishes the admin adds can show up.
+    Skips Food.com photos and any photo link shared by several dishes (a logo or placeholder,
+    not a real photo of that dish)."""
+    links = [(r.get("image_link") or "").strip() for r in RECIPES]
+    shared = {link for link, n in Counter(links).items() if n > 1}
+    with_photo = [r for r, link in zip(RECIPES, links)
+                  if link.startswith("https://") and link not in shared
+                  and urlparse(link).netloc.lower() not in HERO_SKIP_HOSTS]
+    picks = random.sample(with_photo, min(count, len(with_photo)))
+    return [{"image": r["image_link"], "title": (r.get("title") or "").strip(),
+             "country": STORE.label_of(r.get("country"))} for r in picks]
 
 
 def home_country_options():
@@ -376,13 +425,26 @@ def quick_ingredients():
     return _quick_ingredient_counts(id(INGREDIENT_SEARCH))
 
 
+# Search history is saved in the background, so a search doesn't wait for Supabase.
+# One worker: the saves stay in order ("same search twice in a row" is merged in accounts.py).
+_HISTORY_SAVER = ThreadPoolExecutor(max_workers=1, thread_name_prefix="history")
+
+
 def save_history(**entry):
     user = current_user()
-    if user:
+    if not user:
+        return
+    user_id = user["id"]
+
+    def save():
         try:
-            accounts.add_history(user["id"], **entry)
+            accounts.add_history(user_id, **entry)
         except Exception as error:  # history must never break a search
             app.logger.warning("Could not save search history: %s", error)
+    try:
+        _HISTORY_SAVER.submit(save)
+    except RuntimeError:  # the app is shutting down: save it now instead
+        save()
 
 
 def with_card_info(matches):
