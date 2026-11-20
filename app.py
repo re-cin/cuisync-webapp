@@ -2273,7 +2273,7 @@ def approve_dish_background(record_id):
             raise DishStoreError("Supabase is not configured.")
         store.approve_background(str(record_id), current_user()["id"], request.form.get("review_note", ""),
                                  expected_updated_at=request.form.get("updated_at"))
-        flash("Historical and cultural information marked as reviewed.", "success")
+        _popup("Marked as reviewed", "The historical and cultural information is marked as reviewed.")
     except DishStoreError as error:
         flash(str(error), "error")
     return redirect(url_for("dish_information_admin"))
@@ -2376,16 +2376,39 @@ def admin_logout():
     return redirect(url_for("admin_login"))
 
 
-def _after_data_change(message):
+def _after_data_change(message, popup=None):
+    """Reload the matcher, then tell the admin. popup = {"kind", "title", ...} shows the result
+    as a pop-up (admin/_flash.html) instead of a small message in the corner."""
     missing = reload_data()
+    note = ""
     if missing:
         sample = ", ".join(item for _, item in missing[:6])
         reason = f" Reason: {STORE.vector_error}" if STORE.vector_error else ""
-        flash(f"{message} Note: {len(missing)} new item(s) could not be vectorized "
-              f"({sample}{'...' if len(missing) > 6 else ''}), so they don't add to similarity yet. "
-              f"They are tried again on the next save or restart.{reason}", "info")
+        note = (f"{len(missing)} new item(s) could not be vectorized "
+                f"({sample}{'...' if len(missing) > 6 else ''}), so they don't add to similarity yet. "
+                f"They are tried again on the next save or restart.{reason}")
+    if note:   # only in the console / Render logs, not shown to the admin
+        print(f"[CuiSync] {message} {note}")
+    if popup:
+        flash(json.dumps(dict(popup, text=popup.get("text") or message, note="")), "popup")
+    elif note:
+        flash(f"{message} Note: {note}", "info")
     else:
         flash(message, "success")
+
+
+def _popup(title, text, item=None, kind="success"):
+    """Show an admin result as a pop-up (admin/_flash.html). kind: "success" (gold tick)
+    or "deleted" (bin). item = the name shown in bold before the text."""
+    flash(json.dumps({"kind": kind, "title": title, "dish": item or "", "text": text, "note": ""}), "popup")
+
+
+@app.template_filter("fromjson")
+def _fromjson(text):
+    try:
+        return json.loads(text)
+    except (TypeError, ValueError):
+        return {}
 
 
 @app.route("/admin/dishes/new", methods=["GET", "POST"])
@@ -2402,10 +2425,15 @@ def admin_dish_form(recipe_id=None):
         try:
             if recipe_id is None:
                 saved = STORE.add_dish(request.form)
-                _after_data_change(f'Added "{saved["title"]}".')
+                _after_data_change(f'Added "{saved["title"]}".', popup={
+                    "kind": "success", "title": "Dish added", "dish": saved["title"],
+                    "text": "was added to the dataset and now shows in search results.",
+                    "add_another": True})
             else:
                 saved = STORE.update_dish(recipe_id, request.form)
-                _after_data_change(f'Saved "{saved["title"]}".')
+                _after_data_change(f'Saved "{saved["title"]}".', popup={
+                    "kind": "success", "title": "Changes saved", "dish": saved["title"],
+                    "text": "was updated. Search results use the new details right away."})
             return redirect(url_for("admin_page", tab="dishes", q=saved["title"]))
         except ValueError as error:
             flash(str(error), "error")
@@ -2445,7 +2473,9 @@ def admin_extract_directions():
 def admin_dish_delete(recipe_id):
     try:
         removed = STORE.delete_dish(recipe_id)
-        _after_data_change(f'Deleted "{removed["title"]}".')
+        _after_data_change(f'Deleted "{removed["title"]}".', popup={
+            "kind": "deleted", "title": "Dish deleted", "dish": removed["title"],
+            "text": "was removed from the dataset and no longer shows in search results."})
     except ValueError as error:
         flash(str(error), "error")
     return redirect(request.referrer or url_for("admin_page", tab="dishes"))
@@ -2462,7 +2492,8 @@ def _country_view():
 def admin_country_add():
     try:
         STORE.add_country(request.form.get("label"), request.form.get("region"))
-        flash(f"Added {request.form.get('label')}. It shows in the dropdowns once it has a dish.", "success")
+        _popup("Country added", "was added. It shows in the dropdowns once it has a dish.",
+               item=request.form.get("label"))
     except ValueError as error:
         flash(str(error), "error")
     return redirect(url_for("admin_page", tab="countries", view=_country_view()))
@@ -2475,7 +2506,7 @@ def admin_country_update(name):
         if STORE.update_country(name, request.form.get("label"), request.form.get("region"),
                                 request.form.get("visible") == "on"):
             reload_data()
-        flash("Country saved.", "success")
+        _popup("Country saved", "Your changes to the country were saved.")
     except ValueError as error:
         flash(str(error), "error")
     return redirect(url_for("admin_page", tab="countries", view=_country_view()))
@@ -2486,7 +2517,7 @@ def admin_country_update(name):
 def admin_country_delete(name):
     try:
         STORE.remove_country(name)
-        flash("Country removed.", "success")
+        _popup("Country removed", "The country was removed.", kind="deleted")
     except ValueError as error:
         flash(str(error), "error")
     return redirect(url_for("admin_page", tab="countries", view=_country_view()))
@@ -2497,7 +2528,7 @@ def admin_country_delete(name):
 def admin_region_add():
     try:
         name = STORE.add_region(request.form.get("name"))
-        flash(f"Added the region {name}. Pick it on a country to use it.", "success")
+        _popup("Region added", "was added. Pick it on a country to use it.", item=name)
     except ValueError as error:
         flash(str(error), "error")
     return redirect(url_for("admin_page", tab="countries", view=_country_view()))
@@ -2510,7 +2541,7 @@ def admin_region_rename():
         moved = STORE.rename_region(request.form.get("region"), request.form.get("name"))
         if moved:
             reload_data()
-        flash("Region saved.", "success")
+        _popup("Region saved", "Your changes to the region were saved.")
     except ValueError as error:
         flash(str(error), "error")
     return redirect(url_for("admin_page", tab="countries", view=_country_view()))
@@ -2531,7 +2562,7 @@ def admin_region_move():
 def admin_region_delete():
     try:
         STORE.delete_region(request.form.get("region"))
-        flash("Region deleted.", "success")
+        _popup("Region deleted", "The region was deleted.", kind="deleted")
     except ValueError as error:
         flash(str(error), "error")
     return redirect(url_for("admin_page", tab="countries", view=_country_view()))
@@ -2581,7 +2612,9 @@ def admin_user_status(user_id):
     else:
         try:
             accounts.set_status(user_id, request.form.get("status"))
-            flash("Account " + ("disabled." if request.form.get("status") == "disabled" else "enabled."), "success")
+            disabled = request.form.get("status") == "disabled"
+            _popup("Account disabled" if disabled else "Account enabled",
+                   "This user can no longer log in." if disabled else "This user can log in again.")
         except ValueError as error:
             flash(str(error), "error")
     return redirect(url_for("admin_page", tab="users", user=user_id))
@@ -2595,7 +2628,7 @@ def admin_user_delete(user_id):
     else:
         try:
             accounts.delete_user(user_id)
-            flash("User deleted.", "success")
+            _popup("User deleted", "The account and its search history were deleted.", kind="deleted")
         except ValueError as error:
             flash(str(error), "error")
     return redirect(url_for("admin_page", tab="users"))
@@ -2613,7 +2646,7 @@ def admin_account():
             else:
                 try:
                     accounts.change_password(user["id"], request.form.get("old"), request.form.get("new"))
-                    flash("Password changed.", "success")
+                    _popup("Password changed", "Use your new password the next time you log in.")
                 except ValueError as error:
                     flash(str(error), "error")
         else:
@@ -2621,7 +2654,7 @@ def admin_account():
             form = type("Form", (dict,), {"getlist": lambda self, k: keep.get(k, [])})(
                 display_name=request.form.get("display_name", ""))
             accounts.update_profile(user["id"], form)
-            flash("Name saved.", "success")
+            _popup("Name saved", "Your name was updated.")
         return redirect(url_for("admin_account"))
     return render_template("admin/admin_account.html", active="account", tab="account")
 

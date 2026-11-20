@@ -179,10 +179,61 @@
     });
   });
 
-  // Ask before destructive actions: <button data-confirm="Are you sure?">
+  // Ask before destructive actions in a pop-up: <button data-confirm="Are you sure?">
+  // Optional: data-confirm-title, data-confirm-item (shown in bold first), data-confirm-ok (button text)
+  let confirmDialog = null;
+  function getConfirmDialog() {
+    if (confirmDialog) return confirmDialog;
+    confirmDialog = document.createElement('dialog');
+    confirmDialog.className = 'admin-modal';
+    confirmDialog.setAttribute('aria-labelledby', 'confirm-modal-title');
+    confirmDialog.innerHTML = `
+      <div class="admin-modal-icon admin-modal-icon-danger" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+      </div>
+      <h2 class="admin-modal-title" id="confirm-modal-title"></h2>
+      <p class="admin-modal-text"><strong class="admin-modal-item"></strong> <span class="admin-modal-message"></span></p>
+      <div class="admin-modal-actions">
+        <button type="button" class="btn btn-outline" data-modal-cancel>Cancel</button>
+        <button type="button" class="btn btn-delete" data-modal-ok></button>
+      </div>`;
+    document.body.appendChild(confirmDialog);
+    confirmDialog.querySelector('[data-modal-cancel]').addEventListener('click', () => confirmDialog.close());
+    confirmDialog.addEventListener('click', (e) => { if (e.target === confirmDialog) confirmDialog.close(); });
+    return confirmDialog;
+  }
+  // The same pop-up for scripts (admin-ner.js): cuisyncConfirm({title, item, message, ok}) -> true/false
+  window.cuisyncConfirm = ({ title, item, message, ok, icon } = {}) => new Promise((resolve) => {
+    const dialog = getConfirmDialog();
+    if (typeof dialog.showModal !== 'function') {             // very old browser: plain confirm
+      resolve(window.confirm(((item || '') + ' ' + (message || '')).trim()));
+      return;
+    }
+    dialog.querySelector('.admin-modal-title').textContent = title || 'Are you sure?';
+    dialog.querySelector('.admin-modal-item').textContent = item || '';
+    dialog.querySelector('.admin-modal-message').textContent = message || '';
+    dialog.querySelector('.admin-modal-icon').hidden = icon === false;
+    const okBtn = dialog.querySelector('[data-modal-ok]');
+    okBtn.textContent = ok || 'Yes, continue';
+    let answer = false;
+    okBtn.onclick = () => { answer = true; dialog.close(); };
+    dialog.addEventListener('close', () => resolve(answer), { once: true });
+    dialog.showModal();
+    dialog.querySelector('[data-modal-cancel]').focus();       // safe default: Enter cancels
+  });
+
   document.querySelectorAll('[data-confirm]').forEach((button) => {
-    button.addEventListener('click', (event) => {
-      if (!window.confirm(button.dataset.confirm)) event.preventDefault();
+    button.addEventListener('click', async (event) => {
+      if (button.dataset.confirmed) { delete button.dataset.confirmed; return; }
+      event.preventDefault();
+      const yes = await window.cuisyncConfirm({
+        title: button.dataset.confirmTitle, item: button.dataset.confirmItem,
+        message: button.dataset.confirm, ok: button.dataset.confirmOk,
+      });
+      if (yes) {
+        button.dataset.confirmed = '1';
+        button.click();                                        // submits with the button's name/value
+      }
     });
   });
 

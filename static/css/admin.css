@@ -731,3 +731,97 @@ select::-ms-expand { display: none; }
 /* Admin login: the CUISYNC logo goes back to the home page */
 a.admin-logo-link { color: var(--gold-accent); text-decoration: none; cursor: pointer; }
 a.admin-logo-link:hover, a.admin-logo-link:focus-visible { opacity: .85; }
+
+/* ---------- Pop-ups: delete confirmation (admin.js) and dish added / saved / deleted (_flash.html) ---------- */
+.admin-modal {
+  margin: auto;   /* the CSS reset in base-style.css removes the dialog's own centring */
+  width: min(440px, calc(100vw - 32px));
+  border: 1px solid var(--admin-border); border-radius: 16px;
+  padding: 32px 28px 24px; background: var(--admin-card); color: var(--text-dark);
+  box-shadow: 0 24px 60px rgba(44, 26, 17, 0.28);
+  text-align: center;
+}
+.admin-modal[open] { animation: admin-modal-in 0.18s ease-out; }
+.admin-modal::backdrop { background: rgba(44, 26, 17, 0.45); }
+@keyframes admin-modal-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .admin-modal[open] { animation: none; } }
+.admin-modal-icon {
+  width: 60px; height: 60px; margin: 0 auto 16px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.admin-modal-icon-success { background: var(--maroon-main); color: var(--gold-accent); }
+.admin-modal-icon-danger { background: #f2d3cf; color: var(--maroon-main); }
+.admin-modal-title { margin: 0 0 8px; font-size: 1.35rem; color: var(--maroon-main); }
+.admin-modal-text { margin: 0; line-height: 1.5; color: var(--admin-muted); }
+.admin-modal-text strong { color: var(--text-dark); }
+.admin-modal-note {
+  margin: 14px 0 0; padding: 10px 12px; border-radius: 10px; text-align: left;
+  background: #f4e2b8; border: 1px solid #d8b54a; color: #5a3d08; font-size: 0.82rem; line-height: 1.45;
+}
+.admin-modal-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 24px; }
+.admin-modal-actions .btn { min-width: 130px; }
+.btn-delete { background: var(--maroon-main); color: #fff; border-color: var(--maroon-main); }
+.btn-delete:hover { background: var(--maroon-dark); }
+
+/* ---------- Extract ingredients: results grouped by what the admin has to do ---------- */
+.ner-results { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--admin-border); }
+.ner-results-head { margin: 0 0 12px; font-size: 0.85rem; color: var(--admin-muted); }
+.ner-groups { display: flex; flex-direction: column; gap: 4px; }
+.ner-group { padding: 14px 0 4px; border-top: 1px solid var(--admin-border); }
+.ner-group:first-child { border-top: 0; padding-top: 0; }
+.ner-group-suggested { --ner-color: #d8b54a; }
+.ner-group-new { --ner-color: #d98074; }
+.ner-group-existing { --ner-color: #7fb98d; }
+.ner-group-title {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 2px;
+  font-size: 0.95rem; font-weight: 600; color: var(--text-dark);
+}
+.ner-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--ner-color); }
+.ner-count {
+  min-width: 22px; padding: 0 7px; border-radius: 999px; text-align: center;
+  background: var(--ner-color); color: #fff; font-size: 0.72rem; line-height: 20px;
+}
+.ner-group-text { margin: 0 0 10px; font-size: 0.82rem; color: var(--admin-muted); }
+.chip-in-field { background: #f3f7f1; }
+.chip-tag { font-size: 0.7rem; font-weight: 600; color: #2d5520; }
+.admin-modal-icon[hidden] { display: none; }
+
+/* "Check these": one row per name, with the two choices as real buttons */
+.ner-choice {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: 8px 0; border-top: 1px dashed #e6d6a8;
+}
+.ner-choice:first-of-type { border-top: 0; }
+.ner-choice-found { flex: 1 1 160px; font-size: 0.88rem; }
+.ner-option {
+  min-height: 34px; padding: 0 12px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--admin-input-border); background: #fff; color: var(--text-dark);
+  font: inherit; font-size: 0.82rem;
+}
+.ner-option:hover { border-color: var(--maroon-main); }
+.ner-option-main { background: #e7f4ea; border-color: #7fb98d; font-weight: 600; }
+.ner-option:focus-visible { outline: 2px solid var(--gold-accent); outline-offset: 2px; }
+
+.ner-footer {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 16px;
+}
+.ner-footer .inline-actions { margin: 0; }
+.ner-summary { margin: 0; font-size: 0.85rem; color: var(--admin-muted); }
+.ner-summary-warn { color: #6a470a; font-weight: 500; }
+.status-done { color: #2d5520; font-weight: 500; }
+.chip-tag-new { color: var(--maroon-main); text-transform: lowercase; }
+
+/* Extract ingredients / cooking process: reddish (maroon) palette instead of green / yellow */
+.ner-results .ner-group-suggested { --ner-color: var(--maroon-main); }
+.ner-results .ner-group-new { --ner-color: #c0574b; }
+.ner-results .ner-group-existing { --ner-color: #c99a93; }
+.ner-results .chip-existing { background: #f8ece9; border-color: #dcb7b1; }
+.ner-results .chip-new { background: #f2d3cf; border-color: #c0574b; }
+.ner-results .chip-in-field { background: #fbf4f2; }
+.ner-results .chip-tag { color: var(--maroon-main); }
+.ner-results .ner-option-main { background: #f2d3cf; border-color: var(--maroon-main); color: var(--maroon-main); }
+.ner-results .ner-option:hover { background: #f8ece9; }
+.ner-results .ner-option-main:hover { background: #ecc3be; }
+.ner-results .ner-choice { border-top-color: #e5cbc6; }
+.ner-results .ner-summary-warn { color: var(--maroon-main); }

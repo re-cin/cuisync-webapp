@@ -124,6 +124,8 @@ class DatasetStore:
                 # Only the notebook's v2 vectorizer writes df_exact; item_vectors.py needs it to
                 # give new items the same centering as the saved vectors.
                 "df_exact": data.get("df_exact"),
+                # Notebook's SOFT_DF threshold (None = "df" is a plain count)
+                "soft_df": item_vectors.soft_df_threshold(data),
                 "v2_index": {item_vectors.normalize_item(item): i for i, item in enumerate(data["items"])},
             }
         # Original item lists by recipe, so untouched dishes keep exactly what the vectorizer made
@@ -934,6 +936,15 @@ class DatasetStore:
                 if extra:
                     vecs.append(np.stack(extra))
                 all_vecs = np.concatenate(vecs).astype(np.float32)
+                if not write:
+                    continue
+                if base["soft_df"] is not None:
+                    # The notebook used SOFT_DF: count again the same way over the current
+                    # dishes, so new items aren't treated as rare just because the exact
+                    # name is new ('chicken thigh fillet' near 'chicken thigh').
+                    df = item_vectors.soft_document_frequency(all_vecs, recipe_ids, base["soft_df"])
+                    self._save_matcher(feature, all_vecs, items, df, recipe_ids)
+                    continue
                 # Start from the vectorizer's own document counts so unchanged dishes keep
                 # (almost) the same scores, then adjust for the dishes that were added,
                 # changed or removed.
@@ -951,11 +962,12 @@ class DatasetStore:
                     if b not in kept:
                         for i in set(ids):
                             df[i] = max(df[i] - 1, 1.0)
-                if not write:
-                    continue
-                np.save(os.path.join(self.runtime_dir, f"{feature}_item_vecs.npy"), all_vecs)
-                with open(os.path.join(self.runtime_dir, f"{feature}_items.json"), "w", encoding="utf-8") as f:
-                    json.dump({"items": items, "df": df.tolist(), "n_recipes": len(self.recipes),
-                               "recipes": recipe_ids}, f)
+                self._save_matcher(feature, all_vecs, items, df, recipe_ids)
             self.missing_vectors = sorted(set(missing))
             return self.runtime_dir
+
+    def _save_matcher(self, feature, vecs, items, df, recipe_ids):
+        np.save(os.path.join(self.runtime_dir, f"{feature}_item_vecs.npy"), vecs)
+        with open(os.path.join(self.runtime_dir, f"{feature}_items.json"), "w", encoding="utf-8") as f:
+            json.dump({"items": items, "df": [float(x) for x in df], "n_recipes": len(self.recipes),
+                       "recipes": recipe_ids}, f)

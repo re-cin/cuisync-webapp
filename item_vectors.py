@@ -170,12 +170,14 @@ def _model_vectors(texts):
     return vecs
 
 
-# ---------------- the v2 vectorizer (CUISYNC_VECTORIZER.ipynb, last cell) ----------------
+# ---------------- the v2 vectorizer (FINAL_VECTORIZATION.ipynb) ----------------
 # The *_item_vecs.npy files are made by the notebook's "v2" cell, which does three things on top
 # of the plain model. New items must get the SAME treatment, or they don't fit with the rest:
 #   NORMALIZE       '2 tbsp chopped fresh ginger' -> 'ginger', synonyms ('scallion' -> 'spring onion')
 #   CONTEXT_PREFIX  embed 'food ingredient: ginger' instead of 'ginger'
 #   CENTER_VECTORS  subtract the frequency-weighted mean vector of the feature, then length 1 again
+#   SOFT_DF         "df" counts recipes with the item OR a similar one; dataset_store.py redoes this
+#                   for the admin's dataset with soft_document_frequency() below
 # The mean isn't saved by the notebook, but it is rebuilt exactly from the files: every item in
 # <feature>_items.json embedded with its prefix, weighted by "df_exact". (Checked: the rebuilt
 # vectors match the saved ones with cosine 1.0000 for all four features.)
@@ -215,6 +217,54 @@ def normalize_item(text, synonyms=SYNONYMS):
             words = words[1:]
     s = " ".join(words) if words else text.strip().lower()
     return synonyms.get(s, s)
+
+
+SOFT_DF_THRESHOLD = 0.60   # the notebook's default; its items.json files say which one was used
+
+
+def soft_df_threshold(data):
+    """Threshold the notebook used for SOFT_DF, from a <feature>_items.json dict, or None when
+    "df" there is a plain count (SOFT_DF off, or an older notebook)."""
+    if "soft_df_threshold" in data:                      # the notebook says so itself
+        t = data["soft_df_threshold"]
+        return None if t is None else float(t)
+    df, exact = data.get("df"), data.get("df_exact")    # older v2 files: compare the two counts
+    if df is None or exact is None or len(df) != len(exact):
+        return None
+    return SOFT_DF_THRESHOLD if any(abs(float(a) - float(b)) > 1e-9 for a, b in zip(df, exact)) else None
+
+
+def soft_document_frequency(vecs, recipe_ids, threshold, chunk=512):
+    """For each item: how many recipes contain that item OR a similar one (cosine >= threshold).
+    Same result as the notebook's version, without scipy (Render doesn't install it).
+    An item always counts its own recipes, even if it has no vector yet (zero vector)."""
+    vecs = np.asarray(vecs, dtype=np.float32)
+    n = len(vecs)
+    item_arr, rec_arr = [], []
+    for r, ids in enumerate(recipe_ids):
+        u = np.unique(np.asarray(ids, dtype=np.int64))
+        item_arr.append(u)
+        rec_arr.append(np.full(len(u), r, dtype=np.int64))
+    if not item_arr or n == 0:
+        return np.zeros(n)
+    item_arr, rec_arr = np.concatenate(item_arr), np.concatenate(rec_arr)
+    order = np.argsort(item_arr, kind="stable")
+    rec_sorted = rec_arr[order]
+    counts = np.bincount(item_arr, minlength=n)
+    starts = np.concatenate([[0], np.cumsum(counts)])
+    out = np.zeros(n)
+    for s in range(0, n, chunk):
+        e = min(s + chunk, n)
+        near = vecs[s:e] @ vecs.T >= threshold
+        near[np.arange(e - s), np.arange(s, e)] = True
+        for k, row in enumerate(near):
+            js = np.flatnonzero(row)
+            if len(js) == 1:
+                out[s + k] = counts[js[0]]
+            else:
+                out[s + k] = len(np.unique(np.concatenate(
+                    [rec_sorted[starts[j]:starts[j + 1]] for j in js])))
+    return out
 
 
 def _center(vecs, mean):

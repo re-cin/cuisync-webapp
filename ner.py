@@ -21,11 +21,12 @@ The model can run in one of two places. The first one that is set up is used:
      Good for Render, where a 435 MB model + torch is too big for the free plan.
 
 Directions (cooking actions, cookware, utensils): extract_directions(text)
-  - with the directions model in  ner_directions_model/  (BertForTokenClassification, labels
-    B-/I-ACTION, B-/I-COOKWARE, B-/I-UTENSIL), the model tags the directions, then each item is
-    compared with actions_items.json / cookware_items.json / utensils_items.json
-    (existing / suggested / new, like ingredients; "simmered" -> simmer, "frying pan" -> fry pan)
-  - without it, the directions are matched against those item lists only (no packages needed).
+  Always uses the directions NER model (BertForTokenClassification, labels B-/I-ACTION,
+  B-/I-COOKWARE, B-/I-UTENSIL): locally from  ner_directions_model/  (same files and packages as
+  ner_model/), else on the NER Space (NER_API_URL). The model tags the directions, then each item
+  is compared with actions_items.json / cookware_items.json / utensils_items.json
+  (existing / suggested / new, like ingredients; "simmered" -> simmer, "frying pan" -> fry pan).
+  Without a model the admin gets a "not set up" message (no word-list fallback).
 
 Used by app.py: init(root, item_names, feature_items), status(), extract_and_match(text),
 extract_directions(text), NerError.
@@ -422,17 +423,21 @@ def extract_directions(text):
         raise NerError("Paste the directions first.")
     if len(text) > MAX_CHARS:
         raise NerError(f"The directions are too long (over {MAX_CHARS:,} characters).")
+    # Always the directions NER model: the local one in ner_directions_model/, else the one on the
+    # NER Space (Render). No model = an error for the admin, never a silent word-list fallback.
     if DIRECTIONS_MODEL.ready():
         result = _extract_directions_model(text)
-        result["source"] = "model"
-        return result
-    if NER_API_URL:  # no local model (Render): the directions model on the NER Space
-        try:
-            result = _extract_directions_remote(text)
-            result["source"] = "model"
-            return result
-        except NerError as error:  # Space without the directions model: use the vocabulary below
-            print("[CuiSync] Directions model on the NER Space not used:", error)
+    elif NER_API_URL:
+        result = _extract_directions_remote(text)
+    else:
+        raise NerError(DIRECTIONS_MODEL.status()["text"])
+    result["source"] = "model"
+    return result
+
+
+def _extract_directions_vocabulary(text):
+    """Old fallback, NOT used any more: picks out only the actions / cookware / utensils the
+    dataset already has. Kept for reference and testing."""
     if not _action_index:
         raise NerError("The cooking vocabulary is not loaded yet.")
     words = re.findall(r"[a-z]+", text.lower())
@@ -528,9 +533,11 @@ class _TokenModel:
     def status(self):
         if not self.folder:
             if NER_API_URL:
-                return {"mode": "remote", "ready": True,
-                        "text": "Hugging Face Space (NER_API_URL), or the dataset vocabulary if the Space has no directions model"}
-            return {"mode": None, "ready": True, "text": "Dataset vocabulary (no ner_directions_model/ folder)"}
+                return {"mode": "remote", "ready": True, "text": "Directions model on the Hugging Face Space (NER_API_URL)"}
+            return {"mode": None, "ready": False,
+                    "text": "Directions model not set up: put the model files (config.json, model.safetensors, "
+                            "tokenizer.json, tokenizer_config.json) in ner_directions_model/ and restart the app, "
+                            "or set NER_API_URL in .env."}
         if self.error:
             return {"mode": "local", "ready": False, "text": f"Directions model could not load: {self.error}"}
         return {"mode": "local", "ready": self.loaded.is_set(),
