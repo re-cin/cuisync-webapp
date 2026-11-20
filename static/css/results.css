@@ -3168,3 +3168,275 @@ a.entity-chip:focus-visible { outline: 2px solid var(--gold-accent); outline-off
   .quote-mark { font-size: 2.6rem; }
   .quote-body .quote-text { margin: 0; }
 }
+
+/* Recipe breakdown: chips can be picked (several), then "Find dishes" opens the dish popup */
+button.entity-chip { font: inherit; cursor: pointer; line-height: inherit; transition: filter .15s ease, box-shadow .15s ease, background-color .15s ease; }
+.entities-card button.entity-chip { font-size: 0.72rem; font-weight: 500; }
+button.entity-chip:hover { filter: brightness(0.95); box-shadow: 0 0 0 1px currentColor inset; }
+button.entity-chip:focus-visible { outline: 2px solid var(--gold-accent); outline-offset: 2px; }
+.entities-card .chip-gold[aria-pressed="true"] { background-color: #c9a227; border-color: #b08a17; color: #2a1f05; font-weight: 600; }
+.entities-card .chip-maroon[aria-pressed="true"] { background-color: var(--maroon-main); border-color: var(--maroon-main); color: #fff; font-weight: 600; }
+.entities-card .chip-green[aria-pressed="true"] { background-color: #2d6b4f; border-color: #2d6b4f; color: #fff; font-weight: 600; }
+
+.entity-pick-bar {
+  position: sticky; bottom: 12px; z-index: 5;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin-top: 22px; padding: 12px 14px;
+  border: 1px solid var(--gold-border); border-radius: 12px;
+  background: #f4eddd; box-shadow: 0 6px 18px rgba(60, 20, 10, .12);
+}
+.entity-pick-status { flex: 1 1 220px; margin: 0; font-size: .8rem; color: var(--text-muted); min-width: 0; }
+.entity-pick-clear {
+  border: 0; background: none; padding: 6px 4px; font: inherit; font-size: .8rem; font-weight: 600;
+  color: var(--maroon-main); cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+}
+.entity-pick-find {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 20px; border: 0; border-radius: 8px;
+  background: var(--maroon-main); color: var(--gold-accent);
+  font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer;
+}
+.entity-pick-find:hover:not(:disabled) { background: var(--maroon-dark); }
+.entity-pick-find:disabled { background: #c9bfae; color: #f7f3ea; cursor: not-allowed; }
+.entity-pick-find.is-loading { opacity: .7; cursor: progress; }
+@media (max-width: 600px) {
+  .entity-pick-bar { gap: 8px; padding: 10px 12px; }
+  .entity-pick-find { flex: 1; justify-content: center; }
+}
+html.item-dishes-open, html.item-dishes-open body { overflow: hidden; }
+
+/* Dish popup of the Recipe breakdown: the modal basics that index.css has on the home page */
+#item-dishes-overlay {
+  position: fixed; inset: 0; z-index: 2000; padding: 20px;
+  display: flex; align-items: center; justify-content: center;
+  background-color: rgba(38, 20, 10, 0.55);
+}
+#item-dishes-overlay.hidden { display: none !important; }
+#item-dishes-overlay .modal-box {
+  position: relative; width: 100%; padding: 36px 28px 28px;
+  background-color: var(--cream-bg, #fdf8ef); border: 1px solid var(--gold-accent, #c8a860);
+  border-radius: 14px; text-align: center; box-shadow: 0 12px 30px rgba(0, 0, 0, .35);
+}
+/* Computers: a plain x in the corner. Phones get the red "x CLOSE" pill from panel.css */
+@media (min-width: 821px) and (pointer: fine) {
+  #item-dishes-overlay .modal-close-btn {
+    position: absolute; top: 12px; right: 14px; background: none; border: none;
+    font-size: 1.4rem; line-height: 1; color: var(--text-muted, #8c8275); cursor: pointer;
+  }
+  #item-dishes-overlay .modal-close-btn:hover { color: var(--maroon-main); }
+}
+@media (max-width: 820px), (pointer: coarse) {
+  #item-dishes-overlay .modal-close-btn { border: 0; cursor: pointer; }
+}
+#item-dishes-overlay .modal-title { font-size: 1.4rem; color: var(--maroon-dark); margin-bottom: 10px; }
+#item-dishes-overlay .modal-desc { font-size: .88rem; color: var(--text-muted, #6b6259); line-height: 1.5; }
+#item-dishes-overlay .dish-card { text-align: left; }
+
+/* Find dishes row: right under the ingredients, button first, then the picked ingredients */
+.entity-pick-bar {
+  position: static; box-shadow: none; background: transparent; border: 0;
+  margin: 10px 0 18px; padding: 0; gap: 12px; justify-content: flex-start;
+}
+.entity-pick-bar .entity-pick-find { flex: none; padding: 8px 16px; font-size: .8rem; }
+.entity-pick-bar .entity-pick-status { flex: 0 1 auto; }
+@media (max-width: 600px) {
+  .entity-pick-bar .entity-pick-find { flex: none; }
+}
+.entities-card .entity-pick-bar { padding: 0 14px; }
+@media (max-width: 850px) { .entities-card .entity-pick-bar { padding: 0; } }
+
+/* Picked ingredients beside Find dishes: shown as tags, each with an x */
+.entity-pick-bar .entity-pick-status { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.entity-pick-count { margin-right: 2px; }
+.entities-card .entity-pick-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 6px 3px 12px; font-size: .72rem; font-weight: 600;
+}
+.entity-pick-tag-x {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; padding: 0; border: 0; border-radius: 50%;
+  background: transparent; color: inherit; font-size: .9rem; line-height: 1; cursor: pointer; opacity: .7;
+}
+.entity-pick-tag-x:hover { opacity: 1; background: rgba(0, 0, 0, .08); }
+.entity-pick-tag-x:focus-visible { outline: 2px solid var(--gold-accent); outline-offset: 1px; }
+
+/* Dish popup: "Uses all" and "Uses only some of them" sections */
+.item-dishes-section[hidden] { display: none; }
+.item-dishes-head {
+  margin: 18px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--gold-border);
+  text-align: left; color: var(--maroon-dark); font-family: 'Playfair Display', serif; font-size: 1.05rem;
+}
+#item-dishes-some .item-dishes-head { margin-top: 28px; }
+.dish-card-missing { margin-top: 4px; font-size: .74rem; color: #9a6a5a; }
+
+/* Dish popup: floating pages bar (only when more than 15 dishes) */
+.item-dishes-pager {
+  position: sticky; bottom: 0; z-index: 3;
+  display: flex; align-items: center; justify-content: center; gap: 14px;
+  width: fit-content; margin: 22px auto 0; padding: 8px 10px;
+  border: 1px solid var(--gold-border); border-radius: 999px;
+  background: #faf6ee; box-shadow: 0 6px 20px rgba(60, 20, 10, .2);
+}
+.item-dishes-pager[hidden] { display: none; }
+.item-dishes-pager span { font-size: .8rem; color: var(--text-muted); white-space: nowrap; }
+.item-dishes-pager button {
+  padding: 7px 14px; border: 0; border-radius: 999px;
+  background: var(--maroon-main); color: var(--gold-accent);
+  font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer;
+}
+.item-dishes-pager button:hover:not(:disabled) { background: var(--maroon-dark); }
+.item-dishes-pager button:disabled { background: #c9bfae; color: #f7f3ea; cursor: not-allowed; }
+@media (max-width: 600px) { .item-dishes-pager { gap: 8px; } .item-dishes-pager span { font-size: .72rem; } }
+.item-dishes-pager button { white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+.item-dishes-pager button span[aria-hidden] { font-size: 1.1rem; line-height: 1; }
+/* Phones: a small bar with round arrow buttons, "Page 1 of 3" in the middle */
+@media (max-width: 600px) {
+  .item-dishes-pager { gap: 10px; padding: 5px; margin-top: 16px; bottom: 6px; }
+  .item-dishes-pager .pager-word, .item-dishes-pager .pager-count { display: none; }
+  .item-dishes-pager button { width: 36px; height: 36px; padding: 0; justify-content: center; }
+  .item-dishes-pager button span[aria-hidden] { font-size: 1.4rem; margin-top: -2px; }
+  .item-dishes-pager span { font-size: .78rem; }
+}
+/* Pages bar: the words and arrows in the buttons are the CuiSync gold (the grey rule is only for "Page x of y") */
+.item-dishes-pager button span { color: var(--gold-accent); font-size: inherit; }
+.item-dishes-pager button span[aria-hidden] { font-size: 1.1rem; }
+.item-dishes-pager button:disabled { background: var(--maroon-main); opacity: .4; }
+.item-dishes-pager button:disabled span { color: var(--gold-accent); }
+@media (max-width: 600px) { .item-dishes-pager button span[aria-hidden] { font-size: 1.4rem; } }
+
+/* Dish popup: the picked ingredients under the heading */
+.item-dishes-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 14px 0 26px; }
+.item-dishes-tags[hidden] { display: none; }
+#item-dishes-overlay .item-dishes-tag { padding: 4px 14px; font-size: .78rem; font-weight: 600; border-radius: 999px; }
+
+/* Dish popup: "Uses all" / "Uses some" tabs (a two-part switch) */
+.item-dishes-tabs {
+  display: flex; width: fit-content; max-width: 100%; margin: 0 auto 22px; padding: 4px;
+  border: 1px solid var(--gold-border); border-radius: 999px; background: #f4eddd;
+}
+.item-dishes-tabs[hidden] { display: none; }
+.item-dishes-tabs button {
+  flex: 1 1 auto; padding: 9px 20px; border: 0; border-radius: 999px; background: transparent;
+  color: var(--maroon-main); font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.item-dishes-tabs button[aria-selected="true"] { background: var(--maroon-main); color: var(--gold-accent); }
+.item-dishes-tabs button:hover:not([aria-selected="true"]) { background: #ece2cc; }
+.item-dishes-tabs button:focus-visible { outline: 2px solid var(--gold-accent); outline-offset: 2px; }
+@media (max-width: 600px) {
+  .item-dishes-tabs { width: 100%; }
+  .item-dishes-tabs button { padding: 9px 10px; font-size: .8rem; }
+}
+.item-dishes-tabs button:disabled { color: #b3a898; cursor: not-allowed; background: transparent; }
+
+/* Dish popup toolbar: stays at the top while scrolling. Tabs on the left, ingredient tags on the right */
+.item-dishes-toolbar {
+  position: sticky; top: -36px; z-index: 4;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 16px;
+  margin: 10px -28px 22px; padding: 12px 28px;
+  background: var(--cream-bg, #fdf8ef); border-bottom: 1px solid var(--gold-border);
+}
+.item-dishes-toolbar .item-dishes-tabs { margin: 0; }
+.item-dishes-toolbar .item-dishes-tags { margin: 0; justify-content: flex-end; flex: 1 1 auto; }
+@media (max-width: 820px), (pointer: coarse) {
+  /* Phones: under the sticky CLOSE pill; tabs on their own line, the tags under them */
+  .item-dishes-toolbar {
+    top: 34px; margin: 6px -16px 16px; padding: 10px 16px;
+  }
+  /* Once it sticks (entity-picker.js adds is-stuck), fill the space above it, behind the
+     CLOSE pill, so the dishes don't show through */
+  .item-dishes-toolbar.is-stuck { box-shadow: 0 -80px 0 0 var(--cream-bg, #fdf8ef); }
+  .item-dishes-toolbar .item-dishes-tags { justify-content: flex-start; }
+}
+
+/* Many ingredients: the tags stay on one line beside the tabs and scroll sideways (no tall block) */
+.item-dishes-toolbar { flex-wrap: nowrap; }
+.item-dishes-toolbar .item-dishes-tabs { flex: none; }
+.item-dishes-toolbar .item-dishes-tags {
+  flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; justify-content: flex-start;
+  overflow-x: auto; padding: 2px 2px 4px; scrollbar-width: thin;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+          mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+}
+.item-dishes-toolbar .item-dishes-tags::-webkit-scrollbar { height: 4px; }
+.item-dishes-toolbar .item-dishes-tags::-webkit-scrollbar-thumb { background: var(--gold-border); border-radius: 4px; }
+#item-dishes-overlay .item-dishes-toolbar .item-dishes-tag { flex: none; white-space: nowrap; padding: 3px 12px; font-size: .74rem; }
+/* Few tags that fit: no fade at the end */
+.item-dishes-toolbar .item-dishes-tags.fits { -webkit-mask-image: none; mask-image: none; justify-content: flex-end; }
+@media (max-width: 820px), (pointer: coarse) {
+  .item-dishes-toolbar { flex-wrap: wrap; }
+  .item-dishes-toolbar .item-dishes-tabs { flex: 1 1 100%; }
+  .item-dishes-toolbar .item-dishes-tags { flex: 1 1 100%; }
+  .item-dishes-toolbar .item-dishes-tags.fits { justify-content: flex-start; }
+}
+
+/* Ingredient tags beside the tabs.
+   Computers: the first 4 and a "+N more" dropdown with all of them. Phones: one sliding row. */
+@media (min-width: 821px) and (pointer: fine) {
+  .item-dishes-toolbar .item-dishes-tags {
+    overflow: visible; -webkit-mask-image: none; mask-image: none;
+    justify-content: flex-end; align-items: center; padding: 0;
+  }
+  .item-dishes-toolbar .item-dishes-tag.is-extra { display: none; }
+}
+@media (max-width: 820px), (pointer: coarse) {
+  .item-dishes-more { display: none; }
+}
+.item-dishes-more { position: relative; flex: none; }
+.item-dishes-more-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 12px; border: 1px solid var(--gold-border); border-radius: 999px;
+  background: #f4eddd; color: var(--maroon-main); font: inherit; font-size: .74rem; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+}
+.item-dishes-more-btn:hover, .item-dishes-more-btn[aria-expanded="true"] { border-color: var(--maroon-main); background: #efe3cc; }
+.item-dishes-more-btn span { font-size: .7rem; transition: transform .15s ease; }
+.item-dishes-more-btn[aria-expanded="true"] span { transform: rotate(180deg); }
+.item-dishes-more-menu {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 10;
+  display: flex; flex-wrap: wrap; gap: 6px; width: max-content; max-width: 340px;
+  padding: 12px; border: 1px solid var(--gold-border); border-radius: 10px;
+  background: #faf6ee; box-shadow: 0 10px 28px rgba(60, 20, 10, .18);
+}
+.item-dishes-more-menu[hidden] { display: none; }
+.item-dishes-more-title { flex-basis: 100%; margin: 0 0 4px; font-size: .74rem; font-weight: 600; color: var(--text-muted); text-align: left; }
+#item-dishes-overlay .item-dishes-more-menu .item-dishes-tag { display: inline-flex; }
+
+/* Find dishes popup above the top bar and the phone's bottom nav (app-nav is at 99999) */
+#item-dishes-overlay { z-index: 100002; }
+
+/* Recipe breakdown tooltips: open to the right of the "i" so they don't go off the left edge */
+.info-tooltip--left .info-tooltip-content { left: -10px; transform: translate(0, 5px); width: 260px; text-transform: none; letter-spacing: normal; font-family: 'Poppins', sans-serif; }
+.info-tooltip--left:hover .info-tooltip-content,
+.info-tooltip--left:focus-within .info-tooltip-content,
+.info-tooltip--left.is-open .info-tooltip-content { transform: translate(0, 0); }
+.info-tooltip--left .info-tooltip-content strong { color: var(--gold-accent); }
+.entity-category-label .info-tooltip { vertical-align: 2px; }
+.entity-pick-help { margin-left: -4px; }
+@media (max-width: 600px) {
+  .info-tooltip--left .info-tooltip-content { width: min(260px, calc(100vw - 60px)); }
+}
+/* They open below the "i", so the sticky tab bar never covers them */
+.info-tooltip--left .info-tooltip-content { top: calc(100% + 9px); bottom: auto; z-index: 60; }
+
+/* Find dishes popup: the "i" about Uses all / Uses some sits right after the tabs */
+.item-dishes-toolbar .item-dishes-help { flex: none; margin-left: -6px; margin-right: auto; }
+@media (max-width: 820px), (pointer: coarse) {
+  .item-dishes-toolbar .item-dishes-tabs { flex: 1 1 0; min-width: 0; width: auto; }
+  .item-dishes-toolbar .item-dishes-help { margin-left: 0; }
+}
+@media (max-width: 820px), (pointer: coarse) {
+  /* the "i" is at the right edge here, so its tooltip opens to the left */
+  .item-dishes-toolbar .item-dishes-help .info-tooltip-content { left: auto; right: -6px; }
+}
+
+/* Colour tooltips beside INGREDIENTS / COOKING ACTIONS / COOKWARES / UTENSILS */
+.tip-swatch { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 50%; vertical-align: 0; }
+.tip-gold { background: #e3cf7f; } .tip-red { background: #e2a5a5; } .tip-green { background: #9fc7b0; }
+.entity-category-label .info-tooltip-content { font-weight: 400; line-height: 1.7; }
+/* The "how to search" i right after Find dishes */
+.entity-pick-bar .entity-find-help { margin-left: -4px; }
+
+/* Find dishes row: button and its "i" on top, the picked ingredients (and Clear) on the line below */
+.entity-pick-bar { flex-wrap: wrap; row-gap: 12px; }
+.entity-pick-picked { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.entity-pick-picked .entity-pick-status { flex: 0 1 auto; }

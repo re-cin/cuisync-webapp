@@ -55,17 +55,33 @@
         const options = Array.from(results.querySelectorAll('[data-index]'));
         const index = form.querySelector('[data-sample-index]');
         const closeResults = () => { results.hidden = true; dishSearch.setAttribute('aria-expanded', 'false'); };
+        const norm = (t) => t.toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        let active = -1;
+        const visible = () => options.filter((option) => !option.hidden);
+        const setActive = (i) => {
+          const list = visible();
+          options.forEach((option) => option.classList.remove('is-active'));
+          if (!list.length) { active = -1; return; }
+          active = (i + list.length) % list.length;
+          list[active].classList.add('is-active');
+          list[active].scrollIntoView({ block: 'nearest' });
+        };
+        // Every typed word must appear in the dish name or country ("adobo chicken", "japan ramen")
         const updateDish = (open = true) => {
-          const query = dishSearch.value.trim().toLocaleLowerCase();
+          const words = norm(dishSearch.value.trim()).split(/\s+/).filter(Boolean);
           let shown = 0;
           options.forEach((option) => {
-            const match = !query || option.dataset.label.toLocaleLowerCase().includes(query);
-            option.hidden = !match || shown >= 8;
-            if (match && shown < 8) shown += 1;
+            const label = norm(option.dataset.label);
+            const match = words.every((w) => label.includes(w));
+            option.hidden = !match || shown >= 30;
+            if (match && shown < 30) shown += 1;
           });
+          empty.hidden = shown > 0;
+          active = -1;
+          options.forEach((option) => option.classList.remove('is-active'));
           if (open) {
-            results.hidden = shown === 0;
-            dishSearch.setAttribute('aria-expanded', String(!results.hidden));
+            results.hidden = false;
+            dishSearch.setAttribute('aria-expanded', 'true');
           }
         };
         const chooseDish = (option) => {
@@ -73,11 +89,27 @@
           index.value = option.dataset.index;
           closeResults();
         };
-        dishSearch.addEventListener('focus', () => updateDish());
+        // "No dish matches" line at the end of the list
+        const empty = document.createElement('p');
+        empty.className = 'prompt-dish-empty';
+        empty.textContent = 'No dish matches. Try another name or a country.';
+        empty.hidden = true;
+        results.appendChild(empty);
+        // Clicking the box selects its text, so typing starts a new search
+        dishSearch.addEventListener('focus', () => { dishSearch.select(); updateDish(); });
         dishSearch.addEventListener('input', () => {
           const exact = options.find((option) => option.dataset.label === dishSearch.value);
           if (exact) index.value = exact.dataset.index;
           updateDish();
+        });
+        dishSearch.addEventListener('keydown', (event) => {
+          if (event.key === 'ArrowDown') { event.preventDefault(); if (results.hidden) updateDish(); setActive(active + 1); }
+          else if (event.key === 'ArrowUp') { event.preventDefault(); setActive(active - 1); }
+          else if (event.key === 'Enter') {
+            // Enter picks the highlighted dish (or the only / first match) instead of submitting the form
+            const list = visible();
+            if (!results.hidden && list.length) { event.preventDefault(); chooseDish(list[Math.max(active, 0)]); }
+          } else if (event.key === 'Escape') closeResults();
         });
         options.forEach((option) => option.addEventListener('click', () => chooseDish(option)));
         document.addEventListener('click', (event) => { if (!picker.contains(event.target)) closeResults(); });

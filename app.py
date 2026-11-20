@@ -73,16 +73,21 @@ if _missing:
 STORE = DatasetStore(app.root_path)
 RECIPES = STORE.recipes
 
-# Make sure the local recipes.json is in the same order as the .npy files.
-# Compared with the ORIGINAL recipes.json (STORE.base_recipes, never changed), not the dishes
-# loaded from Supabase: the admin page can edit those (even just a title's capital letters),
-# and dataset_store.py already handles every edit. This only catches mixed-up data files.
+# Make sure recipes.json is in the same order as the .npy files
 ORDER_FILE = os.path.join(app.root_path, 'embeddings_order.json')
-if os.path.exists(ORDER_FILE):
+if os.path.exists(ORDER_FILE) and not STORE.uses_admin_data:
     with open(ORDER_FILE, encoding='utf-8') as f:
         _order = json.load(f)
-    if _order != [[r.get("title", ""), r.get("country", "")] for r in STORE.base_recipes]:
-        raise RuntimeError("recipes.json does not match the .npy files. Re-run the vectorization.")
+    # Compare the way DatasetStore._key does (a title's capital letters or spaces don't change
+    # its vectors), so a small title fix in Supabase doesn't stop the app.
+    def _same_dish(title, country):
+        return ((title or "").strip().lower(), (country or "").strip().upper())
+    if [_same_dish(*o) for o in _order] != [_same_dish(r.get("title"), r.get("country")) for r in RECIPES]:
+        # The dataset really differs from the .npy files (dishes added, removed or reordered):
+        # build the matcher files for the current dataset instead of using the original ones.
+        print("[CuiSync] The dataset is not in the same order as the .npy files. "
+              "Building the matcher files for the current dataset.")
+        STORE.uses_admin_data = True
 
 def build_matcher():
     """Soft matcher for the current dataset (original files, or the admin's version)."""
@@ -2130,6 +2135,49 @@ def entity_matches(item, wanted):
     return not (after and set(after) & search_tools.IngredientSearch.MADE_FROM)
 
 _ENTITY_OPTIONS = {}   # kind -> [[name, number of dishes, [dish ids]], ...] (built once)
+
+
+@app.route("/api/dishes-with-items")
+def api_dishes_with_items():
+    """Popup on the comparison page (Recipe breakdown): the dishes that have EVERY picked
+    ingredient (?ingredient=garlic&ingredient=lamb; actions and tools work too), and in
+    "partial" the dishes that have only some of them (more of them first).
+    Same matching rule as the Dish Dictionary links ("pork" also finds "pork belly")."""
+    wanted = []   # (kind, label, value)
+    for kind, (field, label) in DICTIONARY_ENTITIES.items():
+        for value in request.args.getlist(kind)[:20]:
+            value = " ".join(value.lower().split())
+            if value and (kind, label, value) not in wanted:
+                wanted.append((kind, label, value))
+    if not wanted:
+        return jsonify({"mode": "items", "items": [], "total": 0, "dishes": [], "partial_total": 0, "partial": []})
+    visible = {c["value"] for c in STORE.dropdown_countries()}
+    every, some = [], []   # dishes with all the picked items / with only some of them
+    for idx, r in enumerate(RECIPES):
+        if r["country"].lower() not in visible:
+            continue
+        found = []
+        for kind, _, value in wanted:
+            field = DICTIONARY_ENTITIES[kind][0]
+            have = next((item for item in parse_items(r.get(field, "")) if entity_matches(item, value)), None)
+            if have is not None:
+                found.append([value, have])
+        if len(found) == len(wanted):
+            every.append((idx, found))
+        elif found:
+            some.append((idx, found))
+    title = lambda x: (RECIPES[x[0]].get("title") or "").lower()
+    every.sort(key=title)
+    some.sort(key=lambda x: (-len(x[1]), title(x)))   # the ones with more of the items first
+    return jsonify({
+        "mode": "items",
+        "items": [{"kind": k, "label": l, "value": v} for k, l, v in wanted],
+        "total": len(every),
+        "dishes": [dish_card(idx, None, found) for idx, found in every],
+        "partial_total": len(some),
+        "partial": [dict(dish_card(idx, None, found), missing=[v for _, _, v in wanted if v not in {f[0] for f in found}])
+                    for idx, found in some],
+    })
 
 
 def dictionary_entity_options(dishes):

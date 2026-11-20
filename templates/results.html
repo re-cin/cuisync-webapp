@@ -13,9 +13,12 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="{{ url_for('static', filename='css/base-style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/results.css') }}?v=allergen-ui-v8">
+  <!-- Dish popup styles (shared with the Dishes page); results.css after them keeps its own look -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dictionary.css') }}?v=popup-top">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dish-information.css') }}?v=allergen-ui-v7">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/results.css') }}?v=allergen-ui-v33">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/country-picker.css') }}?v=2">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/panel.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/panel.css') }}?v=close-gold">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/results-map.css') }}">
 
 </head>
@@ -178,7 +181,7 @@
           <!-- ---------- RECIPE BREAKDOWN ---------- -->
           <div class="rt-panel" id="rt-panel-recipe" role="tabpanel" aria-labelledby="rt-tab-recipe">
             <div class="entities-card">
-              <p class="rt-intro">The ingredients, cooking actions and tools pulled from both recipes. Click any of them to see every dish that has it.</p>
+              <p class="rt-intro">The ingredients, cooking actions and tools pulled from both recipes. Choose one or more ingredients, then press <strong>Find dishes</strong> to see every dish that uses all of them. Click a cooking action or tool to see every dish that has it.</p>
 
               <!-- Category filter buttons -->
               <div class="entity-filters">
@@ -201,24 +204,56 @@
               </div>
 
               <!-- Gold = shared, maroon = only in the searched dish, green = only in the recommended dish.
-                   Each chip opens the Dish Dictionary filtered to that ingredient / action / tool. -->
+                   Ingredients can be picked (several at once); "Find dishes" opens a popup with every dish
+                   that uses all of them (entity-picker.js, /api/dishes-with-items).
+                   Cooking actions and tools open the Dish Dictionary filtered to that item. -->
               {% for key, label, param in [('ingredients', 'INGREDIENTS', 'ingredient'), ('actions', 'COOKING ACTIONS', 'action'), ('cookware', 'COOKWARES', 'cookware'), ('utensils', 'UTENSILS', 'utensil')] %}
                 {% set cat = entities[key] %}
                 <div class="entity-group">
-                  <span class="entity-category-label">{{ label }}</span>
+                  <span class="entity-category-label">{{ label }}
+                    <span class="info-tooltip info-tooltip--left">
+                      <button type="button" class="info-tooltip-trigger" aria-expanded="false" aria-label="What the colours of the {{ label | lower }} mean">i</button>
+                      <span class="info-tooltip-content">
+                        <span class="tip-swatch tip-gold"></span>Gold: in both dishes.<br>
+                        <span class="tip-swatch tip-red"></span>Red: only in {{ source_dish.title }}.<br>
+                        <span class="tip-swatch tip-green"></span>Green: only in {% if recommended_dish %}{{ recommended_dish.title }}{% else %}the similar dish{% endif %}.
+                      </span>
+                    </span></span>
                   <div class="chips-wrapper">
                     {% for item in cat.shared %}
-                      <a class="entity-chip chip-gold" data-type="shared" href="{{ url_for('dictionary', **{param: item | lower}) }}" title="See every dish with {{ item | lower }}">{{ item }}</a>
+                      {% if param == 'ingredient' %}<button type="button" class="entity-chip chip-gold" data-type="shared" data-kind="ingredient" data-value="{{ item | lower }}" aria-pressed="false">{{ item }}</button>{% else %}<a class="entity-chip chip-gold" data-type="shared" href="{{ url_for('dictionary', **{param: item | lower}) }}" title="See every dish with {{ item | lower }}">{{ item }}</a>{% endif %}
                     {% endfor %}
                     {% for item in cat.source_unique %}
-                      <a class="entity-chip chip-maroon" data-type="source" href="{{ url_for('dictionary', **{param: item | lower}) }}" title="See every dish with {{ item | lower }}">{{ item }}</a>
+                      {% if param == 'ingredient' %}<button type="button" class="entity-chip chip-maroon" data-type="source" data-kind="ingredient" data-value="{{ item | lower }}" aria-pressed="false">{{ item }}</button>{% else %}<a class="entity-chip chip-maroon" data-type="source" href="{{ url_for('dictionary', **{param: item | lower}) }}" title="See every dish with {{ item | lower }}">{{ item }}</a>{% endif %}
                     {% endfor %}
                     {% for item in cat.target_unique %}
-                      <a class="entity-chip chip-green" data-type="target" href="{{ url_for('dictionary', **{param: item | lower}) }}" title="See every dish with {{ item | lower }}">{{ item }}</a>
+                      {% if param == 'ingredient' %}<button type="button" class="entity-chip chip-green" data-type="target" data-kind="ingredient" data-value="{{ item | lower }}" aria-pressed="false">{{ item }}</button>{% else %}<a class="entity-chip chip-green" data-type="target" href="{{ url_for('dictionary', **{param: item | lower}) }}" title="See every dish with {{ item | lower }}">{{ item }}</a>{% endif %}
                     {% endfor %}
                     {% if not (cat.shared or cat.source_unique or cat.target_unique) %}<span class="entity-empty">None listed.</span>{% endif %}
                   </div>
                 </div>
+                {% if param == 'ingredient' %}
+                <!-- Under the ingredients: Find dishes (greyed out until an ingredient is picked) and its "i",
+                     then what is picked on the line below -->
+                <div class="entity-pick-bar" id="entity-pick-bar">
+                  <button type="button" class="entity-pick-find" id="entity-pick-find" disabled>
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+                    Find dishes
+                  </button>
+                  <span class="info-tooltip info-tooltip--left entity-find-help">
+                    <button type="button" class="info-tooltip-trigger" aria-expanded="false" aria-label="How to search with these ingredients">i</button>
+                    <span class="info-tooltip-content">
+                      Click the ingredients you want to search with. You can pick as many as you like; click one again to remove it.
+                      Then press <strong>Find dishes</strong> to see every dish that uses them.
+                    </span>
+                  </span>
+                  <!-- The picked ingredients, on their own line under the button -->
+                  <div class="entity-pick-picked">
+                    <div class="entity-pick-status" id="entity-pick-status" aria-live="polite">Choose ingredients above.</div>
+                    <button type="button" class="entity-pick-clear" id="entity-pick-clear" hidden>Clear</button>
+                  </div>
+                </div>
+                {% endif %}
               {% endfor %}
             </div>
           </div>
@@ -480,12 +515,57 @@
     {% endif %}
   </main>
 
+  <!-- Popup with the dishes that have every picked item (same look as the "Search by tag" popup).
+       Choosing a dish opens its dish popup (the same as on the Dishes page). -->
+  <div id="item-dishes-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="item-dishes-title">
+    <div class="modal-box dish-results-box">
+      <button type="button" class="modal-close-btn" id="item-dishes-close" aria-label="Close">&times;</button>
+      <h3 id="item-dishes-title" class="modal-title">Choose a Dish</h3>
+      <p id="item-dishes-desc" class="modal-desc"></p>
+      <!-- Stays at the top while the dishes scroll: Uses all / Uses some on the left, your ingredients on the right -->
+      <div class="item-dishes-toolbar" id="item-dishes-toolbar">
+        <div class="item-dishes-tabs" id="item-dishes-tabs" role="tablist" aria-label="Which dishes" hidden>
+          <button type="button" role="tab" id="item-dishes-tab-all" aria-selected="true"></button>
+          <button type="button" role="tab" id="item-dishes-tab-some" aria-selected="false"></button>
+        </div>
+        <span class="info-tooltip info-tooltip--left item-dishes-help">
+          <button type="button" class="info-tooltip-trigger" aria-expanded="false" aria-label="About Uses all and Uses some">i</button>
+          <span class="info-tooltip-content">
+            <strong>Uses all</strong> shows the dishes that have every ingredient you picked.
+            <strong>Uses some</strong> shows the dishes that have only some of them, with the ones that have more first.
+            Choose a dish to see its recipe, culture &amp; history and health information.
+          </span>
+        </span>
+        <div id="item-dishes-countries" class="item-dishes-tags" aria-label="Your ingredients" hidden></div>
+      </div>
+      <section class="item-dishes-section" id="item-dishes-all">
+        <h4 class="item-dishes-head" id="item-dishes-all-head" hidden></h4>
+        <div id="item-dishes-grid" class="dish-grid popup-dish-grid"></div>
+      </section>
+      <section class="item-dishes-section" id="item-dishes-some" hidden>
+        <h4 class="item-dishes-head" id="item-dishes-some-head"></h4>
+        <div id="item-dishes-some-grid" class="dish-grid popup-dish-grid"></div>
+      </section>
+      <!-- Floating pages bar: only when more than 15 dishes are found -->
+      <nav class="item-dishes-pager" id="item-dishes-pager" aria-label="Pages of dishes" hidden>
+        <button type="button" id="item-dishes-prev" aria-label="Previous page"><span aria-hidden="true">&lsaquo;</span><span class="pager-word"> Previous</span></button>
+        <span id="item-dishes-page" aria-live="polite"></span>
+        <button type="button" id="item-dishes-next" aria-label="Next page"><span class="pager-word">Next </span><span aria-hidden="true">&rsaquo;</span></button>
+      </nav>
+    </div>
+  </div>
+  <!-- A dish chosen there opens the same dish popup as the Dish Dictionary -->
+  {% include "partials/dish_popup.html" %}
+
   <app-footer></app-footer>
 
   <script src="{{ url_for('static', filename='scripts/components.js') }}"></script>
   <script src="{{ url_for('static', filename='scripts/results-map.js') }}"></script>
   <script src="{{ url_for('static', filename='scripts/country-picker.js') }}"></script>
   <script src="{{ url_for('static', filename='scripts/dish-info-ui.js') }}"></script>
+  <script>window.DICT_NO_IMAGE = "{{ url_for('static', filename='assets/no-image.svg') }}";</script>
+  <script src="{{ url_for('static', filename='scripts/dish-popup.js') }}"></script>
+  <script src="{{ url_for('static', filename='scripts/entity-picker.js') }}?v=16"></script>
 
   <!-- ==================================
        EXTRACTED ENTITIES FILTERING

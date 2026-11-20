@@ -747,3 +747,6 @@ button.is-busy { cursor: progress; }
 }
 .footer-email svg { flex: none; color: var(--gold-accent); }
 .footer-email:hover { color: var(--gold-accent); text-decoration: underline; }
+
+/* Footer ©: also the hidden way to the admin login (5 clicks), so no hand cursor or text selection */
+.footer-secret { cursor: default; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
