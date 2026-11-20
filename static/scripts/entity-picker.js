@@ -87,10 +87,7 @@
       : '';
     const missing = (d.missing || []).length
       ? `<p class="dish-card-missing">No ${d.missing.map(esc).join(', ')}</p>` : '';
-    const region = (d.region || '').toLowerCase();
-    const tagList = (d.tags || []).filter((t) => !region || t.toLowerCase() !== region);
-    const tags = tagList.length
-      ? `<div class="dish-card-tags pdc-tags">${tagList.slice(0, 4).map((t) => `<span class="tag-chip small">${esc(t)}</span>`).join('')}</div>` : '';
+    // Only what the dish uses (and lacks) from the picked ingredients: no recipe tags here
     const alt = d.alternative_title && d.alternative_title.toLowerCase() !== d.title.toLowerCase()
       ? `<p class="pdc-alt">${esc(d.alternative_title)}</p>` : '';
     button.innerHTML = `
@@ -103,7 +100,6 @@
         ${alt}
         ${found}
         ${missing}
-        ${tags}
       </div>
       <div class="pdc-foot">
         <span class="pdc-place">${esc(d.region || '')}</span>
