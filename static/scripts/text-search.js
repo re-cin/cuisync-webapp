@@ -309,7 +309,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (onClose) onClose();
   }
 
-  function dishButton(d, onPick) {
+  // showScore = false: no "% match" pill (the Search by tags preview doesn't show it)
+  function dishButton(d, onPick, showScore = true) {
     const button = document.createElement('button');
     button.type = 'button';
     // Same card as the Dish Dictionary ("Dishes" page): photo, name, other name, then a
@@ -330,7 +331,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="dish-card-img">
         <img src="${esc(d.image_link || NO_IMAGE)}" alt="${esc(d.title)}" loading="lazy">
         ${d.country_label || d.country ? `<span class="dish-card-country">${esc(d.country_label || d.country)}</span>` : ''}
-        ${d.score != null ? `<span class="dish-card-score">${d.score}% match</span>` : ''}
+        ${showScore && d.score != null ? `<span class="dish-card-score">${d.score}% match</span>` : ''}
       </div>
       <div class="pdc-body">
         <h3 class="pdc-title">${esc(d.title)}</h3>
@@ -414,7 +415,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return pill;
     })));
 
-    popupGrid.replaceChildren(...data.dishes.map((d) => dishButton(d, onPick)));
+    popupGrid.replaceChildren(...data.dishes.map((d) => dishButton(d, onPick, data.mode !== 'tags')));
     popup.classList.remove('hidden');
     updateInputActions();
     popup.querySelector('.dish-results-box').scrollTop = 0;
