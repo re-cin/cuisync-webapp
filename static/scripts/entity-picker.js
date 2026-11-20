@@ -154,7 +154,7 @@
       partialSection.hidden = !someHere.length;
       // Floating pages bar: only when there are more than PAGE_SIZE dishes
       pager.hidden = shown.length <= PAGE_SIZE;
-      pagerInfo.textContent = `Page ${page + 1} of ${pages} · ${shown.length} dishes`;
+      pagerInfo.innerHTML = `Page ${page + 1} of ${pages}<span class="pager-count"> · ${shown.length} dishes</span>`;
       pagerPrev.disabled = page === 0;
       pagerNext.disabled = page >= pages - 1;
       pagerPrev.onclick = () => { page -= 1; render(); popupBox.scrollTop = 0; };

@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="{{ url_for('static', filename='css/base-style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/results.css') }}?v=allergen-ui-v14">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/results.css') }}?v=allergen-ui-v15">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/country-picker.css') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/panel.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/results-map.css') }}">
@@ -512,9 +512,9 @@
       </section>
       <!-- Floating pages bar: only when more than 15 dishes are found -->
       <nav class="item-dishes-pager" id="item-dishes-pager" aria-label="Pages of dishes" hidden>
-        <button type="button" id="item-dishes-prev" aria-label="Previous page">&lsaquo; Previous</button>
+        <button type="button" id="item-dishes-prev" aria-label="Previous page"><span aria-hidden="true">&lsaquo;</span><span class="pager-word"> Previous</span></button>
         <span id="item-dishes-page" aria-live="polite"></span>
-        <button type="button" id="item-dishes-next" aria-label="Next page">Next &rsaquo;</button>
+        <button type="button" id="item-dishes-next" aria-label="Next page"><span class="pager-word">Next </span><span aria-hidden="true">&rsaquo;</span></button>
       </nav>
     </div>
   </div>
@@ -533,7 +533,7 @@
   <script src="{{ url_for('static', filename='scripts/results-map.js') }}"></script>
   <script src="{{ url_for('static', filename='scripts/country-picker.js') }}"></script>
   <script src="{{ url_for('static', filename='scripts/dish-info-ui.js') }}"></script>
-  <script src="{{ url_for('static', filename='scripts/entity-picker.js') }}?v=6"></script>
+  <script src="{{ url_for('static', filename='scripts/entity-picker.js') }}?v=7"></script>
 
   <!-- ==================================
        EXTRACTED ENTITIES FILTERING

@@ -3281,3 +3281,13 @@ html.item-dishes-open, html.item-dishes-open body { overflow: hidden; }
 .item-dishes-pager button:hover:not(:disabled) { background: var(--maroon-dark); }
 .item-dishes-pager button:disabled { background: #c9bfae; color: #f7f3ea; cursor: not-allowed; }
 @media (max-width: 600px) { .item-dishes-pager { gap: 8px; } .item-dishes-pager span { font-size: .72rem; } }
+.item-dishes-pager button { white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+.item-dishes-pager button span[aria-hidden] { font-size: 1.1rem; line-height: 1; }
+/* Phones: a small bar with round arrow buttons, "Page 1 of 3" in the middle */
+@media (max-width: 600px) {
+  .item-dishes-pager { gap: 10px; padding: 5px; margin-top: 16px; bottom: 6px; }
+  .item-dishes-pager .pager-word, .item-dishes-pager .pager-count { display: none; }
+  .item-dishes-pager button { width: 36px; height: 36px; padding: 0; justify-content: center; }
+  .item-dishes-pager button span[aria-hidden] { font-size: 1.4rem; margin-top: -2px; }
+  .item-dishes-pager span { font-size: .78rem; }
+}
