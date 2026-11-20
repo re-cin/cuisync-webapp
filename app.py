@@ -2078,7 +2078,8 @@ _ENTITY_OPTIONS = {}   # kind -> [[name, number of dishes, [dish ids]], ...] (bu
 @app.route("/api/dishes-with-items")
 def api_dishes_with_items():
     """Popup on the comparison page (Recipe breakdown): the dishes that have EVERY picked
-    ingredient / cooking action / cookware / utensil (?ingredient=garlic&action=simmer...).
+    ingredient (?ingredient=garlic&ingredient=lamb; actions and tools work too), and in
+    "partial" the dishes that have only some of them (more of them first).
     Same matching rule as the Dish Dictionary links ("pork" also finds "pork belly")."""
     wanted = []   # (kind, label, value)
     for kind, (field, label) in DICTIONARY_ENTITIES.items():
@@ -2087,9 +2088,9 @@ def api_dishes_with_items():
             if value and (kind, label, value) not in wanted:
                 wanted.append((kind, label, value))
     if not wanted:
-        return jsonify({"mode": "items", "items": [], "total": 0, "dishes": []})
+        return jsonify({"mode": "items", "items": [], "total": 0, "dishes": [], "partial_total": 0, "partial": []})
     visible = {c["value"] for c in STORE.dropdown_countries()}
-    results = []
+    every, some = [], []   # dishes with all the picked items / with only some of them
     for idx, r in enumerate(RECIPES):
         if r["country"].lower() not in visible:
             continue
@@ -2097,17 +2098,23 @@ def api_dishes_with_items():
         for kind, _, value in wanted:
             field = DICTIONARY_ENTITIES[kind][0]
             have = next((item for item in parse_items(r.get(field, "")) if entity_matches(item, value)), None)
-            if have is None:
-                break
-            found.append([value, have])
-        else:
-            results.append((idx, found))
-    results.sort(key=lambda x: (RECIPES[x[0]].get("title") or "").lower())
+            if have is not None:
+                found.append([value, have])
+        if len(found) == len(wanted):
+            every.append((idx, found))
+        elif found:
+            some.append((idx, found))
+    title = lambda x: (RECIPES[x[0]].get("title") or "").lower()
+    every.sort(key=title)
+    some.sort(key=lambda x: (-len(x[1]), title(x)))   # the ones with more of the items first
     return jsonify({
         "mode": "items",
         "items": [{"kind": k, "label": l, "value": v} for k, l, v in wanted],
-        "total": len(results),
-        "dishes": [dish_card(idx, None, found) for idx, found in results[:60]],
+        "total": len(every),
+        "dishes": [dish_card(idx, None, found) for idx, found in every[:60]],
+        "partial_total": len(some),
+        "partial": [dict(dish_card(idx, None, found), missing=[v for _, _, v in wanted if v not in {f[0] for f in found}])
+                    for idx, found in some[:60]],
     })
 
 

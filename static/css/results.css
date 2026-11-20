@@ -3253,3 +3253,12 @@ html.item-dishes-open, html.item-dishes-open body { overflow: hidden; }
 }
 .entity-pick-tag-x:hover { opacity: 1; background: rgba(0, 0, 0, .08); }
 .entity-pick-tag-x:focus-visible { outline: 2px solid var(--gold-accent); outline-offset: 1px; }
+
+/* Dish popup: "Uses all" and "Uses only some of them" sections */
+.item-dishes-section[hidden] { display: none; }
+.item-dishes-head {
+  margin: 18px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--gold-border);
+  text-align: left; color: var(--maroon-dark); font-family: 'Playfair Display', serif; font-size: 1.05rem;
+}
+#item-dishes-some .item-dishes-head { margin-top: 28px; }
+.dish-card-missing { margin-top: 4px; font-size: .74rem; color: #9a6a5a; }

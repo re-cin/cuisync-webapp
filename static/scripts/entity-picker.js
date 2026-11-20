@@ -16,6 +16,12 @@
   const popupGrid = document.getElementById('item-dishes-grid');
   const popupClose = document.getElementById('item-dishes-close');
   const form = document.getElementById('item-dishes-form');
+  const popupBox = popup.querySelector('.dish-results-box');
+  const allSection = document.getElementById('item-dishes-all');
+  const allHead = document.getElementById('item-dishes-all-head');
+  const partialSection = document.getElementById('item-dishes-some');
+  const partialHead = document.getElementById('item-dishes-some-head');
+  const partialGrid = document.getElementById('item-dishes-some-grid');
   const NO_IMAGE = '/static/assets/no-image.svg';
   const KIND_WORD = { ingredient: 'ingredient', action: 'cooking action', cookware: 'cookware', utensil: 'utensil' };
 
@@ -74,6 +80,8 @@
     const found = (d.found || []).length
       ? `<p class="dish-card-found">Uses: ${d.found.map(([want, have]) => `<span title="you picked ${esc(want)}">${esc(have)}</span>`).join(', ')}</p>`
       : '';
+    const missing = (d.missing || []).length
+      ? `<p class="dish-card-missing">No ${d.missing.map(esc).join(', ')}</p>` : '';
     const region = (d.region || '').toLowerCase();
     const tagList = (d.tags || []).filter((t) => !region || t.toLowerCase() !== region);
     const tags = tagList.length
@@ -89,6 +97,7 @@
         <h3 class="pdc-title">${esc(d.title)}</h3>
         ${alt}
         ${found}
+        ${missing}
         ${tags}
       </div>
       <div class="pdc-foot">
@@ -104,17 +113,20 @@
 
   function showPopup(data) {
     const n = data.total;
+    const m = data.partial_total || 0;
+    const partial = data.partial || [];
     const names = data.items.map((i) => i.value);
-    popupTitle.textContent = n ? `${n} Dish${n === 1 ? '' : 'es'} Found` : 'No Dishes Found';
-    popupDesc.textContent = n
-      ? `Dishes that use ${names.join(' + ')}`
-        + (n > data.dishes.length ? ` (showing the first ${data.dishes.length})` : '')
-        + '. Choose one to compare it with the same target country.'
-      : `No dish uses all of these: ${names.join(', ')}. Try removing one.`;
+    const list = names.join(' + ');
+    popupTitle.textContent = n ? `${n} ${n === 1 ? 'Dish Uses' : 'Dishes Use'} All of Them`
+      : (m ? 'No Dish Uses All of Them' : 'No Dishes Found');
+    popupDesc.textContent = n || m
+      ? `Ingredients: ${list}. Choose a dish to compare it with the same target country.`
+      : `No dish uses any of these: ${names.join(', ')}.`;
 
     // Country pills: how many dishes come from each country; click one to show only those
+    const all = data.dishes.concat(partial);
     const counts = new Map();
-    data.dishes.forEach((d) => { if (d.country_label) counts.set(d.country_label, (counts.get(d.country_label) || 0) + 1); });
+    all.forEach((d) => { if (d.country_label) counts.set(d.country_label, (counts.get(d.country_label) || 0) + 1); });
     const countries = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
     popupCountries.hidden = countries.length < 2;
     popupCountries.replaceChildren(...(countries.length < 2 ? [] : countries.map(([c, k]) => {
@@ -127,15 +139,26 @@
         const on = pill.getAttribute('aria-pressed') !== 'true';
         popupCountries.querySelectorAll('.country-pill').forEach((x) => x.setAttribute('aria-pressed', 'false'));
         pill.setAttribute('aria-pressed', String(on));
-        popupGrid.querySelectorAll('[data-country]').forEach((card) => { card.hidden = on && card.dataset.country !== c; });
+        popupBox.querySelectorAll('.popup-dish-card[data-country]').forEach((card) => { card.hidden = on && card.dataset.country !== c; });
+        popupBox.querySelectorAll('.item-dishes-section').forEach((sec) => {
+          sec.hidden = !sec.querySelector('.popup-dish-card:not([hidden])');
+        });
       });
       return pill;
     })));
 
+    // Section 1: dishes that use every picked ingredient
     popupGrid.replaceChildren(...data.dishes.map(dishButton));
+    allHead.hidden = !n || !m;   // a heading only when there are two sections
+    allHead.textContent = `Uses all ${names.length} (${n})`;
+    allSection.hidden = !n;
+    // Section 2: dishes that use only some of them (more of them first)
+    partialHead.textContent = `Uses only some of them (${m}${m > partial.length ? `, showing ${partial.length}` : ''})`;
+    partialGrid.replaceChildren(...partial.map(dishButton));
+    partialSection.hidden = !m || names.length < 2;
     popup.classList.remove('hidden');
     document.documentElement.classList.add('item-dishes-open');
-    popup.querySelector('.dish-results-box').scrollTop = 0;
+    popupBox.scrollTop = 0;
     popupClose.focus();
   }
 
