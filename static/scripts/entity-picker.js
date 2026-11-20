@@ -121,21 +121,19 @@
     const m = data.partial_total || 0;
     const partial = data.partial || [];
     const names = data.items.map((i) => i.value);
-    const list = names.join(' + ');
     // A general heading: every dish found (both sections), the details are in the sections
     const found = n + m;
     popupTitle.textContent = found ? `${found} Dish${found === 1 ? '' : 'es'} Found` : 'No Dishes Found';
     popupDesc.textContent = found
-      ? `Dishes with your ingredients: ${list}. Choose a dish to compare it with the same target country.`
+      ? 'Dishes with your ingredients. Choose a dish to compare it with the same target country.'
       : `No dish uses any of these: ${names.join(', ')}.`;
 
     // Every dish in one list (the "uses all" ones first), so the pages run across both sections
     const all = data.dishes.map((d) => ({ d, every: true })).concat(partial.map((d) => ({ d, every: false })));
-    let country = '';   // the country pill that is on ('' = every country)
     let page = 0;
 
     function render() {
-      const shown = all.filter((x) => !country || x.d.country_label === country);
+      const shown = all;
       const pages = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
       page = Math.min(page, pages - 1);
       const slice = shown.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -161,27 +159,14 @@
       pagerNext.onclick = () => { page += 1; render(); popupBox.scrollTop = 0; };
     }
 
-    // Country pills: how many dishes come from each country; click one to show only those
-    const counts = new Map();
-    all.forEach(({ d }) => { if (d.country_label) counts.set(d.country_label, (counts.get(d.country_label) || 0) + 1); });
-    const countries = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-    popupCountries.hidden = countries.length < 2;
-    popupCountries.replaceChildren(...(countries.length < 2 ? [] : countries.map(([c, k]) => {
-      const pill = document.createElement('button');
-      pill.type = 'button';
-      pill.className = 'country-pill';
-      pill.setAttribute('aria-pressed', 'false');
-      pill.innerHTML = `<span>${esc(c)}</span><span class="country-pill-count">${k}</span>`;
-      pill.addEventListener('click', () => {
-        const on = pill.getAttribute('aria-pressed') !== 'true';
-        popupCountries.querySelectorAll('.country-pill').forEach((x) => x.setAttribute('aria-pressed', 'false'));
-        pill.setAttribute('aria-pressed', String(on));
-        country = on ? c : '';
-        page = 0;
-        render();
-      });
-      return pill;
-    })));
+    // The picked ingredients as tags under the heading (same colours as on the page, no counts)
+    popupCountries.hidden = !picked.size;
+    popupCountries.replaceChildren(...[...picked.values()].map((p) => {
+      const tag = document.createElement('span');
+      tag.className = `entity-chip item-dishes-tag ${p.color}`;
+      tag.textContent = p.label;
+      return tag;
+    }));
     render();
     popup.classList.remove('hidden');
     document.documentElement.classList.add('item-dishes-open');

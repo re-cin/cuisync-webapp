@@ -3297,3 +3297,8 @@ html.item-dishes-open, html.item-dishes-open body { overflow: hidden; }
 .item-dishes-pager button:disabled { background: var(--maroon-main); opacity: .4; }
 .item-dishes-pager button:disabled span { color: var(--gold-accent); }
 @media (max-width: 600px) { .item-dishes-pager button span[aria-hidden] { font-size: 1.4rem; } }
+
+/* Dish popup: the picked ingredients under the heading */
+.item-dishes-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 14px 0 4px; }
+.item-dishes-tags[hidden] { display: none; }
+#item-dishes-overlay .item-dishes-tag { padding: 4px 14px; font-size: .78rem; font-weight: 600; border-radius: 999px; }

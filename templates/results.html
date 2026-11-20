@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="{{ url_for('static', filename='css/base-style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/results.css') }}?v=allergen-ui-v16">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/results.css') }}?v=allergen-ui-v17">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/country-picker.css') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/panel.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/results-map.css') }}">
@@ -501,7 +501,7 @@
       <button type="button" class="modal-close-btn" id="item-dishes-close" aria-label="Close">&times;</button>
       <h3 id="item-dishes-title" class="modal-title">Choose a Dish</h3>
       <p id="item-dishes-desc" class="modal-desc"></p>
-      <div id="item-dishes-countries" class="popup-countries" role="group" aria-label="Show dishes from one country" hidden></div>
+      <div id="item-dishes-countries" class="item-dishes-tags" aria-label="Your ingredients" hidden></div>
       <section class="item-dishes-section" id="item-dishes-all">
         <h4 class="item-dishes-head" id="item-dishes-all-head" hidden></h4>
         <div id="item-dishes-grid" class="dish-grid popup-dish-grid"></div>
@@ -533,7 +533,7 @@
   <script src="{{ url_for('static', filename='scripts/results-map.js') }}"></script>
   <script src="{{ url_for('static', filename='scripts/country-picker.js') }}"></script>
   <script src="{{ url_for('static', filename='scripts/dish-info-ui.js') }}"></script>
-  <script src="{{ url_for('static', filename='scripts/entity-picker.js') }}?v=7"></script>
+  <script src="{{ url_for('static', filename='scripts/entity-picker.js') }}?v=8"></script>
 
   <!-- ==================================
        EXTRACTED ENTITIES FILTERING
