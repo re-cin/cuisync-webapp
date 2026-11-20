@@ -213,6 +213,19 @@
     }
   });
 
+  // The toolbar (tabs + ingredients) sticks at the top: mark it while it is stuck
+  const toolbar = document.getElementById('item-dishes-toolbar');
+  if (toolbar) {
+    // An empty marker where the toolbar would be: once it scrolls above the toolbar, the toolbar is stuck
+    const marker = document.createElement('div');
+    marker.setAttribute('aria-hidden', 'true');
+    toolbar.before(marker);
+    const markStuck = () => {
+      toolbar.classList.toggle('is-stuck', marker.getBoundingClientRect().top < toolbar.getBoundingClientRect().top - 1);
+    };
+    popupBox.addEventListener('scroll', markStuck, { passive: true });
+  }
+
   popupClose.addEventListener('click', closePopup);
   popup.addEventListener('click', (e) => { if (e.target === popup) closePopup(); });
   document.addEventListener('keydown', (e) => {

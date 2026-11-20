@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="{{ url_for('static', filename='css/base-style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/results.css') }}?v=allergen-ui-v21">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/results.css') }}?v=allergen-ui-v23">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/country-picker.css') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/panel.css') }}?v=close-gold">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/results-map.css') }}">
@@ -500,11 +500,13 @@
       <button type="button" class="modal-close-btn" id="item-dishes-close" aria-label="Close">&times;</button>
       <h3 id="item-dishes-title" class="modal-title">Choose a Dish</h3>
       <p id="item-dishes-desc" class="modal-desc"></p>
-      <div id="item-dishes-countries" class="item-dishes-tags" aria-label="Your ingredients" hidden></div>
-      <!-- Uses all / Uses some: one list at a time -->
-      <div class="item-dishes-tabs" id="item-dishes-tabs" role="tablist" aria-label="Which dishes" hidden>
-        <button type="button" role="tab" id="item-dishes-tab-all" aria-selected="true"></button>
-        <button type="button" role="tab" id="item-dishes-tab-some" aria-selected="false"></button>
+      <!-- Stays at the top while the dishes scroll: Uses all / Uses some on the left, your ingredients on the right -->
+      <div class="item-dishes-toolbar" id="item-dishes-toolbar">
+        <div class="item-dishes-tabs" id="item-dishes-tabs" role="tablist" aria-label="Which dishes" hidden>
+          <button type="button" role="tab" id="item-dishes-tab-all" aria-selected="true"></button>
+          <button type="button" role="tab" id="item-dishes-tab-some" aria-selected="false"></button>
+        </div>
+        <div id="item-dishes-countries" class="item-dishes-tags" aria-label="Your ingredients" hidden></div>
       </div>
       <section class="item-dishes-section" id="item-dishes-all">
         <h4 class="item-dishes-head" id="item-dishes-all-head" hidden></h4>
@@ -537,7 +539,7 @@
   <script src="{{ url_for('static', filename='scripts/results-map.js') }}"></script>
   <script src="{{ url_for('static', filename='scripts/country-picker.js') }}"></script>
   <script src="{{ url_for('static', filename='scripts/dish-info-ui.js') }}"></script>
-  <script src="{{ url_for('static', filename='scripts/entity-picker.js') }}?v=11"></script>
+  <script src="{{ url_for('static', filename='scripts/entity-picker.js') }}?v=13"></script>
 
   <!-- ==================================
        EXTRACTED ENTITIES FILTERING

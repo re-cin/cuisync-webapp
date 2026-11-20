@@ -3327,3 +3327,23 @@ html.item-dishes-open, html.item-dishes-open body { overflow: hidden; }
   .item-dishes-tabs button { padding: 9px 10px; font-size: .8rem; }
 }
 .item-dishes-tabs button:disabled { color: #b3a898; cursor: not-allowed; background: transparent; }
+
+/* Dish popup toolbar: stays at the top while scrolling. Tabs on the left, ingredient tags on the right */
+.item-dishes-toolbar {
+  position: sticky; top: -36px; z-index: 4;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 16px;
+  margin: 10px -28px 22px; padding: 12px 28px;
+  background: var(--cream-bg, #fdf8ef); border-bottom: 1px solid var(--gold-border);
+}
+.item-dishes-toolbar .item-dishes-tabs { margin: 0; }
+.item-dishes-toolbar .item-dishes-tags { margin: 0; justify-content: flex-end; flex: 1 1 auto; }
+@media (max-width: 820px), (pointer: coarse) {
+  /* Phones: under the sticky CLOSE pill; tabs on their own line, the tags under them */
+  .item-dishes-toolbar {
+    top: 34px; margin: 6px -16px 16px; padding: 10px 16px;
+  }
+  /* Once it sticks (entity-picker.js adds is-stuck), fill the space above it, behind the
+     CLOSE pill, so the dishes don't show through */
+  .item-dishes-toolbar.is-stuck { box-shadow: 0 -80px 0 0 var(--cream-bg, #fdf8ef); }
+  .item-dishes-toolbar .item-dishes-tags { justify-content: flex-start; }
+}
