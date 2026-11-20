@@ -3291,3 +3291,9 @@ html.item-dishes-open, html.item-dishes-open body { overflow: hidden; }
   .item-dishes-pager button span[aria-hidden] { font-size: 1.4rem; margin-top: -2px; }
   .item-dishes-pager span { font-size: .78rem; }
 }
+/* Pages bar: the words and arrows in the buttons are the CuiSync gold (the grey rule is only for "Page x of y") */
+.item-dishes-pager button span { color: var(--gold-accent); font-size: inherit; }
+.item-dishes-pager button span[aria-hidden] { font-size: 1.1rem; }
+.item-dishes-pager button:disabled { background: var(--maroon-main); opacity: .4; }
+.item-dishes-pager button:disabled span { color: var(--gold-accent); }
+@media (max-width: 600px) { .item-dishes-pager button span[aria-hidden] { font-size: 1.4rem; } }
