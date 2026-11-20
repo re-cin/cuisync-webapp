@@ -3226,3 +3226,16 @@ html.item-dishes-open, html.item-dishes-open body { overflow: hidden; }
 #item-dishes-overlay .modal-title { font-size: 1.4rem; color: var(--maroon-dark); margin-bottom: 10px; }
 #item-dishes-overlay .modal-desc { font-size: .88rem; color: var(--text-muted, #6b6259); line-height: 1.5; }
 #item-dishes-overlay .dish-card { text-align: left; }
+
+/* Find dishes row: right under the ingredients, button first, then the picked ingredients */
+.entity-pick-bar {
+  position: static; box-shadow: none; background: transparent; border: 0;
+  margin: 10px 0 18px; padding: 0; gap: 12px; justify-content: flex-start;
+}
+.entity-pick-bar .entity-pick-find { flex: none; padding: 8px 16px; font-size: .8rem; }
+.entity-pick-bar .entity-pick-status { flex: 0 1 auto; }
+@media (max-width: 600px) {
+  .entity-pick-bar .entity-pick-find { flex: none; }
+}
+.entities-card .entity-pick-bar { padding: 0 14px; }
+@media (max-width: 768px) { .entities-card .entity-pick-bar { padding: 0; } }
