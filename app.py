@@ -7,11 +7,13 @@ import io
 import json
 import os
 import re
+import random
 import secrets
 import threading
 from concurrent.futures import ThreadPoolExecutor
 import time
 import unicodedata
+from urllib.parse import urlparse
 from functools import lru_cache, wraps
 
 import cv2
@@ -367,7 +369,29 @@ def inject_globals():
         "home_ingredient_quick": quick_ingredients,
         # Countries for the Region tab of "Search by tag": [(value, label, number of dishes)]
         "home_country_options": home_country_options,
+        # Dish photos for the home page slideshow (only built when the template asks)
+        "hero_dishes": hero_dishes,
     }
+
+
+# Photos never used in the home page slideshow:
+# - Food.com (img.sndimg.com): many of its dishes only have a placeholder picture
+HERO_SKIP_HOSTS = ("img.sndimg.com",)
+
+
+def hero_dishes(count=8):
+    """A few random dishes with a photo for the home page slideshow (the page keeps the first 4
+    photos that load properly). From the current dataset, so dishes the admin adds can show up.
+    Skips Food.com photos and any photo link shared by several dishes (a logo or placeholder,
+    not a real photo of that dish)."""
+    links = [(r.get("image_link") or "").strip() for r in RECIPES]
+    shared = {link for link, n in Counter(links).items() if n > 1}
+    with_photo = [r for r, link in zip(RECIPES, links)
+                  if link.startswith("https://") and link not in shared
+                  and urlparse(link).netloc.lower() not in HERO_SKIP_HOSTS]
+    picks = random.sample(with_photo, min(count, len(with_photo)))
+    return [{"image": r["image_link"], "title": (r.get("title") or "").strip(),
+             "country": STORE.label_of(r.get("country"))} for r in picks]
 
 
 def home_country_options():
