@@ -31,16 +31,36 @@
     const n = picked.size;
     findBtn.disabled = n === 0;
     clearBtn.hidden = n === 0;
-    status.textContent = n === 0
-      ? 'Choose ingredients above.'
-      : `${n} selected: ${[...picked.values()].map((p) => p.label).join(', ')}`;
+    // The picked ingredients as tags (same colours as above), each with an x to remove it
+    if (n === 0) {
+      status.textContent = 'Choose ingredients above.';
+    } else {
+      const count = document.createElement('span');
+      count.className = 'entity-pick-count';
+      count.textContent = `${n} selected:`;
+      const tags = [...picked].map(([k, p]) => {
+        const tag = document.createElement('span');
+        tag.className = `entity-chip entity-pick-tag ${p.color}`;
+        tag.textContent = p.label;
+        const x = document.createElement('button');
+        x.type = 'button';
+        x.className = 'entity-pick-tag-x';
+        x.setAttribute('aria-label', `Remove ${p.label}`);
+        x.innerHTML = '&times;';
+        x.addEventListener('click', () => { picked.delete(k); update(); });
+        tag.appendChild(x);
+        return tag;
+      });
+      status.replaceChildren(count, ...tags);
+    }
   }
 
   chips.forEach((chip) => {
     chip.addEventListener('click', () => {
       const k = key(chip);
       if (picked.has(k)) picked.delete(k);
-      else picked.set(k, { kind: chip.dataset.kind, value: chip.dataset.value, label: chip.textContent.trim() });
+      else picked.set(k, { kind: chip.dataset.kind, value: chip.dataset.value, label: chip.textContent.trim(),
+                           color: ['chip-gold', 'chip-maroon', 'chip-green'].find((c) => chip.classList.contains(c)) || 'chip-gold' });
       update();
     });
   });

@@ -3239,3 +3239,18 @@ html.item-dishes-open, html.item-dishes-open body { overflow: hidden; }
 }
 .entities-card .entity-pick-bar { padding: 0 14px; }
 @media (max-width: 850px) { .entities-card .entity-pick-bar { padding: 0; } }
+
+/* Picked ingredients beside Find dishes: shown as tags, each with an x */
+.entity-pick-bar .entity-pick-status { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.entity-pick-count { margin-right: 2px; }
+.entities-card .entity-pick-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 6px 3px 12px; font-size: .72rem; font-weight: 600;
+}
+.entity-pick-tag-x {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; padding: 0; border: 0; border-radius: 50%;
+  background: transparent; color: inherit; font-size: .9rem; line-height: 1; cursor: pointer; opacity: .7;
+}
+.entity-pick-tag-x:hover { opacity: 1; background: rgba(0, 0, 0, .08); }
+.entity-pick-tag-x:focus-visible { outline: 2px solid var(--gold-accent); outline-offset: 1px; }
