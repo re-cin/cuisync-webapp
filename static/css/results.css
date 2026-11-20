@@ -3238,4 +3238,4 @@ html.item-dishes-open, html.item-dishes-open body { overflow: hidden; }
   .entity-pick-bar .entity-pick-find { flex: none; }
 }
 .entities-card .entity-pick-bar { padding: 0 14px; }
-@media (max-width: 768px) { .entities-card .entity-pick-bar { padding: 0; } }
+@media (max-width: 850px) { .entities-card .entity-pick-bar { padding: 0; } }
