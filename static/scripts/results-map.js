@@ -5,9 +5,13 @@
 //   Phones: hidden under the preview; in full screen it's a bottom sheet that grows when you scroll
 //   the list up and shrinks back (showing the map) when you scroll down past its top. Tapping a pin
 //   on a phone scrolls the list to that dish instead of opening it straight away.
-// - On the page the map is a preview: no drag/zoom, so scrolling the page over it stays smooth.
-//   "Full screen" (or a click on the map) turns on moving and zooming, with a wide margin so
-//   the map can be moved even when not zoomed in. Target button = focus on your dish, Reset = whole map.
+// - On the page the map is a STATIC preview: a pre-drawn map file (assets/map/world-map.svg) with
+//   the pins placed by simple arithmetic. No map library loads, so first visits don't lag.
+//   "Full screen" (or a click on the map) loads d3 + the world data and builds the interactive
+//   map in the overlay (moving and zooming, with a wide margin so the map can be moved even when
+//   not zoomed in). Target button = focus on your dish, Reset = whole map.
+// - Pin spots inside each country are worked out ahead of time (assets/map/pin-spots.json), so
+//   the pins are in the same place in the preview and in the interactive map.
 document.addEventListener('DOMContentLoaded', () => {
   const dataEl = document.getElementById('rmap-data');
   const box = document.getElementById('rmap-map');
@@ -26,6 +30,14 @@ document.addEventListener('DOMContentLoaded', () => {
   let isFull = false;
   const NO_IMAGE = '/static/assets/no-image.svg';
   const TOPOLOGY_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json';
+  const STATIC_MAP_URL = '/static/assets/map/world-map.svg';
+  const SPOTS_URL = '/static/assets/map/pin-spots.json';
+  const LIBS = ['https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js',
+                'https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js'];
+  // The static map file: Mercator, 1000 wide, top at 85N (made from the same world data)
+  const STATIC_S = 1000 / (2 * Math.PI);
+  const STATIC_YTOP = 3.131301331471645;          // ln(tan(pi/4 + 85deg/2))
+  const FRAME = { west: 22, east: 150, south: -12, north: 56 };   // same as ASIA_FRAME below
   const ASIA_FRAME = { type: 'MultiPoint', coordinates: [[22, -12], [150, 56]] };
   const COLORS = { land: '#e4d9c6', border: '#fbf6ec', origin: '#dcb349', target: '#b52a24', other: '#f2bfa8' };
 
@@ -81,17 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let x = (n + 1) * 99991;
     return () => { x = (x * 16807) % 2147483647; return (x - 1) / 2147483646; };
   }
-  function spotIn(feature, rnd) {
-    const [[west, south], [east, north]] = d3.geoBounds(feature);
-    const lonSpan = east >= west ? east - west : east + 360 - west;
-    for (let i = 0; i < 200; i++) {
-      let lon = west + rnd() * lonSpan;
-      if (lon > 180) lon -= 360;
-      const lat = south + rnd() * (north - south);
-      if (d3.geoContains(feature, [lon, lat])) return [lon, lat];
-    }
-    return d3.geoCentroid(feature);
-  }
+  let SPOTS = {};
   const featureFor = (country) => features.find(f => norm(f.properties.name) === norm(country));
 
   function buildPins() {
@@ -99,13 +101,13 @@ document.addEventListener('DOMContentLoaded', () => {
     pins = [];
     const placed = [];
     const add = (dish, isSource) => {
-      const feature = featureFor(dish.country);
-      if (!feature) return;
+      const spots = SPOTS[norm(dish.country)];
+      if (!spots || !spots.length) return;
       const rnd = seeded(dish.idx);
       // A few tries per dish; keep the spot farthest from the pins already placed
       let best = null, bestGap = -1;
       for (let t = 0; t < 10; t++) {
-        const p = spotIn(feature, rnd);
+        const p = spots[Math.floor(rnd() * spots.length)];
         const gap = placed.length ? Math.min(...placed.map(q => Math.hypot(p[0] - q[0], p[1] - q[1]))) : 99;
         if (gap > bestGap) { bestGap = gap; best = p; }
       }
@@ -174,15 +176,55 @@ document.addEventListener('DOMContentLoaded', () => {
     tip.hidden = false;
   }
 
+  // ---------- static preview (no map library) ----------
+  // Same as d3.geoMercator().fitSize([w, h], ASIA_FRAME), then centred in the part of the map
+  // not covered by the panel (like homeTransform), done with plain arithmetic.
+  const rad = (deg) => deg * Math.PI / 180;
+  const ymerc = (lat) => Math.log(Math.tan(Math.PI / 4 + rad(lat) / 2));
+  function staticFit() {
+    const w = box.clientWidth, h = box.clientHeight;
+    const x0 = rad(FRAME.west), x1 = rad(FRAME.east);
+    const y0 = -ymerc(FRAME.north), y1 = -ymerc(FRAME.south);
+    const k = Math.min(w / (x1 - x0), h / (y1 - y0));
+    const v = visibleArea();
+    return {
+      k,
+      tx: (w - k * (x0 + x1)) / 2 + (v.cx - w / 2),
+      ty: (h - k * (y0 + y1)) / 2 + (v.cy - h / 2),
+    };
+  }
+  const live = () => Boolean(isFull && projection && zoomT && rmap.classList.contains('is-live'));
+  let staticSvg = null;
+  function layoutStatic() {
+    if (!staticSvg || box.clientWidth < 20) return;
+    const f = staticFit();
+    const scale = f.k / STATIC_S;
+    staticSvg.style.setProperty('--stroke', `${0.5 / scale}px`);   // borders stay 0.5px on screen
+    staticSvg.style.transform =
+      `matrix(${scale}, 0, 0, ${scale}, ${f.tx - f.k * Math.PI}, ${f.ty - f.k * STATIC_YTOP})`;
+  }
+
   function positionPins() {
-    if (!projection) return;
+    if (live()) {
+      pins.forEach(pin => {
+        const p = projection(pin.lonlat);
+        if (!p) return;
+        const [x, y] = zoomT.apply(p);
+        pin.el.style.left = `${x}px`;
+        pin.el.style.top = `${y}px`;
+      });
+      return;
+    }
+    if (box.clientWidth < 20) return;
+    const f = staticFit();
     pins.forEach(pin => {
-      const p = projection(pin.lonlat);
-      if (!p) return;
-      const [x, y] = zoomT.apply(p);
-      pin.el.style.left = `${x}px`;
-      pin.el.style.top = `${y}px`;
+      pin.el.style.left = `${f.k * rad(pin.lonlat[0]) + f.tx}px`;
+      pin.el.style.top = `${-f.k * ymerc(pin.lonlat[1]) + f.ty}px`;
     });
+  }
+  function layoutPreview() {
+    layoutStatic();
+    positionPins();
   }
 
   function showCountryTip(event, f) {
@@ -200,7 +242,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ---------- map ----------
   function draw() {
-    if (!features) return;
+    if (!features || !isFull) return;
     const w = box.clientWidth, h = box.clientHeight;
     if (w < 20 || h < 20) return;
     svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
@@ -216,8 +258,16 @@ document.addEventListener('DOMContentLoaded', () => {
       .on('mousemove', showCountryTip)
       .on('mouseleave', () => { tip.hidden = true; });
 
-    const first = !zoom;
-    if (first) {
+    if (!zoom) makeZoom();
+    // Big margin around the map so it can be dragged anywhere, even when not zoomed in
+    const padX = Math.max(w * 0.6, 440), padY = Math.max(h * 0.6, 320);
+    zoom.translateExtent([[-padX, -padY], [w + padX, h + padY]]).extent([[0, 0], [w, h]]);
+    // New size (opening full screen, window resize): show the whole map again
+    d3.select(box).call(zoom.transform, homeTransform());
+  }
+
+  function makeZoom() {
+    if (!zoom) {
       zoomT = d3.zoomIdentity;
       // The zoom behaviour is only attached to the map in full screen (see setFull)
       zoom = d3.zoom()
@@ -233,12 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .on('end', () => { setTimeout(() => { box.dataset.dragged = '0'; }, 0); });
     }
-    // Big margin around the map so it can be dragged anywhere, even when not zoomed in
-    const padX = Math.max(w * 0.6, 440), padY = Math.max(h * 0.6, 320);
-    zoom.translateExtent([[-padX, -padY], [w + padX, h + padY]]).extent([[0, 0], [w, h]]);
-    if (first) buildPins();
-    // New size (first draw, full screen in/out, window resize): show the whole map again
-    d3.select(box).call(zoom.transform, homeTransform());
+    return zoom;
   }
 
   // ---------- full screen ----------
@@ -252,14 +297,25 @@ document.addEventListener('DOMContentLoaded', () => {
     tip.hidden = true;
     setSheet(false);
     panel.scrollTop = 0;
-    if (zoom) {
-      if (on) d3.select(box).call(zoom).on('dblclick.zoom', null);   // drag + zoom on
-      else d3.select(box).on('.zoom', null);                          // back to a still preview
+    if (on) {
+      requestAnimationFrame(() => {
+        layoutPreview();                 // the static map fills the overlay straight away
+        closeBtn.focus();
+        loadInteractive().then((ok) => {
+          if (!ok || !isFull) return;    // no network: stays on the static map
+          rmap.classList.add('is-live');
+          draw();                        // builds the projection + zoom
+          d3.select(box).call(zoom).on('dblclick.zoom', null);   // drag + zoom on
+        });
+      });
+    } else {
+      rmap.classList.remove('is-live');
+      if (zoom) d3.select(box).on('.zoom', null);                // back to the static preview
+      requestAnimationFrame(() => {
+        layoutPreview();
+        openBtn.focus();
+      });
     }
-    requestAnimationFrame(() => {
-      draw();
-      (on ? closeBtn : openBtn).focus();
-    });
   }
   openBtn.addEventListener('click', () => setFull(true));
   closeBtn.addEventListener('click', () => setFull(false));
@@ -314,6 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Whole map, centred in the part not covered by the panel
   function homeTransform() {
+    if (!window.d3) return null;
     const v = visibleArea();
     return d3.zoomIdentity.translate(v.cx - box.clientWidth / 2, v.cy - box.clientHeight / 2);
   }
@@ -328,7 +385,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Target button: zoom in on your dish
   document.getElementById('rmap-focus').addEventListener('click', () => {
     const pin = pins.find(p => p.isSource);
-    if (!pin || !projection) return;
+    if (!pin || !live()) return;
     const [x, y] = projection(pin.lonlat);
     const v = visibleArea();
     const k = Math.max(zoomT.k, 3.5);
@@ -336,19 +393,54 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ---------- load ----------
-  if (window.d3 && window.topojson) {
-    d3.json(TOPOLOGY_URL)
-      .then(topo => {
-        features = topojson.feature(topo, topo.objects.countries).features;
-        draw();
-      })
-      .catch(() => box.classList.add('is-offline'));
-  } else {
-    box.classList.add('is-offline');
+  // 1) Straight away: the static map file + the pin spots (small, cached by the browser)
+  const staticWrap = document.createElement('div');
+  staticWrap.className = 'rmap-static';
+  staticWrap.setAttribute('aria-hidden', 'true');
+  box.insertBefore(staticWrap, box.firstChild);
+  Promise.all([
+    fetch(STATIC_MAP_URL).then(r => { if (!r.ok) throw new Error(r.status); return r.text(); }),
+    fetch(SPOTS_URL).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }),
+  ]).then(([svgText, spots]) => {
+    staticWrap.innerHTML = svgText;
+    staticSvg = staticWrap.querySelector('svg');
+    staticSvg.querySelectorAll('path').forEach(p => p.setAttribute('fill', fillFor(p.dataset.c)));
+    SPOTS = spots;
+    buildPins();
+    layoutPreview();
+  }).catch(() => box.classList.add('is-offline'));
+
+  // 2) Only when the map is opened: d3 + the world data for the interactive map.
+  //    Starts downloading as soon as the mouse/finger is on the map, so opening it feels quick.
+  let interactivePromise = null;
+  const loadScript = (src) => new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = src;
+    el.onload = resolve;
+    el.onerror = reject;
+    document.head.appendChild(el);
+  });
+  function loadInteractive() {
+    if (!interactivePromise) {
+      rmap.classList.add('is-loading');
+      interactivePromise = (window.d3 && window.topojson ? Promise.resolve()
+        : LIBS.reduce((p, src) => p.then(() => loadScript(src)), Promise.resolve()))
+        .then(() => d3.json(TOPOLOGY_URL))
+        .then(topo => {
+          features = topojson.feature(topo, topo.objects.countries).features;
+          return true;
+        })
+        .catch(() => { interactivePromise = null; return false; })
+        .finally(() => rmap.classList.remove('is-loading'));
+    }
+    return interactivePromise;
   }
+  ['pointerenter', 'touchstart', 'focusin'].forEach(type =>
+    rmap.addEventListener(type, () => { loadInteractive(); }, { once: true, passive: true }));
+
   let resizeTimer = null;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(draw, 150);
+    resizeTimer = setTimeout(() => (live() ? draw() : layoutPreview()), 150);
   });
 });

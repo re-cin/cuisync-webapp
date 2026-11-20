@@ -9,6 +9,7 @@ import os
 import re
 import secrets
 import threading
+from concurrent.futures import ThreadPoolExecutor
 import time
 import unicodedata
 from functools import lru_cache, wraps
@@ -70,12 +71,15 @@ if _missing:
 STORE = DatasetStore(app.root_path)
 RECIPES = STORE.recipes
 
-# Make sure recipes.json is in the same order as the .npy files
+# Make sure the local recipes.json is in the same order as the .npy files.
+# Compared with the ORIGINAL recipes.json (STORE.base_recipes, never changed), not the dishes
+# loaded from Supabase: the admin page can edit those (even just a title's capital letters),
+# and dataset_store.py already handles every edit. This only catches mixed-up data files.
 ORDER_FILE = os.path.join(app.root_path, 'embeddings_order.json')
-if os.path.exists(ORDER_FILE) and not STORE.uses_admin_data:
+if os.path.exists(ORDER_FILE):
     with open(ORDER_FILE, encoding='utf-8') as f:
         _order = json.load(f)
-    if _order != [[r.get("title", ""), r.get("country", "")] for r in RECIPES]:
+    if _order != [[r.get("title", ""), r.get("country", "")] for r in STORE.base_recipes]:
         raise RuntimeError("recipes.json does not match the .npy files. Re-run the vectorization.")
 
 def build_matcher():
@@ -268,9 +272,20 @@ def _vectorize_at_startup():
         print(f"[CuiSync] Vectorizing new items at startup failed: {error}")
 
 
+# The logged-in user is kept in memory for a short time, so a page or search doesn't wait for
+# Supabase just to look the user up again. Any form submit (POST) reloads it, and after a POST
+# the copy is dropped (see forget_cached_user), so profile / allergy changes show straight away.
+USER_CACHE_SECONDS = 30
+_USER_CACHE = {}   # user id -> (expires at, user dict)
+
+
 def current_user():
     if "user" not in g:
         uid = session.get("user_id")
+        cached = _USER_CACHE.get(uid) if uid and request.method == "GET" else None
+        if cached and cached[0] > time.time():
+            g.user = cached[1]
+            return g.user
         try:
             g.user = accounts.get_user(uid) if uid else None
         except accounts.SupabaseError as error:  # Supabase unreachable: carry on logged out
@@ -281,7 +296,20 @@ def current_user():
             g.user = None
         if uid and g.user is None:
             session.pop("user_id", None)
+            _USER_CACHE.pop(uid, None)
+        elif g.user is not None:
+            _USER_CACHE[uid] = (time.time() + USER_CACHE_SECONDS, g.user)   # only active accounts
     return g.user
+
+
+@app.after_request
+def forget_cached_user(response):
+    # Something may have changed (profile, allergies, password, log out): look the user up again
+    if request.method != "GET":
+        _USER_CACHE.pop(session.get("user_id"), None)
+        if "user" in g and g.user:
+            _USER_CACHE.pop(g.user.get("id"), None)
+    return response
 
 
 def login_required(view):
@@ -368,13 +396,26 @@ def quick_ingredients():
     return _quick_ingredient_counts(id(INGREDIENT_SEARCH))
 
 
+# Search history is saved in the background, so a search doesn't wait for Supabase.
+# One worker: the saves stay in order ("same search twice in a row" is merged in accounts.py).
+_HISTORY_SAVER = ThreadPoolExecutor(max_workers=1, thread_name_prefix="history")
+
+
 def save_history(**entry):
     user = current_user()
-    if user:
+    if not user:
+        return
+    user_id = user["id"]
+
+    def save():
         try:
-            accounts.add_history(user["id"], **entry)
+            accounts.add_history(user_id, **entry)
         except Exception as error:  # history must never break a search
             app.logger.warning("Could not save search history: %s", error)
+    try:
+        _HISTORY_SAVER.submit(save)
+    except RuntimeError:  # the app is shutting down: save it now instead
+        save()
 
 
 def with_card_info(matches):
