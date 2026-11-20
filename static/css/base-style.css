@@ -709,3 +709,6 @@ button.is-busy { cursor: progress; }
 }
 .acct-panel button.acct-logout:hover,
 .acct-panel button.acct-logout:focus-visible { background: #f3ede1; outline: none; }
+
+/* Footer ©: also the hidden way to the admin login (5 clicks), so no hand cursor or text selection */
+.footer-secret { cursor: default; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }

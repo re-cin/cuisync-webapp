@@ -207,10 +207,19 @@ class AppFooter extends HTMLElement {
         </div>
 
         <div class="footer-bottom">
-          <p>© 2025 <span>Cuisync</span>. All rights reserved.</p>
+          <p><span class="footer-secret">©</span> 2025 <span>Cuisync</span>. All rights reserved.</p>
         </div>
       </footer>
     `;
+    // Secret way to the admin login: click (or tap) the © 5 times within 3 seconds.
+    // Only hides the link: the admin page still needs an admin account to sign in.
+    const secret = this.querySelector('.footer-secret');
+    let taps = [];
+    secret.addEventListener('click', () => {
+      const now = Date.now();
+      taps = taps.filter((t) => now - t < 3000).concat(now);
+      if (taps.length >= 5) window.location.href = '/admin/login';
+    });
   }
 }
 
