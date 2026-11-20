@@ -117,10 +117,11 @@
     const partial = data.partial || [];
     const names = data.items.map((i) => i.value);
     const list = names.join(' + ');
-    popupTitle.textContent = n ? `${n} ${n === 1 ? 'Dish Uses' : 'Dishes Use'} All of Them`
-      : (m ? 'No Dish Uses All of Them' : 'No Dishes Found');
-    popupDesc.textContent = n || m
-      ? `Ingredients: ${list}. Choose a dish to compare it with the same target country.`
+    // A general heading: every dish found (both sections), the details are in the sections
+    const found = n + m;
+    popupTitle.textContent = found ? `${found} Dish${found === 1 ? '' : 'es'} Found` : 'No Dishes Found';
+    popupDesc.textContent = found
+      ? `Dishes with your ingredients: ${list}. Choose a dish to compare it with the same target country.`
       : `No dish uses any of these: ${names.join(', ')}.`;
 
     // Country pills: how many dishes come from each country; click one to show only those
