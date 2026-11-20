@@ -306,7 +306,10 @@
             <div class="actions">
               <a class="icon-btn" href="{{ url_for('admin_dish_form', recipe_id=r.recipe_id) }}" aria-label="Edit {{ r.title }}">{{ icon('edit', 18) }}</a>
               <form method="post" action="{{ url_for('admin_dish_delete', recipe_id=r.recipe_id) }}">
-                <button type="submit" class="icon-btn" aria-label="Delete {{ r.title }}" data-confirm="Delete {{ r.title }}? This removes it from search results.">{{ icon('trash', 18) }}</button>
+                <button type="submit" class="icon-btn" aria-label="Delete {{ r.title }}"
+                  data-confirm-title="Delete this dish?" data-confirm-item="{{ r.title }}"
+                  data-confirm="will be removed from the dataset and from search results."
+                  data-confirm-ok="Delete dish">{{ icon('trash', 18) }}</button>
               </form>
             </div>
           </td>

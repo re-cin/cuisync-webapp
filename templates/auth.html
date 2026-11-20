@@ -19,7 +19,6 @@
 </head>
 <body class="admin-page auth-page">
 {% include "partials/flash.html" %}
-{% include "partials/auth_close.html" %}
 <div class="login-shell">
 
   <section class="login-brand user-brand">
@@ -133,8 +132,9 @@
       </p>
 
 
-      <p class="login-note">{{ icon('search', 16) }} No account needed to search.
-        <a href="{{ url_for('home') }}" class="small-link">Continue to CuiSync</a></p>
+      <p class="login-note">
+        <a href="{{ next if next and next.startswith('/') and not next.startswith('//') else url_for('home') }}"
+           class="small-link">Continue as guest</a></p>
     </form>
   </section>
 </div>

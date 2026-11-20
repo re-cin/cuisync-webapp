@@ -1,8 +1,12 @@
-{# Messages from flash() (login, admin saves...). Included by every page. #}
+{# Messages from flash() (login, admin saves...). Included by every admin page.
+   Category "popup" (app.py _after_data_change: dish added / saved / deleted) is shown as a pop-up,
+   the others as small messages in the top-right corner. #}
 {% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}
+  {% set corner = messages | rejectattr(0, 'equalto', 'popup') | list %}
+  {% set popups = messages | selectattr(0, 'equalto', 'popup') | list %}
+  {% if corner %}
   <div class="flash-stack" id="flash-stack">
-    {% for category, message in messages %}
+    {% for category, message in corner %}
     <div class="flash flash-{{ category }}" role="status">
       <span>{{ message }}</span>
       <button type="button" class="flash-close" aria-label="Close" onclick="this.parentElement.remove()">&times;</button>
@@ -10,5 +14,33 @@
     {% endfor %}
   </div>
   <script>setTimeout(() => document.querySelectorAll('.flash-success').forEach(f => f.remove()), 6000);</script>
+  {% endif %}
+  {% for _, message in popups %}
+  {% set p = message | fromjson %}
+  <dialog class="admin-modal" data-result-popup aria-labelledby="result-modal-title-{{ loop.index }}">
+    <div class="admin-modal-icon {{ 'admin-modal-icon-danger' if p.kind == 'deleted' else 'admin-modal-icon-success' }}" aria-hidden="true">
+      {% if p.kind == 'deleted' %}
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+      {% else %}
+      <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+      {% endif %}
+    </div>
+    <h2 class="admin-modal-title" id="result-modal-title-{{ loop.index }}">{{ p.title or 'Done' }}</h2>
+    <p class="admin-modal-text">{% if p.dish %}<strong>{{ p.dish }}</strong> {% endif %}{{ p.text }}</p>
+    {% if p.note %}<p class="admin-modal-note">{{ p.note }}</p>{% endif %}
+    <div class="admin-modal-actions">
+      {% if p.add_another %}<a class="btn btn-outline" href="{{ url_for('admin_dish_form') }}">Add another dish</a>{% endif %}
+      <button type="button" class="btn btn-maroon" data-modal-close autofocus>Done</button>
+    </div>
+  </dialog>
+  {% endfor %}
+  {% if popups %}
+  <script>
+    document.querySelectorAll('[data-result-popup]').forEach((d) => {
+      d.querySelector('[data-modal-close]').addEventListener('click', () => d.close());
+      d.addEventListener('click', (e) => { if (e.target === d) d.close(); });
+      if (typeof d.showModal === 'function') d.showModal(); else d.setAttribute('open', '');
+    });
+  </script>
   {% endif %}
 {% endwith %}

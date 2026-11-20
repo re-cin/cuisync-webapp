@@ -51,16 +51,15 @@
         <button type="button" class="btn btn-outline" id="extract-btn" {{ 'disabled' if not ner_status.mode }}>{{ icon('sparkle', 18) }} Extract ingredients</button>
         <p id="extract-status" class="hint" role="status">{{ '' if ner_status.mode else ner_status.text }}</p>
       </div>
-      <div id="ner-results" hidden>
-        <div class="legend">
-          <span class="chip chip-existing">In dataset</span>
-          <span class="chip chip-suggested">Did you mean…?</span>
-          <span class="chip chip-new">New (gets a vector when saved)</span>
-        </div>
-        <div id="ner-chips" class="chip-list" aria-live="polite"></div>
-        <div class="inline-actions">
-          <button type="button" class="btn btn-maroon btn-sm" id="ner-add">{{ icon('plus', 16) }} Add to ingredients</button>
-          <button type="button" class="btn btn-outline btn-sm" id="ner-replace">Replace ingredients</button>
+      <div id="ner-results" class="ner-results" hidden>
+        <p class="ner-results-head">Review what was found. Remove anything that isn't an ingredient with <b>×</b>.</p>
+        <div id="ner-chips" class="ner-groups" aria-live="polite"></div>
+        <div class="ner-footer">
+          <p id="ner-summary" class="ner-summary"></p>
+          <div class="inline-actions">
+            <button type="button" class="btn btn-maroon btn-sm" id="ner-add">{{ icon('plus', 16) }} <span>Add to ingredients</span></button>
+            <button type="button" class="btn btn-outline btn-sm" id="ner-replace">Replace current ingredients</button>
+          </div>
         </div>
       </div>
     </section>
@@ -69,34 +68,35 @@
       <div class="card-head">
         <h2>Extract cooking process</h2>
         {% set dstat = ner_status.directions %}
-        <span class="pill {{ 'pill-active' if dstat.ready else 'pill-pending' }}" title="{{ dstat.text }}">
-          {{ 'BERT NER · Space' if dstat.mode == 'remote' else 'BERT NER · local' if dstat.mode else 'From dataset vocabulary' }}
+        <span class="pill {{ 'pill-active' if dstat.mode and dstat.ready else ('pill-pending' if dstat.mode else 'pill-hidden') }}" title="{{ dstat.text }}">
+          {{ 'BERT NER · Space' if dstat.mode == 'remote' else 'BERT NER · local' if dstat.mode else 'Directions NER not set up' }}
         </span>
       </div>
-      <p class="hint card-hint">Paste the directions. {{ 'The directions model tags the cooking actions, cookware and utensils, and each one is checked against the dataset' if dstat.mode else 'Cooking actions, cookware and utensils that the dataset already knows are picked out' }} ("simmered" → simmer, "frying pan" → fry pan). Review them, then add them to the fields below.</p>
+      <p class="hint card-hint">Paste the directions. The directions model tags the cooking actions, cookware and utensils, and each one is checked against the dataset ("simmered" → simmer, "frying pan" → fry pan). Review them, then add them to the fields below.</p>
       {% if not dstat.ready and dstat.mode %}<p class="hint">{{ dstat.text }}</p>{% endif %}
       <div class="field">
         <label for="directions-text">Directions</label>
         <textarea id="directions-text" rows="5" placeholder="Heat oil in a wok. Add the garlic and stir-fry for 1 minute.&#10;Pour in the sauce, cover and simmer for 20 minutes."></textarea>
       </div>
       <div class="inline-actions">
-        <button type="button" class="btn btn-outline" id="directions-btn">{{ icon('sparkle', 18) }} Extract from directions</button>
-        <p id="directions-status" class="hint" role="status"></p>
+        <button type="button" class="btn btn-outline" id="directions-btn" {{ 'disabled' if not dstat.mode }}>{{ icon('sparkle', 18) }} Extract from directions</button>
+        <p id="directions-status" class="hint" role="status">{{ '' if dstat.mode else dstat.text }}</p>
       </div>
-      <div id="directions-results" hidden>
-        <div class="legend">
-          <span class="chip chip-existing">In dataset</span>
-          <span class="chip chip-suggested">Did you mean…?</span>
-          <span class="chip chip-new">New (gets a vector when saved)</span>
+      <div id="directions-results" class="ner-results" hidden>
+        <p class="ner-results-head">Review what was found. Remove anything that doesn't belong with <b>×</b>.</p>
+        <div id="directions-groups" class="ner-groups" aria-live="polite"></div>
+        {# Where each kind of item goes (read by admin-ner.js) #}
+        <div hidden>
+          <span data-dir-group="actions" data-field="action_text" data-title="Cooking actions"></span>
+          <span data-dir-group="cookware" data-field="cookware_text" data-title="Cookware"></span>
+          <span data-dir-group="utensils" data-field="utensil_text" data-title="Utensils"></span>
         </div>
-        <div class="dir-groups">
-          <div><p class="tag-cat">Cooking actions</p><div class="chip-list" data-dir-group="actions" data-field="action_text"></div></div>
-          <div><p class="tag-cat">Cookware</p><div class="chip-list" data-dir-group="cookware" data-field="cookware_text"></div></div>
-          <div><p class="tag-cat">Utensils</p><div class="chip-list" data-dir-group="utensils" data-field="utensil_text"></div></div>
-        </div>
-        <div class="inline-actions">
-          <button type="button" class="btn btn-maroon btn-sm" id="directions-add">{{ icon('plus', 16) }} Add to fields</button>
-          <button type="button" class="btn btn-outline btn-sm" id="directions-replace">Replace fields</button>
+        <div class="ner-footer">
+          <p id="directions-summary" class="ner-summary"></p>
+          <div class="inline-actions">
+            <button type="button" class="btn btn-maroon btn-sm" id="directions-add">{{ icon('plus', 16) }} <span>Add to fields</span></button>
+            <button type="button" class="btn btn-outline btn-sm" id="directions-replace">Replace current fields</button>
+          </div>
         </div>
       </div>
     </section>
