@@ -111,9 +111,11 @@
           <textarea id="action_text" name="action_text" rows="2" placeholder="marinate, simmer, fry">{{ dish.action_text or '' }}</textarea>
           <div class="chip-row chip-preview" data-preview-for="action_text" aria-hidden="true"></div></div>
         <div class="field"><label for="cookware_text">Cookware</label>
-          <input id="cookware_text" type="text" name="cookware_text" value="{{ dish.cookware_text or '' }}" placeholder="pot, wok"></div>
+          <input id="cookware_text" type="text" name="cookware_text" value="{{ dish.cookware_text or '' }}" placeholder="pot, wok">
+          <div class="chip-row chip-preview" data-preview-for="cookware_text" aria-hidden="true"></div></div>
         <div class="field"><label for="utensil_text">Utensils</label>
-          <input id="utensil_text" type="text" name="utensil_text" value="{{ dish.utensil_text or '' }}" placeholder="knife, bowl"></div>
+          <input id="utensil_text" type="text" name="utensil_text" value="{{ dish.utensil_text or '' }}" placeholder="knife, bowl">
+          <div class="chip-row chip-preview" data-preview-for="utensil_text" aria-hidden="true"></div></div>
       </div>
       <p class="hint">Items already in the dataset reuse their vectors. New items get a vector automatically when you save (same model as the vectorization notebook) and count towards similarity right away. If that fails, for example because the model is offline, the Dashboard lists them and they are tried again on the next save.</p>
     </section>
