@@ -1,5 +1,5 @@
-// Comparison page, Recipe breakdown: pick ingredients / cooking actions / tools (several at once),
-// then "Find dishes" opens a popup with every dish that has all of them (/api/dishes-with-items).
+// Comparison page, Recipe breakdown: pick ingredients (several at once),
+// then "Find dishes" opens a popup with every dish that uses all of them (/api/dishes-with-items).
 // The popup looks like the "Search by tag" popup on the home page. Choosing a dish compares it
 // with the same target country.
 (() => {
@@ -32,7 +32,7 @@
     findBtn.disabled = n === 0;
     clearBtn.hidden = n === 0;
     status.textContent = n === 0
-      ? 'Choose ingredients, cooking actions or tools above.'
+      ? 'Choose ingredients above.'
       : `${n} selected: ${[...picked.values()].map((p) => p.label).join(', ')}`;
   }
 
@@ -52,7 +52,7 @@
     button.type = 'button';
     button.className = 'dish-card popup-dish-card pdc';
     const found = (d.found || []).length
-      ? `<p class="dish-card-found">Has: ${d.found.map(([want, have]) => `<span title="you picked ${esc(want)}">${esc(have)}</span>`).join(', ')}</p>`
+      ? `<p class="dish-card-found">Uses: ${d.found.map(([want, have]) => `<span title="you picked ${esc(want)}">${esc(have)}</span>`).join(', ')}</p>`
       : '';
     const region = (d.region || '').toLowerCase();
     const tagList = (d.tags || []).filter((t) => !region || t.toLowerCase() !== region);
@@ -87,10 +87,10 @@
     const names = data.items.map((i) => i.value);
     popupTitle.textContent = n ? `${n} Dish${n === 1 ? '' : 'es'} Found` : 'No Dishes Found';
     popupDesc.textContent = n
-      ? `Dishes with ${names.join(' + ')}`
+      ? `Dishes that use ${names.join(' + ')}`
         + (n > data.dishes.length ? ` (showing the first ${data.dishes.length})` : '')
         + '. Choose one to compare it with the same target country.'
-      : `No dish has all of these: ${names.join(', ')}. Try removing one.`;
+      : `No dish uses all of these: ${names.join(', ')}. Try removing one.`;
 
     // Country pills: how many dishes come from each country; click one to show only those
     const counts = new Map();

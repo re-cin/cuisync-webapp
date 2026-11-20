@@ -178,7 +178,7 @@
           <!-- ---------- RECIPE BREAKDOWN ---------- -->
           <div class="rt-panel" id="rt-panel-recipe" role="tabpanel" aria-labelledby="rt-tab-recipe">
             <div class="entities-card">
-              <p class="rt-intro">The ingredients, cooking actions and tools pulled from both recipes. Choose one or more, then press <strong>Find dishes</strong> to see every dish that has all of them.</p>
+              <p class="rt-intro">The ingredients, cooking actions and tools pulled from both recipes. Choose one or more ingredients, then press <strong>Find dishes</strong> to see every dish that uses all of them. Click a cooking action or tool to see every dish that has it.</p>
 
               <!-- Category filter buttons -->
               <div class="entity-filters">
@@ -201,21 +201,22 @@
               </div>
 
               <!-- Gold = shared, maroon = only in the searched dish, green = only in the recommended dish.
-                   Each chip can be picked (several at once); "Find dishes" opens a popup with every dish
-                   that has all the picked items (entity-picker.js, /api/dishes-with-items). -->
+                   Ingredients can be picked (several at once); "Find dishes" opens a popup with every dish
+                   that uses all of them (entity-picker.js, /api/dishes-with-items).
+                   Cooking actions and tools open the Dish Dictionary filtered to that item. -->
               {% for key, label, param in [('ingredients', 'INGREDIENTS', 'ingredient'), ('actions', 'COOKING ACTIONS', 'action'), ('cookware', 'COOKWARES', 'cookware'), ('utensils', 'UTENSILS', 'utensil')] %}
                 {% set cat = entities[key] %}
                 <div class="entity-group">
                   <span class="entity-category-label">{{ label }}</span>
                   <div class="chips-wrapper">
                     {% for item in cat.shared %}
-                      <button type="button" class="entity-chip chip-gold" data-type="shared" data-kind="{{ param }}" data-value="{{ item | lower }}" aria-pressed="false">{{ item }}</button>
+                      {% if param == 'ingredient' %}<button type="button" class="entity-chip chip-gold" data-type="shared" data-kind="ingredient" data-value="{{ item | lower }}" aria-pressed="false">{{ item }}</button>{% else %}<a class="entity-chip chip-gold" data-type="shared" href="{{ url_for('dictionary', **{param: item | lower}) }}" title="See every dish with {{ item | lower }}">{{ item }}</a>{% endif %}
                     {% endfor %}
                     {% for item in cat.source_unique %}
-                      <button type="button" class="entity-chip chip-maroon" data-type="source" data-kind="{{ param }}" data-value="{{ item | lower }}" aria-pressed="false">{{ item }}</button>
+                      {% if param == 'ingredient' %}<button type="button" class="entity-chip chip-maroon" data-type="source" data-kind="ingredient" data-value="{{ item | lower }}" aria-pressed="false">{{ item }}</button>{% else %}<a class="entity-chip chip-maroon" data-type="source" href="{{ url_for('dictionary', **{param: item | lower}) }}" title="See every dish with {{ item | lower }}">{{ item }}</a>{% endif %}
                     {% endfor %}
                     {% for item in cat.target_unique %}
-                      <button type="button" class="entity-chip chip-green" data-type="target" data-kind="{{ param }}" data-value="{{ item | lower }}" aria-pressed="false">{{ item }}</button>
+                      {% if param == 'ingredient' %}<button type="button" class="entity-chip chip-green" data-type="target" data-kind="ingredient" data-value="{{ item | lower }}" aria-pressed="false">{{ item }}</button>{% else %}<a class="entity-chip chip-green" data-type="target" href="{{ url_for('dictionary', **{param: item | lower}) }}" title="See every dish with {{ item | lower }}">{{ item }}</a>{% endif %}
                     {% endfor %}
                     {% if not (cat.shared or cat.source_unique or cat.target_unique) %}<span class="entity-empty">None listed.</span>{% endif %}
                   </div>
@@ -224,7 +225,7 @@
 
               <!-- Picked items + Find dishes (greyed out until something is picked) -->
               <div class="entity-pick-bar" id="entity-pick-bar">
-                <p class="entity-pick-status" id="entity-pick-status" aria-live="polite">Choose ingredients, cooking actions or tools above.</p>
+                <p class="entity-pick-status" id="entity-pick-status" aria-live="polite">Choose ingredients above.</p>
                 <button type="button" class="entity-pick-clear" id="entity-pick-clear" hidden>Clear</button>
                 <button type="button" class="entity-pick-find" id="entity-pick-find" disabled>
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
@@ -517,7 +518,7 @@
   <script src="{{ url_for('static', filename='scripts/results-map.js') }}"></script>
   <script src="{{ url_for('static', filename='scripts/country-picker.js') }}"></script>
   <script src="{{ url_for('static', filename='scripts/dish-info-ui.js') }}"></script>
-  <script src="{{ url_for('static', filename='scripts/entity-picker.js') }}"></script>
+  <script src="{{ url_for('static', filename='scripts/entity-picker.js') }}?v=2"></script>
 
   <!-- ==================================
        EXTRACTED ENTITIES FILTERING
