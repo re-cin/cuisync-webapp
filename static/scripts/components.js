@@ -204,6 +204,15 @@ class AppFooter extends HTMLElement {
             </p>
           </div>
 
+          <div class="footer-col footer-contact">
+            <h4 class="footer-heading">CONTACT US</h4>
+            <p class="footer-dataset-desc">Questions, feedback or a dish we should add? Send us an email.</p>
+            <a class="footer-email" href="mailto:cuisyncwebapp@gmail.com">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+              <span>cuisyncwebapp@gmail.com</span>
+            </a>
+          </div>
+
         </div>
 
         <div class="footer-bottom">

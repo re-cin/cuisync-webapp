@@ -34,11 +34,9 @@
       </p>
       <div class="hero-actions">
         <a href="#search-section" class="btn btn-gold">SEARCH NOW</a>
-        {% if current_user %}
-        <a href="/profile#history" class="btn btn-hero-outline">MY SEARCH HISTORY</a>
-        {% else %}
-        <a href="/login" class="btn btn-hero-outline">LOG IN</a>
-        {% endif %}
+        {# Guests: the same button, but it goes to the log in page first, then to their history #}
+        <a href="{{ '/profile#history' if current_user else url_for('login', next='/profile#history') }}"
+           class="btn btn-hero-outline">MY SEARCH HISTORY</a>
       </div>
       {% if not current_user %}
       <p class="hero-login-note">

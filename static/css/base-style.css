@@ -734,3 +734,16 @@ button.is-busy { cursor: progress; }
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* Footer: Contact us column */
+.footer-email {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 0.8rem;
+  color: #e0d0cc;
+  word-break: break-all;      /* long address never overflows on small phones */
+}
+.footer-email svg { flex: none; color: var(--gold-accent); }
+.footer-email:hover { color: var(--gold-accent); text-decoration: underline; }
