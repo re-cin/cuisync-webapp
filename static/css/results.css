@@ -3400,3 +3400,6 @@ html.item-dishes-open, html.item-dishes-open body { overflow: hidden; }
 .item-dishes-more-menu[hidden] { display: none; }
 .item-dishes-more-title { flex-basis: 100%; margin: 0 0 4px; font-size: .74rem; font-weight: 600; color: var(--text-muted); text-align: left; }
 #item-dishes-overlay .item-dishes-more-menu .item-dishes-tag { display: inline-flex; }
+
+/* Find dishes popup above the top bar and the phone's bottom nav (app-nav is at 99999) */
+#item-dishes-overlay { z-index: 100002; }
