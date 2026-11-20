@@ -13,7 +13,10 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="{{ url_for('static', filename='css/base-style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/results.css') }}?v=allergen-ui-v25">
+  <!-- Dish popup styles (shared with the Dishes page); results.css after them keeps its own look -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dictionary.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dish-information.css') }}?v=allergen-ui-v7">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/results.css') }}?v=allergen-ui-v26">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/country-picker.css') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/panel.css') }}?v=close-gold">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/results-map.css') }}">
@@ -494,7 +497,7 @@
   </main>
 
   <!-- Popup with the dishes that have every picked item (same look as the "Search by tag" popup).
-       Choosing a dish compares it with the same target country. -->
+       Choosing a dish opens its dish popup (the same as on the Dishes page). -->
   <div id="item-dishes-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="item-dishes-title">
     <div class="modal-box dish-results-box">
       <button type="button" class="modal-close-btn" id="item-dishes-close" aria-label="Close">&times;</button>
@@ -524,12 +527,8 @@
       </nav>
     </div>
   </div>
-  <form id="item-dishes-form" action="{{ url_for('search_text') }}" method="POST" hidden>
-    <input type="hidden" name="dish_name">
-    <input type="hidden" name="recipe_id">
-    <input type="hidden" name="origin_country">
-    <input type="hidden" name="target_country" value="{{ 'any' if target_any else (target_country | lower) }}">
-  </form>
+  <!-- A dish chosen there opens the same dish popup as the Dish Dictionary -->
+  {% include "partials/dish_popup.html" %}
 
   <app-footer></app-footer>
 
@@ -539,7 +538,9 @@
   <script src="{{ url_for('static', filename='scripts/results-map.js') }}"></script>
   <script src="{{ url_for('static', filename='scripts/country-picker.js') }}"></script>
   <script src="{{ url_for('static', filename='scripts/dish-info-ui.js') }}"></script>
-  <script src="{{ url_for('static', filename='scripts/entity-picker.js') }}?v=15"></script>
+  <script>window.DICT_NO_IMAGE = "{{ url_for('static', filename='assets/no-image.svg') }}";</script>
+  <script src="{{ url_for('static', filename='scripts/dish-popup.js') }}"></script>
+  <script src="{{ url_for('static', filename='scripts/entity-picker.js') }}?v=16"></script>
 
   <!-- ==================================
        EXTRACTED ENTITIES FILTERING

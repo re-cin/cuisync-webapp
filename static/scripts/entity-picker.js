@@ -15,7 +15,6 @@
   const popupCountries = document.getElementById('item-dishes-countries');
   const popupGrid = document.getElementById('item-dishes-grid');
   const popupClose = document.getElementById('item-dishes-close');
-  const form = document.getElementById('item-dishes-form');
   const popupBox = popup.querySelector('.dish-results-box');
   const allSection = document.getElementById('item-dishes-all');
   const allHead = document.getElementById('item-dishes-all-head');
@@ -106,7 +105,7 @@
       </div>
       <div class="pdc-foot">
         <span class="pdc-place">${esc(d.region || '')}</span>
-        <span class="pdc-select">Choose <span class="pdc-arrow" aria-hidden="true">&rarr;</span></span>
+        <span class="pdc-select">View dish <span class="pdc-arrow" aria-hidden="true">&rarr;</span></span>
       </div>`;
     const img = button.querySelector('img');
     img.addEventListener('error', () => { img.onerror = null; img.src = NO_IMAGE; }, { once: true });
@@ -124,7 +123,7 @@
     const found = n + m;
     popupTitle.textContent = found ? `${found} Dish${found === 1 ? '' : 'es'} Found` : 'No Dishes Found';
     popupDesc.textContent = found
-      ? 'Dishes with your ingredients. Choose a dish to compare it with the same target country.'
+      ? 'Dishes with your ingredients. Choose a dish to see its recipe, culture and health information.'
       : `No dish uses any of these: ${names.join(', ')}.`;
 
     // Two tabs: "Uses all" and "Uses some"; pages run inside a tab
@@ -219,12 +218,19 @@
     findBtn.focus();
   }
 
+  // Choosing a dish opens the same dish popup as the Dish Dictionary (dish-popup.js);
+  // closing it brings this list back where it was
   function choose(d) {
-    form.elements.dish_name.value = d.title;
-    form.elements.recipe_id.value = d.recipe_id ?? '';
-    form.elements.origin_country.value = d.country_value;
-    popupTitle.textContent = 'Comparing…';
-    form.submit();
+    popup.classList.add('hidden');
+    window.CuiSyncDishPopup.open({
+      id: d.idx, t: d.title, a: d.alternative_title || '', l: d.country_label || '',
+      i: d.image_link || '', _region: d.region || '~',
+    }, {
+      onClose: () => {
+        popup.classList.remove('hidden');
+        document.documentElement.classList.add('item-dishes-open');
+      },
+    });
   }
 
   findBtn.addEventListener('click', async () => {
