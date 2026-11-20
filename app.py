@@ -2067,6 +2067,42 @@ def entity_matches(item, wanted):
 _ENTITY_OPTIONS = {}   # kind -> [[name, number of dishes, [dish ids]], ...] (built once)
 
 
+@app.route("/api/dishes-with-items")
+def api_dishes_with_items():
+    """Popup on the comparison page (Recipe breakdown): the dishes that have EVERY picked
+    ingredient / cooking action / cookware / utensil (?ingredient=garlic&action=simmer...).
+    Same matching rule as the Dish Dictionary links ("pork" also finds "pork belly")."""
+    wanted = []   # (kind, label, value)
+    for kind, (field, label) in DICTIONARY_ENTITIES.items():
+        for value in request.args.getlist(kind)[:20]:
+            value = " ".join(value.lower().split())
+            if value and (kind, label, value) not in wanted:
+                wanted.append((kind, label, value))
+    if not wanted:
+        return jsonify({"mode": "items", "items": [], "total": 0, "dishes": []})
+    visible = {c["value"] for c in STORE.dropdown_countries()}
+    results = []
+    for idx, r in enumerate(RECIPES):
+        if r["country"].lower() not in visible:
+            continue
+        found = []
+        for kind, _, value in wanted:
+            field = DICTIONARY_ENTITIES[kind][0]
+            have = next((item for item in parse_items(r.get(field, "")) if entity_matches(item, value)), None)
+            if have is None:
+                break
+            found.append([value, have])
+        else:
+            results.append((idx, found))
+    results.sort(key=lambda x: (RECIPES[x[0]].get("title") or "").lower())
+    return jsonify({
+        "mode": "items",
+        "items": [{"kind": k, "label": l, "value": v} for k, l, v in wanted],
+        "total": len(results),
+        "dishes": [dish_card(idx, None, found) for idx, found in results[:60]],
+    })
+
+
 def dictionary_entity_options(dishes):
     """Checklist options for the "Browse by category" dropdown: every ingredient, cooking action,
     cookware and utensil in the dataset, with the dishes that have it (same matching rule as the

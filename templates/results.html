@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="{{ url_for('static', filename='css/base-style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/results.css') }}?v=allergen-ui-v8">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/results.css') }}?v=allergen-ui-v9">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/country-picker.css') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/panel.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/results-map.css') }}">
@@ -178,7 +178,7 @@
           <!-- ---------- RECIPE BREAKDOWN ---------- -->
           <div class="rt-panel" id="rt-panel-recipe" role="tabpanel" aria-labelledby="rt-tab-recipe">
             <div class="entities-card">
-              <p class="rt-intro">The ingredients, cooking actions and tools pulled from both recipes. Click any of them to see every dish that has it.</p>
+              <p class="rt-intro">The ingredients, cooking actions and tools pulled from both recipes. Choose one or more, then press <strong>Find dishes</strong> to see every dish that has all of them.</p>
 
               <!-- Category filter buttons -->
               <div class="entity-filters">
@@ -201,25 +201,36 @@
               </div>
 
               <!-- Gold = shared, maroon = only in the searched dish, green = only in the recommended dish.
-                   Each chip opens the Dish Dictionary filtered to that ingredient / action / tool. -->
+                   Each chip can be picked (several at once); "Find dishes" opens a popup with every dish
+                   that has all the picked items (entity-picker.js, /api/dishes-with-items). -->
               {% for key, label, param in [('ingredients', 'INGREDIENTS', 'ingredient'), ('actions', 'COOKING ACTIONS', 'action'), ('cookware', 'COOKWARES', 'cookware'), ('utensils', 'UTENSILS', 'utensil')] %}
                 {% set cat = entities[key] %}
                 <div class="entity-group">
                   <span class="entity-category-label">{{ label }}</span>
                   <div class="chips-wrapper">
                     {% for item in cat.shared %}
-                      <a class="entity-chip chip-gold" data-type="shared" href="{{ url_for('dictionary', **{param: item | lower}) }}" title="See every dish with {{ item | lower }}">{{ item }}</a>
+                      <button type="button" class="entity-chip chip-gold" data-type="shared" data-kind="{{ param }}" data-value="{{ item | lower }}" aria-pressed="false">{{ item }}</button>
                     {% endfor %}
                     {% for item in cat.source_unique %}
-                      <a class="entity-chip chip-maroon" data-type="source" href="{{ url_for('dictionary', **{param: item | lower}) }}" title="See every dish with {{ item | lower }}">{{ item }}</a>
+                      <button type="button" class="entity-chip chip-maroon" data-type="source" data-kind="{{ param }}" data-value="{{ item | lower }}" aria-pressed="false">{{ item }}</button>
                     {% endfor %}
                     {% for item in cat.target_unique %}
-                      <a class="entity-chip chip-green" data-type="target" href="{{ url_for('dictionary', **{param: item | lower}) }}" title="See every dish with {{ item | lower }}">{{ item }}</a>
+                      <button type="button" class="entity-chip chip-green" data-type="target" data-kind="{{ param }}" data-value="{{ item | lower }}" aria-pressed="false">{{ item }}</button>
                     {% endfor %}
                     {% if not (cat.shared or cat.source_unique or cat.target_unique) %}<span class="entity-empty">None listed.</span>{% endif %}
                   </div>
                 </div>
               {% endfor %}
+
+              <!-- Picked items + Find dishes (greyed out until something is picked) -->
+              <div class="entity-pick-bar" id="entity-pick-bar">
+                <p class="entity-pick-status" id="entity-pick-status" aria-live="polite">Choose ingredients, cooking actions or tools above.</p>
+                <button type="button" class="entity-pick-clear" id="entity-pick-clear" hidden>Clear</button>
+                <button type="button" class="entity-pick-find" id="entity-pick-find" disabled>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+                  Find dishes
+                </button>
+              </div>
             </div>
           </div>
 
@@ -480,6 +491,24 @@
     {% endif %}
   </main>
 
+  <!-- Popup with the dishes that have every picked item (same look as the "Search by tag" popup).
+       Choosing a dish compares it with the same target country. -->
+  <div id="item-dishes-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="item-dishes-title">
+    <div class="modal-box dish-results-box">
+      <button type="button" class="modal-close-btn" id="item-dishes-close" aria-label="Close">&times;</button>
+      <h3 id="item-dishes-title" class="modal-title">Choose a Dish</h3>
+      <p id="item-dishes-desc" class="modal-desc"></p>
+      <div id="item-dishes-countries" class="popup-countries" role="group" aria-label="Show dishes from one country" hidden></div>
+      <div id="item-dishes-grid" class="dish-grid popup-dish-grid"></div>
+    </div>
+  </div>
+  <form id="item-dishes-form" action="{{ url_for('search_text') }}" method="POST" hidden>
+    <input type="hidden" name="dish_name">
+    <input type="hidden" name="recipe_id">
+    <input type="hidden" name="origin_country">
+    <input type="hidden" name="target_country" value="{{ 'any' if target_any else (target_country | lower) }}">
+  </form>
+
   <app-footer></app-footer>
 
   <script src="{{ url_for('static', filename='scripts/components.js') }}"></script>
@@ -488,6 +517,7 @@
   <script src="{{ url_for('static', filename='scripts/results-map.js') }}"></script>
   <script src="{{ url_for('static', filename='scripts/country-picker.js') }}"></script>
   <script src="{{ url_for('static', filename='scripts/dish-info-ui.js') }}"></script>
+  <script src="{{ url_for('static', filename='scripts/entity-picker.js') }}"></script>
 
   <!-- ==================================
        EXTRACTED ENTITIES FILTERING

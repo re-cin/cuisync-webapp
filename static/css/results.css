@@ -3168,3 +3168,61 @@ a.entity-chip:focus-visible { outline: 2px solid var(--gold-accent); outline-off
   .quote-mark { font-size: 2.6rem; }
   .quote-body .quote-text { margin: 0; }
 }
+
+/* Recipe breakdown: chips can be picked (several), then "Find dishes" opens the dish popup */
+button.entity-chip { font: inherit; cursor: pointer; line-height: inherit; transition: filter .15s ease, box-shadow .15s ease, background-color .15s ease; }
+.entities-card button.entity-chip { font-size: 0.72rem; font-weight: 500; }
+button.entity-chip:hover { filter: brightness(0.95); box-shadow: 0 0 0 1px currentColor inset; }
+button.entity-chip:focus-visible { outline: 2px solid var(--gold-accent); outline-offset: 2px; }
+button.entity-chip[aria-pressed="true"]::before { content: "\2713"; margin-right: 6px; font-weight: 700; }
+.entities-card .chip-gold[aria-pressed="true"] { background-color: #c9a227; border-color: #b08a17; color: #2a1f05; font-weight: 600; }
+.entities-card .chip-maroon[aria-pressed="true"] { background-color: var(--maroon-main); border-color: var(--maroon-main); color: #fff; font-weight: 600; }
+.entities-card .chip-green[aria-pressed="true"] { background-color: #2d6b4f; border-color: #2d6b4f; color: #fff; font-weight: 600; }
+
+.entity-pick-bar {
+  position: sticky; bottom: 12px; z-index: 5;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin-top: 22px; padding: 12px 14px;
+  border: 1px solid var(--gold-border); border-radius: 12px;
+  background: #f4eddd; box-shadow: 0 6px 18px rgba(60, 20, 10, .12);
+}
+.entity-pick-status { flex: 1 1 220px; margin: 0; font-size: .8rem; color: var(--text-muted); min-width: 0; }
+.entity-pick-clear {
+  border: 0; background: none; padding: 6px 4px; font: inherit; font-size: .8rem; font-weight: 600;
+  color: var(--maroon-main); cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+}
+.entity-pick-find {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 20px; border: 0; border-radius: 8px;
+  background: var(--maroon-main); color: var(--gold-accent);
+  font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer;
+}
+.entity-pick-find:hover:not(:disabled) { background: var(--maroon-dark); }
+.entity-pick-find:disabled { background: #c9bfae; color: #f7f3ea; cursor: not-allowed; }
+.entity-pick-find.is-loading { opacity: .7; cursor: progress; }
+@media (max-width: 600px) {
+  .entity-pick-bar { gap: 8px; padding: 10px 12px; }
+  .entity-pick-find { flex: 1; justify-content: center; }
+}
+html.item-dishes-open, html.item-dishes-open body { overflow: hidden; }
+
+/* Dish popup of the Recipe breakdown: the modal basics that index.css has on the home page */
+#item-dishes-overlay {
+  position: fixed; inset: 0; z-index: 2000; padding: 20px;
+  display: flex; align-items: center; justify-content: center;
+  background-color: rgba(38, 20, 10, 0.55);
+}
+#item-dishes-overlay.hidden { display: none !important; }
+#item-dishes-overlay .modal-box {
+  position: relative; width: 100%; padding: 36px 28px 28px;
+  background-color: var(--cream-bg, #fdf8ef); border: 1px solid var(--gold-accent, #c8a860);
+  border-radius: 14px; text-align: center; box-shadow: 0 12px 30px rgba(0, 0, 0, .35);
+}
+#item-dishes-overlay .modal-close-btn {
+  position: absolute; top: 12px; right: 14px; background: none; border: none;
+  font-size: 1.4rem; line-height: 1; color: var(--text-muted, #8c8275); cursor: pointer;
+}
+#item-dishes-overlay .modal-close-btn:hover { color: var(--maroon-main); }
+#item-dishes-overlay .modal-title { font-size: 1.4rem; color: var(--maroon-dark); margin-bottom: 10px; }
+#item-dishes-overlay .modal-desc { font-size: .88rem; color: var(--text-muted, #6b6259); line-height: 1.5; }
+#item-dishes-overlay .dish-card { text-align: left; }
