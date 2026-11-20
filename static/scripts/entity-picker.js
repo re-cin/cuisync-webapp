@@ -166,21 +166,51 @@
       pagerNext.onclick = () => { page += 1; render(); popupBox.scrollTop = 0; };
     }
 
-    // The picked ingredients as tags under the heading (same colours as on the page, no counts)
-    popupCountries.hidden = !picked.size;
-    popupCountries.replaceChildren(...[...picked.values()].map((p) => {
+    // The picked ingredients as tags beside the tabs (same colours as on the page, no counts).
+    // Computers: the first 4, then "+N more" opens a dropdown with all of them.
+    // Phones: every tag on one row that slides sideways (CSS shows the extra ones, hides the button).
+    const SHOWN_TAGS = 4;
+    const makeTag = (p, extra) => {
       const tag = document.createElement('span');
-      tag.className = `entity-chip item-dishes-tag ${p.color}`;
+      tag.className = `entity-chip item-dishes-tag ${p.color}${extra ? ' is-extra' : ''}`;
       tag.textContent = p.label;
       return tag;
-    }));
+    };
+    const pickedList = [...picked.values()];
+    const row = pickedList.map((p, i) => makeTag(p, i >= SHOWN_TAGS));
+    if (pickedList.length > SHOWN_TAGS) {
+      const wrap = document.createElement('div');
+      wrap.className = 'item-dishes-more';
+      const more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'item-dishes-more-btn';
+      more.setAttribute('aria-expanded', 'false');
+      more.innerHTML = `+${pickedList.length - SHOWN_TAGS} more <span aria-hidden="true">&#9662;</span>`;
+      const menu = document.createElement('div');
+      menu.className = 'item-dishes-more-menu';
+      menu.hidden = true;
+      menu.setAttribute('aria-label', 'All your ingredients');
+      const title = document.createElement('p');
+      title.className = 'item-dishes-more-title';
+      title.textContent = `Your ${pickedList.length} ingredients`;
+      menu.append(title, ...pickedList.map((p) => makeTag(p, false)));
+      const toggle = (open) => {
+        menu.hidden = !open;
+        more.setAttribute('aria-expanded', String(open));
+      };
+      more.addEventListener('click', (e) => { e.stopPropagation(); toggle(menu.hidden); });
+      menu.addEventListener('click', (e) => e.stopPropagation());
+      popupBox.addEventListener('click', () => toggle(false));
+      wrap.append(more, menu);
+      row.push(wrap);
+    }
+    popupCountries.hidden = !picked.size;
+    popupCountries.replaceChildren(...row);
     render();
     popup.classList.remove('hidden');
     document.documentElement.classList.add('item-dishes-open');
     popupBox.scrollTop = 0;
     popupClose.focus();
-    // Tags that all fit get no fade at the end of the row
-    popupCountries.classList.toggle('fits', popupCountries.scrollWidth <= popupCountries.clientWidth + 1);
   }
 
   function closePopup() {
