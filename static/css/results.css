@@ -3262,3 +3262,22 @@ html.item-dishes-open, html.item-dishes-open body { overflow: hidden; }
 }
 #item-dishes-some .item-dishes-head { margin-top: 28px; }
 .dish-card-missing { margin-top: 4px; font-size: .74rem; color: #9a6a5a; }
+
+/* Dish popup: floating pages bar (only when more than 15 dishes) */
+.item-dishes-pager {
+  position: sticky; bottom: 0; z-index: 3;
+  display: flex; align-items: center; justify-content: center; gap: 14px;
+  width: fit-content; margin: 22px auto 0; padding: 8px 10px;
+  border: 1px solid var(--gold-border); border-radius: 999px;
+  background: #faf6ee; box-shadow: 0 6px 20px rgba(60, 20, 10, .2);
+}
+.item-dishes-pager[hidden] { display: none; }
+.item-dishes-pager span { font-size: .8rem; color: var(--text-muted); white-space: nowrap; }
+.item-dishes-pager button {
+  padding: 7px 14px; border: 0; border-radius: 999px;
+  background: var(--maroon-main); color: var(--gold-accent);
+  font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer;
+}
+.item-dishes-pager button:hover:not(:disabled) { background: var(--maroon-dark); }
+.item-dishes-pager button:disabled { background: #c9bfae; color: #f7f3ea; cursor: not-allowed; }
+@media (max-width: 600px) { .item-dishes-pager { gap: 8px; } .item-dishes-pager span { font-size: .72rem; } }

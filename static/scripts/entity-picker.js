@@ -22,6 +22,11 @@
   const partialSection = document.getElementById('item-dishes-some');
   const partialHead = document.getElementById('item-dishes-some-head');
   const partialGrid = document.getElementById('item-dishes-some-grid');
+  const pager = document.getElementById('item-dishes-pager');
+  const pagerPrev = document.getElementById('item-dishes-prev');
+  const pagerNext = document.getElementById('item-dishes-next');
+  const pagerInfo = document.getElementById('item-dishes-page');
+  const PAGE_SIZE = 15;   // dishes per page in the popup
   const NO_IMAGE = '/static/assets/no-image.svg';
   const KIND_WORD = { ingredient: 'ingredient', action: 'cooking action', cookware: 'cookware', utensil: 'utensil' };
 
@@ -124,10 +129,41 @@
       ? `Dishes with your ingredients: ${list}. Choose a dish to compare it with the same target country.`
       : `No dish uses any of these: ${names.join(', ')}.`;
 
+    // Every dish in one list (the "uses all" ones first), so the pages run across both sections
+    const all = data.dishes.map((d) => ({ d, every: true })).concat(partial.map((d) => ({ d, every: false })));
+    let country = '';   // the country pill that is on ('' = every country)
+    let page = 0;
+
+    function render() {
+      const shown = all.filter((x) => !country || x.d.country_label === country);
+      const pages = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
+      page = Math.min(page, pages - 1);
+      const slice = shown.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+      const everyHere = slice.filter((x) => x.every).map((x) => x.d);
+      const someHere = slice.filter((x) => !x.every).map((x) => x.d);
+      const nAll = shown.filter((x) => x.every).length;
+      const nSome = shown.length - nAll;
+      // Section 1: dishes that use every picked ingredient
+      popupGrid.replaceChildren(...everyHere.map(dishButton));
+      allHead.hidden = !nAll || !nSome;   // a heading only when there are two sections
+      allHead.textContent = `Uses all ${names.length} (${nAll})`;
+      allSection.hidden = !everyHere.length;
+      // Section 2: dishes that use only some of them (more of them first)
+      partialHead.textContent = `Uses only some of them (${nSome})`;
+      partialGrid.replaceChildren(...someHere.map(dishButton));
+      partialSection.hidden = !someHere.length;
+      // Floating pages bar: only when there are more than PAGE_SIZE dishes
+      pager.hidden = shown.length <= PAGE_SIZE;
+      pagerInfo.textContent = `Page ${page + 1} of ${pages} · ${shown.length} dishes`;
+      pagerPrev.disabled = page === 0;
+      pagerNext.disabled = page >= pages - 1;
+      pagerPrev.onclick = () => { page -= 1; render(); popupBox.scrollTop = 0; };
+      pagerNext.onclick = () => { page += 1; render(); popupBox.scrollTop = 0; };
+    }
+
     // Country pills: how many dishes come from each country; click one to show only those
-    const all = data.dishes.concat(partial);
     const counts = new Map();
-    all.forEach((d) => { if (d.country_label) counts.set(d.country_label, (counts.get(d.country_label) || 0) + 1); });
+    all.forEach(({ d }) => { if (d.country_label) counts.set(d.country_label, (counts.get(d.country_label) || 0) + 1); });
     const countries = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
     popupCountries.hidden = countries.length < 2;
     popupCountries.replaceChildren(...(countries.length < 2 ? [] : countries.map(([c, k]) => {
@@ -140,23 +176,13 @@
         const on = pill.getAttribute('aria-pressed') !== 'true';
         popupCountries.querySelectorAll('.country-pill').forEach((x) => x.setAttribute('aria-pressed', 'false'));
         pill.setAttribute('aria-pressed', String(on));
-        popupBox.querySelectorAll('.popup-dish-card[data-country]').forEach((card) => { card.hidden = on && card.dataset.country !== c; });
-        popupBox.querySelectorAll('.item-dishes-section').forEach((sec) => {
-          sec.hidden = !sec.querySelector('.popup-dish-card:not([hidden])');
-        });
+        country = on ? c : '';
+        page = 0;
+        render();
       });
       return pill;
     })));
-
-    // Section 1: dishes that use every picked ingredient
-    popupGrid.replaceChildren(...data.dishes.map(dishButton));
-    allHead.hidden = !n || !m;   // a heading only when there are two sections
-    allHead.textContent = `Uses all ${names.length} (${n})`;
-    allSection.hidden = !n;
-    // Section 2: dishes that use only some of them (more of them first)
-    partialHead.textContent = `Uses only some of them (${m}${m > partial.length ? `, showing ${partial.length}` : ''})`;
-    partialGrid.replaceChildren(...partial.map(dishButton));
-    partialSection.hidden = !m || names.length < 2;
+    render();
     popup.classList.remove('hidden');
     document.documentElement.classList.add('item-dishes-open');
     popupBox.scrollTop = 0;
