@@ -3428,3 +3428,15 @@ html.item-dishes-open, html.item-dishes-open body { overflow: hidden; }
   /* the "i" is at the right edge here, so its tooltip opens to the left */
   .item-dishes-toolbar .item-dishes-help .info-tooltip-content { left: auto; right: -6px; }
 }
+
+/* Colour tooltips beside INGREDIENTS / COOKING ACTIONS / COOKWARES / UTENSILS */
+.tip-swatch { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 50%; vertical-align: 0; }
+.tip-gold { background: #e3cf7f; } .tip-red { background: #e2a5a5; } .tip-green { background: #9fc7b0; }
+.entity-category-label .info-tooltip-content { font-weight: 400; line-height: 1.7; }
+/* The "how to search" i right after Find dishes */
+.entity-pick-bar .entity-find-help { margin-left: -4px; }
+
+/* Find dishes row: button and its "i" on top, the picked ingredients (and Clear) on the line below */
+.entity-pick-bar { flex-wrap: wrap; row-gap: 12px; }
+.entity-pick-picked { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.entity-pick-picked .entity-pick-status { flex: 0 1 auto; }
