@@ -27,6 +27,9 @@
   const pagerNext = document.getElementById('item-dishes-next');
   const pagerInfo = document.getElementById('item-dishes-page');
   const PAGE_SIZE = 15;   // dishes per page in the popup
+  const tabs = document.getElementById('item-dishes-tabs');
+  const tabAll = document.getElementById('item-dishes-tab-all');
+  const tabSome = document.getElementById('item-dishes-tab-some');
   const NO_IMAGE = '/static/assets/no-image.svg';
   const KIND_WORD = { ingredient: 'ingredient', action: 'cooking action', cookware: 'cookware', utensil: 'utensil' };
 
@@ -124,29 +127,34 @@
       ? 'Dishes with your ingredients. Choose a dish to compare it with the same target country.'
       : `No dish uses any of these: ${names.join(', ')}.`;
 
-    // Every dish in one list (the "uses all" ones first), so the pages run across both sections
+    // Two tabs: "Uses all" and "Uses some" (only when both have dishes); pages run inside a tab
     const all = data.dishes.map((d) => ({ d, every: true })).concat(partial.map((d) => ({ d, every: false })));
+    const nAll = data.dishes.length;
+    const nSome = partial.length;
+    let tab = nAll ? 'all' : 'some';
     let page = 0;
+    tabs.hidden = !(nAll && nSome);
+    tabAll.textContent = `Uses all ${names.length} (${nAll})`;
+    tabSome.textContent = `Uses some (${nSome})`;
+    const pickTab = (name) => { tab = name; page = 0; render(); popupBox.scrollTop = 0; };
+    tabAll.onclick = () => pickTab('all');
+    tabSome.onclick = () => pickTab('some');
 
     function render() {
-      const shown = all;
+      tabAll.setAttribute('aria-selected', String(tab === 'all'));
+      tabSome.setAttribute('aria-selected', String(tab === 'some'));
+      const shown = all.filter((x) => x.every === (tab === 'all'));
       const pages = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
       page = Math.min(page, pages - 1);
-      const slice = shown.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-      const everyHere = slice.filter((x) => x.every).map((x) => x.d);
-      const someHere = slice.filter((x) => !x.every).map((x) => x.d);
-      const nAll = shown.filter((x) => x.every).length;
-      const nSome = shown.length - nAll;
-      // Section 1: dishes that use every picked ingredient
-      popupGrid.replaceChildren(...everyHere.map(dishButton));
-      allHead.hidden = !nAll || !nSome;   // a heading only when there are two sections
-      allHead.textContent = `Uses all ${names.length} (${nAll})`;
-      allSection.hidden = !everyHere.length;
-      // Section 2: dishes that use only some of them (more of them first)
-      partialHead.textContent = `Uses only some of them (${nSome})`;
-      partialGrid.replaceChildren(...someHere.map(dishButton));
-      partialSection.hidden = !someHere.length;
-      // Floating pages bar: only when there are more than PAGE_SIZE dishes
+      const slice = shown.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map((x) => x.d);
+      // One section at a time (the tab says which), so no section headings
+      allHead.hidden = true;
+      partialHead.hidden = true;
+      popupGrid.replaceChildren(...(tab === 'all' ? slice.map(dishButton) : []));
+      partialGrid.replaceChildren(...(tab === 'some' ? slice.map(dishButton) : []));
+      allSection.hidden = tab !== 'all';
+      partialSection.hidden = tab !== 'some';
+      // Floating pages bar: only when this tab has more than PAGE_SIZE dishes
       pager.hidden = shown.length <= PAGE_SIZE;
       pagerInfo.innerHTML = `Page ${page + 1} of ${pages}<span class="pager-count"> · ${shown.length} dishes</span>`;
       pagerPrev.disabled = page === 0;

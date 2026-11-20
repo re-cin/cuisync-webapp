@@ -3308,3 +3308,21 @@ html.item-dishes-open, html.item-dishes-open body { overflow: hidden; }
 .item-dishes-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 14px 0 26px; }
 .item-dishes-tags[hidden] { display: none; }
 #item-dishes-overlay .item-dishes-tag { padding: 4px 14px; font-size: .78rem; font-weight: 600; border-radius: 999px; }
+
+/* Dish popup: "Uses all" / "Uses some" tabs (a two-part switch) */
+.item-dishes-tabs {
+  display: flex; width: fit-content; max-width: 100%; margin: 0 auto 22px; padding: 4px;
+  border: 1px solid var(--gold-border); border-radius: 999px; background: #f4eddd;
+}
+.item-dishes-tabs[hidden] { display: none; }
+.item-dishes-tabs button {
+  flex: 1 1 auto; padding: 9px 20px; border: 0; border-radius: 999px; background: transparent;
+  color: var(--maroon-main); font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.item-dishes-tabs button[aria-selected="true"] { background: var(--maroon-main); color: var(--gold-accent); }
+.item-dishes-tabs button:hover:not([aria-selected="true"]) { background: #ece2cc; }
+.item-dishes-tabs button:focus-visible { outline: 2px solid var(--gold-accent); outline-offset: 2px; }
+@media (max-width: 600px) {
+  .item-dishes-tabs { width: 100%; }
+  .item-dishes-tabs button { padding: 9px 10px; font-size: .8rem; }
+}
