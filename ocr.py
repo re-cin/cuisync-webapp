@@ -1142,6 +1142,19 @@ def is_recipe_match(title_key, candidate_set, length_buckets):
     return None
 
 
+def text_match_score(name_key, menu_key):
+    """How closely a menu line matches a dish name, 0-100: 100 when they are the same, a bit
+    lower for each letter that was read differently (a small typo or a sounds-alike match).
+    Shown as the "% match" on the image search cards."""
+    if not name_key or not menu_key:
+        return None
+    if name_key == menu_key:
+        return 100
+    longest = max(len(name_key), len(menu_key))
+    edits = edit_distance(name_key, menu_key, longest)
+    return max(0, round(100 * (1 - edits / longest)))
+
+
 def edit_distance(a, b, limit):
     """How many letters to add, remove or change to turn a into b.
     Stops early once it's over `limit`, since that's all we need to know.
@@ -1246,18 +1259,13 @@ def _find_recipes(romanized_lines, origin_country, recipes):
         if not title_keys:
             continue
 
-        # First menu line that matches any name of this recipe
-        matched_candidate = next(
-            (
-                candidate
-                for candidate in (
-                    is_recipe_match(title_key, candidate_set, length_buckets)
-                    for title_key in title_keys
-                )
-                if candidate
-            ),
-            None,
-        )
+        # First menu line that matches any name of this recipe (and which name it matched)
+        matched_candidate, matched_name = None, None
+        for title_key in title_keys:
+            candidate = is_recipe_match(title_key, candidate_set, length_buckets)
+            if candidate:
+                matched_candidate, matched_name = candidate, title_key
+                break
 
         # Thai / Arabic: try the sounds-alike match on the native name
         if not matched_candidate:
@@ -1268,6 +1276,7 @@ def _find_recipes(romanized_lines, origin_country, recipes):
                 hit = is_loose_match(alt_key, loose_keys)
                 if hit:
                     matched_candidate = "~" + hit  # "~" keeps these apart from normal keys
+                    matched_name = "~" + alt_key
                     break
 
         if not matched_candidate:
@@ -1283,6 +1292,8 @@ def _find_recipes(romanized_lines, origin_country, recipes):
             "country": country,
             "alternative_title": (recipe.get("alternative_title", "") or "").strip(),
             "image_link": (recipe.get("image_link", "") or "").strip(),
+            # How closely the menu text matches the dish name (100 = exactly)
+            "score": text_match_score(matched_name, matched_candidate),
             "_matched": matched_candidate,
         })
         seen.add(identity)

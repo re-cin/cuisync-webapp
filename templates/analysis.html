@@ -65,7 +65,7 @@
             <div class="map-legend">
               <span>0</span>
               <div class="legend-bar"></div>
-              <span>900</span>
+              <span id="map-legend-max"></span>
             </div>
             <div id="country-map-pins"></div>
           </div>
@@ -74,7 +74,7 @@
 
       <div class="chart-block">
         <h3 class="chart-title text-maroon">REGION RECIPE COUNT</h3>
-        <p class="chart-subtitle">Frequency of recipe counts computed across Asian regions across 2,878 recipes.</p>
+        <p class="chart-subtitle" id="region-chart-subtitle">Frequency of recipe counts computed across Asian regions.</p>
 
         <div class="bar-chart-container">
           <div class="bar-chart">
@@ -371,6 +371,12 @@
 
       if (!bars || !analysisOverview) return;
 
+      const subtitle = document.getElementById("region-chart-subtitle");
+      if (subtitle) {
+        subtitle.textContent =
+          `Frequency of recipe counts computed across Asian regions across ${formatAnalysisNumber(analysisOverview.total_recipes)} recipes.`;
+      }
+
       const entries =
         Object.entries(analysisOverview.region_counts || {})
           .sort((a, b) => b[1] - a[1]);
@@ -488,8 +494,9 @@
         ...Array.from(countsByMapName.values()).map(entry => entry.count)
       );
 
-      // Colors use a fixed 0-900 range so they match the numbers on the legend
-      const LEGEND_MAX = 900;
+      // Colors run from 0 to the total number of recipes in the database (live, so it
+      // follows dishes being added or deleted), matching the numbers on the legend
+      const LEGEND_MAX = Math.max(1, Number(analysisOverview.total_recipes) || 0);
       if (legendMax) legendMax.textContent = formatAnalysisNumber(LEGEND_MAX);
 
       // 2. Load the world shapes
@@ -519,7 +526,7 @@
 
       const path = d3.geoPath(projection);
 
-      // Same 3 colors as the legend: light -> mid -> dark (0 to 900)
+      // Same 3 colors as the legend: light -> mid -> dark (0 to the total)
       const colorScale = d3.scaleLinear()
         .domain([0, LEGEND_MAX / 2, LEGEND_MAX])
         .range(["#ecd3bf", "#a32e32", "#800d12"])
