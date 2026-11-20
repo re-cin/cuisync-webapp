@@ -3174,7 +3174,6 @@ button.entity-chip { font: inherit; cursor: pointer; line-height: inherit; trans
 .entities-card button.entity-chip { font-size: 0.72rem; font-weight: 500; }
 button.entity-chip:hover { filter: brightness(0.95); box-shadow: 0 0 0 1px currentColor inset; }
 button.entity-chip:focus-visible { outline: 2px solid var(--gold-accent); outline-offset: 2px; }
-button.entity-chip[aria-pressed="true"]::before { content: "\2713"; margin-right: 6px; font-weight: 700; }
 .entities-card .chip-gold[aria-pressed="true"] { background-color: #c9a227; border-color: #b08a17; color: #2a1f05; font-weight: 600; }
 .entities-card .chip-maroon[aria-pressed="true"] { background-color: var(--maroon-main); border-color: var(--maroon-main); color: #fff; font-weight: 600; }
 .entities-card .chip-green[aria-pressed="true"] { background-color: #2d6b4f; border-color: #2d6b4f; color: #fff; font-weight: 600; }
