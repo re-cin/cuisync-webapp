@@ -75,8 +75,16 @@ ORDER_FILE = os.path.join(app.root_path, 'embeddings_order.json')
 if os.path.exists(ORDER_FILE) and not STORE.uses_admin_data:
     with open(ORDER_FILE, encoding='utf-8') as f:
         _order = json.load(f)
-    if _order != [[r.get("title", ""), r.get("country", "")] for r in RECIPES]:
-        raise RuntimeError("recipes.json does not match the .npy files. Re-run the vectorization.")
+    # Compare the way DatasetStore._key does (a title's capital letters or spaces don't change
+    # its vectors), so a small title fix in Supabase doesn't stop the app.
+    def _same_dish(title, country):
+        return ((title or "").strip().lower(), (country or "").strip().upper())
+    if [_same_dish(*o) for o in _order] != [_same_dish(r.get("title"), r.get("country")) for r in RECIPES]:
+        # The dataset really differs from the .npy files (dishes added, removed or reordered):
+        # build the matcher files for the current dataset instead of using the original ones.
+        print("[CuiSync] The dataset is not in the same order as the .npy files. "
+              "Building the matcher files for the current dataset.")
+        STORE.uses_admin_data = True
 
 def build_matcher():
     """Soft matcher for the current dataset (original files, or the admin's version)."""
